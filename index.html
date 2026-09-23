@@ -1872,6 +1872,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 
       <section class="panel" id="panel-library">
         <h2>Biblioteca de Partidas</h2>
+        <p class="free-hint" id="lib-source-note" style="margin:0 0 10px"></p>
         <div class="lib-save">
           <input id="game-name" type="text" placeholder="Nombre de la partida" maxlength="60" autocomplete="off">
           <button class="btn" id="game-save">Guardar</button>
@@ -4075,8 +4076,9 @@ async function loadAccountProfile(userId){
     ownerNameEl.value = accountProfile.display_name;
     ownerNameEl.dispatchEvent(new Event("input"));
   }
+  refreshAccountLibrary();
 }
-function clearAccountProfile(){ accountProfile = null; }
+function clearAccountProfile(){ accountProfile = null; switchToLocalLibrary(); }
 async function saveAccountDisplayName(name){
   if(!name) return;
   if(!accountProfile){
@@ -5065,23 +5067,62 @@ function renderPalette(){
 }
 
 /* ============================ Biblioteca de partidas ============================ */
+// Fase 2 · Biblioteca en la cuenta (2026-09-23): con sesión iniciada, la
+// Biblioteca vive en Supabase (tabla `partidas_guardadas`, una fila por
+// partida, RLS por owner_id) y te sigue entre dispositivos; sin sesión,
+// sigue funcionando por localStorage como antes, para quien juega sin
+// cuenta en este navegador. `cachedGamesList` es SIEMPRE lo que se
+// renderiza (nunca se lee localStorage/Supabase directo en cada render) —
+// las funciones de abajo la mantienen sincronizada con la fuente activa.
 const GAMES_KEY = "tablero-encantado.games.v1";
 const noteEl = document.getElementById("lib-note");
 const nameEl = document.getElementById("game-name");
 const pgnEl = document.getElementById("pgn");
 const savedListEl = document.getElementById("saved-list");
+const libSourceNoteEl = document.getElementById("lib-source-note");
 
 function libNote(msg, err){
   noteEl.textContent = msg;
   noteEl.className = "lib-note" + (err ? " err" : "");
 }
-function loadGames(){
+function isAccountLib(){ return !!accountProfile; }
+function loadLocalGames(){
   try{ return JSON.parse(localStorage.getItem(GAMES_KEY) || "[]"); }catch(e){ return []; }
 }
-function saveGames(list){
+function saveLocalGames(list){
   try{ localStorage.setItem(GAMES_KEY, JSON.stringify(list)); }catch(e){}
 }
+let cachedGamesList = loadLocalGames(); // arranca en local; se reemplaza si hay sesión
+function loadGames(){ return cachedGamesList; }
+function rowFromSupabase(row){
+  return {
+    id: row.id, name: row.name, date: (row.created_at || "").slice(0, 10),
+    startFEN: row.start_fen, ucis: row.ucis || [], sans: row.sans || [],
+    white: row.white || "", black: row.black || "",
+    result: row.result || "", resultNote: row.result_note || ""
+  };
+}
+async function refreshAccountLibrary(){
+  if(!accountProfile) return;
+  const { data, error } = await sb.from("partidas_guardadas")
+    .select("*").eq("owner_id", accountProfile.id)
+    .order("created_at", { ascending: false });
+  if(error){ libNote("No se pudo cargar tu biblioteca: " + error.message, true); return; }
+  cachedGamesList = (data || []).map(rowFromSupabase);
+  renderSaved();
+}
+function switchToLocalLibrary(){
+  cachedGamesList = loadLocalGames();
+  renderSaved();
+}
+function updateLibSourceNote(){
+  if(!libSourceNoteEl) return;
+  libSourceNoteEl.textContent = isAccountLib()
+    ? "Vinculada a tu cuenta — te sigue entre dispositivos."
+    : "Guardada solo en este dispositivo (inicia sesión para vincularla a tu cuenta).";
+}
 function renderSaved(){
+  updateLibSourceNote();
   const list = loadGames();
   if(!list.length){
     savedListEl.innerHTML = '<p class="moves-empty">Aún no has guardado partidas.</p>';
@@ -5105,7 +5146,17 @@ function renderSaved(){
     const del = document.createElement("button");
     del.className = "btn mini"; del.textContent = "✕"; del.title = "Borrar";
     del.setAttribute("aria-label", "Borrar " + g.name);
-    del.onclick = () => { saveGames(loadGames().filter(x => x.id !== g.id)); renderSaved(); };
+    del.onclick = async () => {
+      if(isAccountLib()){
+        const { error } = await sb.from("partidas_guardadas").delete().eq("id", g.id);
+        if(error){ libNote("No se pudo borrar: " + error.message, true); return; }
+        await refreshAccountLibrary();
+      } else {
+        saveLocalGames(loadLocalGames().filter(x => x.id !== g.id));
+        cachedGamesList = loadLocalGames();
+        renderSaved();
+      }
+    };
     row.append(info, load, del);
     savedListEl.appendChild(row);
   }
@@ -5137,24 +5188,41 @@ function loadSavedGame(id){
   libNote("Cargada «" + g.name + "» — avanza con →");
 }
 
-document.getElementById("game-save").onclick = () => {
+document.getElementById("game-save").onclick = async () => {
   if(!game.sans.length){ libNote("No hay jugadas que guardar todavía.", true); return; }
   const name = (nameEl.value || "").trim() || ("Partida del " + new Date().toISOString().slice(0,10));
-  const list = loadGames();
-  list.unshift({
-    id: "g" + Date.now().toString(36),
+  const base = {
     name,
-    date: new Date().toISOString().slice(0,10),
     startFEN: game.startFEN,
     ucis: game.ucis.slice(),
     sans: game.sans.slice(),
     white: game.white || "", black: game.black || "",
     result: game.result || "", resultNote: game.resultNote || ""
-  });
-  saveGames(list.slice(0, 60));
-  nameEl.value = "";
-  renderSaved();
-  libNote("Guardada «" + name + "»");
+  };
+  if(isAccountLib()){
+    libNote("Guardando…");
+    const { error } = await sb.from("partidas_guardadas").insert({
+      owner_id: accountProfile.id,
+      name: base.name,
+      start_fen: base.startFEN,
+      ucis: base.ucis,
+      sans: base.sans,
+      white: base.white, black: base.black,
+      result: base.result, result_note: base.resultNote
+    });
+    if(error){ libNote("No se pudo guardar en tu cuenta: " + error.message, true); return; }
+    nameEl.value = "";
+    await refreshAccountLibrary();
+    libNote("Guardada «" + name + "» en tu cuenta.");
+  } else {
+    const list = loadLocalGames();
+    list.unshift({ id: "g" + Date.now().toString(36), date: new Date().toISOString().slice(0,10), ...base });
+    saveLocalGames(list.slice(0, 60));
+    cachedGamesList = loadLocalGames();
+    nameEl.value = "";
+    renderSaved();
+    libNote("Guardada «" + name + "» en este dispositivo.");
+  }
 };
 
 /* ---------- PGN ---------- */
