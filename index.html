@@ -4049,11 +4049,27 @@ ownerNameEl.addEventListener("input", () => {
 // exactamente como antes, por si alguien juega sin cuenta en este
 // dispositivo. `sb` viene del <script> de Cuenta, que ya corrió para
 // cuando esto se ejecuta.
+// Ronda de depuración (2026-09-23): la primera versión de este bloque
+// fallaba EN SILENCIO (catch vacío, sin mensaje) — Arthur probó guardar
+// el nombre varias veces y nunca llegó a Supabase, sin ningún error
+// visible que dijera por qué. Reusa #account-note (el panel de Cuenta) para
+// mostrar cualquier error o confirmación de este sistema también, en vez
+// de tragárselo.
 let accountProfile = null; // {id, username, display_name} o null si no hay sesión
+const accountNoteEl = document.getElementById("account-note");
+function noteOwnerSync(msg, isErr){
+  if(!accountNoteEl) return;
+  accountNoteEl.textContent = msg || "";
+  accountNoteEl.classList.toggle("err", !!isErr);
+}
 async function loadAccountProfile(userId){
   const { data, error } = await sb.from("profiles")
     .select("id, username, display_name").eq("id", userId).single();
-  if(error){ accountProfile = null; return; }
+  if(error){
+    accountProfile = null;
+    noteOwnerSync("No se pudo cargar tu perfil: " + error.message, true);
+    return;
+  }
   accountProfile = data;
   if(accountProfile.display_name && accountProfile.display_name !== ownerNameEl.value){
     ownerNameEl.value = accountProfile.display_name;
@@ -4062,15 +4078,22 @@ async function loadAccountProfile(userId){
 }
 function clearAccountProfile(){ accountProfile = null; }
 async function saveAccountDisplayName(name){
-  if(!accountProfile || !name) return;
+  if(!name) return;
+  if(!accountProfile){
+    noteOwnerSync("No se guardó en tu cuenta: el perfil todavía no cargó. Espera un segundo y vuelve a escribirlo.", true);
+    return;
+  }
+  noteOwnerSync("Guardando nombre…");
   const { error } = await sb.from("profiles").update({ display_name: name }).eq("id", accountProfile.id);
-  if(!error) accountProfile.display_name = name;
+  if(error){ noteOwnerSync("No se pudo guardar tu nombre: " + error.message, true); return; }
+  accountProfile.display_name = name;
+  noteOwnerSync("Nombre guardado en tu cuenta.");
 }
 // "input" ya actualiza ownerName/localStorage/bandos en tiempo real (ver
 // arriba); "change" (dispara al salir del campo) es lo que empuja el
 // nuevo nombre al perfil real, para no escribir en Supabase en cada tecla.
 ownerNameEl.addEventListener("change", () => {
-  saveAccountDisplayName(ownerNameEl.value.trim().slice(0, 40));
+  if(accountProfile) saveAccountDisplayName(ownerNameEl.value.trim().slice(0, 40));
 });
 sb.auth.onAuthStateChange((_event, session) => {
   if(session && session.user) loadAccountProfile(session.user.id);
