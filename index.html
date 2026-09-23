@@ -4042,6 +4042,44 @@ ownerNameEl.addEventListener("input", () => {
   game.white = whiteNameEl.value; game.black = blackNameEl.value;
   persist(); renderNameplates();
 });
+// Fase 2 · paso 2 (perfil real, 2026-09-23): con sesión iniciada, "Mi
+// nombre" se sincroniza con profiles.display_name en vez de vivir solo en
+// localStorage — así el nombre viaja con la CUENTA, no con el dispositivo.
+// Sin sesión (o mientras Supabase no responde) sigue funcionando
+// exactamente como antes, por si alguien juega sin cuenta en este
+// dispositivo. `sb` viene del <script> de Cuenta, que ya corrió para
+// cuando esto se ejecuta.
+let accountProfile = null; // {id, username, display_name} o null si no hay sesión
+async function loadAccountProfile(userId){
+  const { data, error } = await sb.from("profiles")
+    .select("id, username, display_name").eq("id", userId).single();
+  if(error){ accountProfile = null; return; }
+  accountProfile = data;
+  if(accountProfile.display_name && accountProfile.display_name !== ownerNameEl.value){
+    ownerNameEl.value = accountProfile.display_name;
+    ownerNameEl.dispatchEvent(new Event("input"));
+  }
+}
+function clearAccountProfile(){ accountProfile = null; }
+async function saveAccountDisplayName(name){
+  if(!accountProfile || !name) return;
+  const { error } = await sb.from("profiles").update({ display_name: name }).eq("id", accountProfile.id);
+  if(!error) accountProfile.display_name = name;
+}
+// "input" ya actualiza ownerName/localStorage/bandos en tiempo real (ver
+// arriba); "change" (dispara al salir del campo) es lo que empuja el
+// nuevo nombre al perfil real, para no escribir en Supabase en cada tecla.
+ownerNameEl.addEventListener("change", () => {
+  saveAccountDisplayName(ownerNameEl.value.trim().slice(0, 40));
+});
+sb.auth.onAuthStateChange((_event, session) => {
+  if(session && session.user) loadAccountProfile(session.user.id);
+  else clearAccountProfile();
+});
+sb.auth.getSession().then(({ data }) => {
+  if(data.session && data.session.user) loadAccountProfile(data.session.user.id);
+});
+
 // Un bando que se deja vacío vuelve a "Mi nombre" (o a "claudIA" si es de la máquina).
 [["w", whiteNameEl], ["b", blackNameEl]].forEach(([c, el]) => {
   el.addEventListener("change", () => {
