@@ -1672,6 +1672,60 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         </div>
         <p class="lib-note" id="account-note"></p>
       </section>
+      <!-- Fase 2 · paso 3 (2026-09-24): club y retos directos. Unirse con
+           código, invitar, ver a los demás miembros y retarlos a una
+           partida. A propósito esta ronda NO conecta la partida creada al
+           tablero en vivo todavía (eso es el paso 4, Realtime) — aceptar
+           un reto solo crea la fila en `games`; jugarla en vivo llega en
+           la próxima ronda. Solo visible con sesión iniciada (lo oculta
+           refreshClub()/clearAccountProfile() más abajo). -->
+      <section class="panel" id="panel-club" hidden>
+        <h2>Club</h2>
+        <div id="club-joiner">
+          <p class="free-hint" style="margin:0 0 10px">Todav&iacute;a no eres miembro del club. Si alguien te pas&oacute; un c&oacute;digo, p&eacute;galo aqu&iacute;.</p>
+          <div class="btns">
+            <input id="club-code-input" type="text" placeholder="C&oacute;digo de invitaci&oacute;n" aria-label="C&oacute;digo de invitaci&oacute;n">
+            <button class="btn" id="club-join-btn">Unirme</button>
+          </div>
+        </div>
+        <div id="club-member-area" hidden>
+          <div class="btns" style="margin-bottom:6px">
+            <button class="btn" id="club-invite-btn">Generar c&oacute;digo de invitaci&oacute;n</button>
+          </div>
+          <p class="lib-note" id="club-invite-note"></p>
+
+          <div id="club-compose" hidden style="margin:10px 0; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
+            <p class="free-hint" style="margin:0 0 8px">Retando a <strong id="club-compose-name"></strong></p>
+            <label class="lib-label" for="club-compose-variant">Variante</label>
+            <select id="club-compose-variant" aria-label="Variante del reto">
+              <option value="clasico">Cl&aacute;sico</option>
+              <option value="capablanca">Capablanca</option>
+              <option value="maharaja">Maharaj&aacute;</option>
+              <option value="amazonas">Amazonas</option>
+            </select>
+            <label class="lib-label" for="club-compose-color" style="margin-top:8px">Tu color</label>
+            <select id="club-compose-color" aria-label="Tu color en el reto">
+              <option value="aleatorio">Aleatorio</option>
+              <option value="blancas">Blancas</option>
+              <option value="negras">Negras</option>
+            </select>
+            <div class="btns" style="margin-top:10px">
+              <button class="btn" id="club-compose-send">Enviar reto</button>
+              <button class="btn" id="club-compose-cancel">Cancelar</button>
+            </div>
+          </div>
+
+          <h3 style="margin:14px 0 6px; font-size:.95rem">Retos recibidos</h3>
+          <div id="club-challenges-in"></div>
+
+          <h3 style="margin:14px 0 6px; font-size:.95rem">Retos enviados</h3>
+          <div id="club-challenges-out"></div>
+
+          <h3 style="margin:14px 0 6px; font-size:.95rem">Miembros del club</h3>
+          <div id="club-members-list"></div>
+        </div>
+        <p class="lib-note" id="club-note"></p>
+      </section>
       <!-- Ronda "panel de Modalidad" (2026-09-17): a pedido de Arthur, todos
            los selectores de "qué tipo de sesión es esta" viven juntos acá —
            Variante, Partida/Libre y Rival (con su configuración de Máquina)
@@ -4077,8 +4131,14 @@ async function loadAccountProfile(userId){
     ownerNameEl.dispatchEvent(new Event("input"));
   }
   refreshAccountLibrary();
+  refreshClub();
 }
-function clearAccountProfile(){ accountProfile = null; switchToLocalLibrary(); }
+function clearAccountProfile(){
+  accountProfile = null;
+  switchToLocalLibrary();
+  const panelClub = document.getElementById("panel-club");
+  if(panelClub) panelClub.hidden = true;
+}
 async function saveAccountDisplayName(name){
   if(!name) return;
   if(!accountProfile){
@@ -4104,6 +4164,202 @@ sb.auth.onAuthStateChange((_event, session) => {
 sb.auth.getSession().then(({ data }) => {
   if(data.session && data.session.user) loadAccountProfile(data.session.user.id);
 });
+
+/* ============================ Club y retos (Fase 2, paso 3, 2026-09-24) ============================
+   Unirse al club con código, generar invitaciones, ver miembros y retar a
+   uno a una partida directa. Toda escritura (unirse/invitar/retar/
+   responder/cancelar) pasa por funciones `security definer` en Supabase
+   (redeem_invite/create_invite/send_challenge/respond_challenge/
+   cancel_challenge, ver 05_club_y_retos.sql) — mismo patrón que evitó la
+   recursión de RLS en club_members: cero políticas de INSERT/UPDATE
+   directas sobre club_invites/club_members/game_challenges, todo pasa por
+   una función que valida antes de escribir. A propósito esta ronda NO
+   conecta la partida creada al tablero en vivo — aceptar un reto solo crea
+   la fila en `games` con status "en_curso"; jugarla de verdad llega en el
+   paso 4 (sincronización por Realtime). */
+const VARIANT_LABEL = { clasico: "Clásico", capablanca: "Capablanca", maharaja: "Maharajá", amazonas: "Amazonas" };
+
+const clubPanelEl = document.getElementById("panel-club");
+const clubJoinerEl = document.getElementById("club-joiner");
+const clubMemberAreaEl = document.getElementById("club-member-area");
+const clubNoteEl = document.getElementById("club-note");
+const clubInviteNoteEl = document.getElementById("club-invite-note");
+const clubMembersListEl = document.getElementById("club-members-list");
+const clubChallengesInEl = document.getElementById("club-challenges-in");
+const clubChallengesOutEl = document.getElementById("club-challenges-out");
+const clubComposeEl = document.getElementById("club-compose");
+const clubComposeNameEl = document.getElementById("club-compose-name");
+const clubComposeVariantEl = document.getElementById("club-compose-variant");
+const clubComposeColorEl = document.getElementById("club-compose-color");
+
+let clubComposeTarget = null; // {id, name} del miembro al que se está retando
+
+function clubNote(msg, isErr){
+  if(!clubNoteEl) return;
+  clubNoteEl.textContent = msg || "";
+  clubNoteEl.classList.toggle("err", !!isErr);
+}
+
+function clubRow(labelText, buttons){
+  const row = document.createElement("div");
+  row.className = "btns";
+  row.style.justifyContent = "space-between";
+  row.style.alignItems = "center";
+  row.style.margin = "4px 0";
+  const label = document.createElement("span");
+  label.textContent = labelText;
+  row.appendChild(label);
+  buttons.forEach(b => row.appendChild(b));
+  return row;
+}
+function clubBtn(text, onClick){
+  const b = document.createElement("button");
+  b.className = "btn";
+  b.textContent = text;
+  b.onclick = onClick;
+  return b;
+}
+
+async function refreshClub(){
+  if(!accountProfile){ clubPanelEl.hidden = true; return; }
+  clubPanelEl.hidden = false;
+  clubNote("");
+
+  const { data: mine, error: meErr } = await sb.from("club_members")
+    .select("profile_id").eq("profile_id", accountProfile.id).maybeSingle();
+  if(meErr){ clubNote("No se pudo revisar tu membresía: " + meErr.message, true); return; }
+  const isMember = !!mine;
+
+  clubJoinerEl.hidden = isMember;
+  clubMemberAreaEl.hidden = !isMember;
+  if(!isMember) return;
+
+  await Promise.all([loadClubMembers(), loadClubChallenges()]);
+}
+
+async function loadClubMembers(){
+  const { data, error } = await sb.from("club_members")
+    .select("profile_id, profiles(id, username, display_name)");
+  if(error){ clubNote("No se pudo cargar la lista de miembros: " + error.message, true); return; }
+  const members = (data || [])
+    .map(r => r.profiles)
+    .filter(p => p && p.id !== accountProfile.id);
+  clubMembersListEl.innerHTML = "";
+  if(members.length === 0){
+    clubMembersListEl.innerHTML = '<p class="free-hint">Todavía eres el único miembro. Invita a alguien de tu club.</p>';
+    return;
+  }
+  members.forEach(p => {
+    const name = p.display_name || p.username;
+    clubMembersListEl.appendChild(clubRow(name, [clubBtn("Retar", () => openClubCompose(p.id, name))]));
+  });
+}
+
+function openClubCompose(id, name){
+  clubComposeTarget = { id, name };
+  clubComposeNameEl.textContent = name;
+  clubComposeEl.hidden = false;
+}
+document.getElementById("club-compose-cancel").onclick = () => {
+  clubComposeEl.hidden = true;
+  clubComposeTarget = null;
+};
+document.getElementById("club-compose-send").onclick = async () => {
+  if(!clubComposeTarget) return;
+  const variant = clubComposeVariantEl.value;
+  const color = clubComposeColorEl.value;
+  clubNote("Enviando reto…");
+  const { error } = await sb.rpc("send_challenge", {
+    p_invited_id: clubComposeTarget.id,
+    p_variant: variant,
+    p_creator_color: color,
+    p_time_initial: null,
+    p_time_increment: null
+  });
+  if(error){ clubNote("No se pudo enviar el reto: " + error.message, true); return; }
+  clubNote("Reto enviado a " + clubComposeTarget.name + ".");
+  clubComposeEl.hidden = true;
+  clubComposeTarget = null;
+  loadClubChallenges();
+};
+
+async function loadClubChallenges(){
+  const { data: incoming, error: inErr } = await sb.from("game_challenges")
+    .select("id, variant, status, created_at, profiles!game_challenges_created_by_fkey(username, display_name)")
+    .eq("invited_id", accountProfile.id).eq("status", "pendiente")
+    .order("created_at", { ascending: false });
+  if(inErr){ clubNote("No se pudieron cargar los retos recibidos: " + inErr.message, true); }
+  clubChallengesInEl.innerHTML = "";
+  if(!incoming || incoming.length === 0){
+    clubChallengesInEl.innerHTML = '<p class="free-hint">Sin retos pendientes.</p>';
+  } else {
+    incoming.forEach(ch => {
+      const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
+      clubChallengesInEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant], [
+        clubBtn("Aceptar", () => respondClubChallenge(ch.id, true)),
+        clubBtn("Rechazar", () => respondClubChallenge(ch.id, false))
+      ]));
+    });
+  }
+
+  const { data: outgoing, error: outErr } = await sb.from("game_challenges")
+    .select("id, variant, status, created_at, profiles!game_challenges_invited_id_fkey(username, display_name)")
+    .eq("created_by", accountProfile.id).eq("status", "pendiente")
+    .order("created_at", { ascending: false });
+  if(outErr){ clubNote("No se pudieron cargar tus retos enviados: " + outErr.message, true); }
+  clubChallengesOutEl.innerHTML = "";
+  if(!outgoing || outgoing.length === 0){
+    clubChallengesOutEl.innerHTML = '<p class="free-hint">No tienes retos enviados en espera.</p>';
+  } else {
+    outgoing.forEach(ch => {
+      const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
+      clubChallengesOutEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant] + " (esperando respuesta)", [
+        clubBtn("Cancelar", () => cancelClubChallenge(ch.id))
+      ]));
+    });
+  }
+}
+
+async function respondClubChallenge(id, accept){
+  clubNote(accept ? "Aceptando reto…" : "Rechazando reto…");
+  const { error } = await sb.rpc("respond_challenge", { p_challenge_id: id, p_accept: accept });
+  if(error){ clubNote("No se pudo responder: " + error.message, true); return; }
+  clubNote(accept
+    ? "¡Partida creada! (por ahora solo queda registrada — jugarla en vivo desde aquí llega en la próxima ronda)."
+    : "Reto rechazado.");
+  loadClubChallenges();
+}
+async function cancelClubChallenge(id){
+  clubNote("Cancelando…");
+  const { error } = await sb.rpc("cancel_challenge", { p_challenge_id: id });
+  if(error){ clubNote("No se pudo cancelar: " + error.message, true); return; }
+  clubNote("Reto cancelado.");
+  loadClubChallenges();
+}
+
+document.getElementById("club-join-btn").onclick = async () => {
+  const input = document.getElementById("club-code-input");
+  const code = input.value.trim();
+  if(!code){ clubNote("Escribe un código primero.", true); return; }
+  clubNote("Uniéndote…");
+  const { error } = await sb.rpc("redeem_invite", { p_code: code });
+  if(error){ clubNote("No se pudo unir: " + error.message, true); return; }
+  clubNote("¡Listo, ya eres miembro del club!");
+  input.value = "";
+  refreshClub();
+};
+
+document.getElementById("club-invite-btn").onclick = async () => {
+  clubInviteNoteEl.classList.remove("err");
+  clubInviteNoteEl.textContent = "Generando…";
+  const { data, error } = await sb.rpc("create_invite", { p_max_uses: 5, p_expires_days: null });
+  if(error){
+    clubInviteNoteEl.textContent = "No se pudo generar: " + error.message;
+    clubInviteNoteEl.classList.add("err");
+    return;
+  }
+  clubInviteNoteEl.textContent = "Código: " + data + " (hasta 5 usos, sin vencimiento) — compártelo fuera del Tablero.";
+};
 
 // Un bando que se deja vacío vuelve a "Mi nombre" (o a "claudIA" si es de la máquina).
 [["w", whiteNameEl], ["b", blackNameEl]].forEach(([c, el]) => {
