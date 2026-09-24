@@ -411,6 +411,21 @@
   .status.draw{ color:var(--frost); border-color:rgba(143,176,189,.4); }
   .status.result{ color:var(--ember-soft); border-color:rgba(217,138,61,.5); background:rgba(217,138,61,.1); }
 
+  /* Fase 2 · paso 4 (ronda "reto simple, avisar al retador", 2026-09-24):
+     aviso flotante, fuera de cualquier panel lateral, para que un evento en
+     vivo (el rival aceptó tu reto, la partida ya arrancó) se note aunque
+     Arthur esté mirando otra parte de la página — el panel Club puede estar
+     cerrado en ese momento. */
+  .global-toast{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
+    z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
+    background:var(--frame, #22252b); border:1px solid var(--ember);
+    color:var(--text); box-shadow:0 6px 18px rgba(0,0,0,.35);
+    text-align:center; font-size:.95rem; opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
   .dot{ width:10px; height:10px; border-radius:50%; flex:0 0 auto; display:inline-block; }
   .dot.w{ background:var(--marble); box-shadow:0 0 0 1px var(--marble-edge); }
   .dot.b{ background:var(--basalt); box-shadow:0 0 0 1px var(--basalt-edge); }
@@ -4249,6 +4264,21 @@ const clubComposeColorEl = document.getElementById("club-compose-color");
 
 let clubComposeTarget = null; // {id, name} del miembro al que se está retando
 
+let globalToastTimer = null;
+function showGlobalToast(msg){
+  let el = document.getElementById("global-toast");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "global-toast";
+    el.className = "global-toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(globalToastTimer);
+  globalToastTimer = setTimeout(() => el.classList.remove("show"), 5000);
+}
+
 function clubNote(msg, isErr){
   if(!clubNoteEl) return;
   clubNoteEl.textContent = msg || "";
@@ -4317,25 +4347,33 @@ function subscribeClubChannel(){
     .subscribe();
 }
 
-// Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): el lado que RETÓ se
-// entera de que el rival aceptó por este mismo canal (UPDATE en su propio
-// reto, created_by=uid). En vez de solo refrescar listas y obligarlo a
-// buscar "Jugar" a mano, entra derecho al tablero en vivo — mismo trato que
-// ahora recibe quien acepta, para que a los dos les aparezca el tablero
-// listo sin pasos de más. Si ya está jugando otra partida en vivo, no lo
-// saca de ahí a la fuerza: solo refresca las listas.
+// Fase 2 · paso 4 (ronda "reto simple", 2026-09-24; ajustada en la ronda
+// "avisar al retador" el mismo día): el lado que RETÓ se entera de que el
+// rival aceptó por este mismo canal (UPDATE en su propio reto,
+// created_by=uid). Entra derecho al tablero en vivo — mismo trato que ya
+// recibe quien acepta — SIN excepción: Arthur pidió explícitamente que
+// "para ambos" signifique para ambos, así que si ya estaba mirando otra
+// partida en vivo (por ejemplo una de prueba vieja) también lo cambia a
+// esta, igual que hace el propio botón "Jugar". Además de `clubNote()`
+// (que solo se ve con el panel Club abierto), un aviso flotante fuera de
+// cualquier panel para que se note aunque esté mirando el tablero.
 async function handleMyChallengeAccepted(payload){
   const row = payload.new;
   loadClubChallenges();
-  if(!row || row.status !== "aceptado" || !row.game_id || liveGame){
+  if(!row || row.status !== "aceptado" || !row.game_id){
     loadClubActiveGames();
     return;
   }
   const { data: g, error } = await sb.from("games")
     .select("id, variant, status, white_id, black_id").eq("id", row.game_id).maybeSingle();
   if(error || !g){ loadClubActiveGames(); return; }
+  const oppId = g.white_id === accountProfile.id ? g.black_id : g.white_id;
+  const { data: oppProfile } = await sb.from("profiles")
+    .select("username, display_name").eq("id", oppId).maybeSingle();
+  const oppName = oppProfile ? (oppProfile.display_name || oppProfile.username) : "tu rival";
   await enterLiveGame(g);
-  clubNote("¡Tu rival aceptó! Partida iniciada.");
+  clubNote("¡" + oppName + " aceptó tu reto! Partida iniciada.");
+  showGlobalToast("¡" + oppName + " aceptó tu reto! La partida ya empezó.");
 }
 function unsubscribeClubChannel(){
   if(clubChannel){ sb.removeChannel(clubChannel); clubChannel = null; }
@@ -4464,6 +4502,7 @@ async function respondClubChallenge(id, accept){
   if(gErr || !row){ clubNote("¡Partida creada! Ya aparece abajo, en «Partidas en curso»."); loadClubActiveGames(); return; }
   await enterLiveGame(row);
   clubNote("¡Partida iniciada!");
+  showGlobalToast("¡Partida iniciada! Ya puedes jugar.");
 }
 async function cancelClubChallenge(id){
   clubNote("Cancelando…");
