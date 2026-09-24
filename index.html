@@ -4354,7 +4354,7 @@ function subscribeClubChannel(){
 // recibe quien acepta — SIN excepción: Arthur pidió explícitamente que
 // "para ambos" signifique para ambos, así que si ya estaba mirando otra
 // partida en vivo (por ejemplo una de prueba vieja) también lo cambia a
-// esta, igual que hace el propio botón "Jugar". Además de `clubNote()`
+// esta, igual que hace el propio botón "Reconectar". Además de `clubNote()`
 // (que solo se ve con el panel Club abierto), un aviso flotante fuera de
 // cualquier panel para que se note aunque esté mirando el tablero.
 async function handleMyChallengeAccepted(payload){
@@ -4545,7 +4545,7 @@ document.getElementById("club-invite-btn").onclick = async () => {
    Alcance a propósito acotado en esta primera ronda: sin reloj (los retos
    todavía no piden control de tiempo), sin abandonar/ofrecer tablas, y sin
    reconectar sola a una partida en vivo si se recarga la página — hay que
-   volver a pulsar "Jugar" desde «Partidas en curso». Si un evento de
+   volver a pulsar "Reconectar" desde «Partidas en curso». Si un evento de
    Realtime llega fuera de orden (perdiste uno), reloadLiveGame() vuelve a
    traer todo desde game_moves en vez de arriesgar un tablero desincronizado. */
 let liveChannel = null;
@@ -4768,7 +4768,13 @@ async function loadClubActiveGames(){
     const label = oppName + " · " + VARIANT_LABEL[row.variant] +
       (liveGame && liveGame.id === row.id ? " (jugando ahora)" : "");
     el.appendChild(clubRow(label, [
-      clubBtn("Jugar", () => enterLiveGame(row)),
+      // Fase 2 · paso 4 (ronda "avisar al retador", 2026-09-24): desde que
+      // aceptar/ser aceptado abre el tablero solo, este botón ya no es el
+      // paso para ARRANCAR una partida — es el respaldo para RETOMARLA
+      // (recargaste la página, se perdió la conexión, volviste más tarde).
+      // La etiqueta lo dice para no confundir a Arthur con un paso que ya
+      // no existe.
+      clubBtn("Reconectar", () => enterLiveGame(row)),
       clubBtn("Abandonar", () => abandonGame(row))
     ]));
   });
