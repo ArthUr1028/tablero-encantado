@@ -4320,9 +4320,28 @@ function unsubscribeClubChannel(){
   if(clubChannel){ sb.removeChannel(clubChannel); clubChannel = null; }
 }
 
+// Fase 2 · paso 4 (ronda "listas duplicadas", 2026-09-24): estas tres
+// funciones se disparan tanto a mano (refreshClub) como desde varios
+// listeners de Realtime a la vez — aceptar un reto, por ejemplo, dispara
+// CASI SIMULTÁNEAMENTE un INSERT en `games` y un UPDATE en
+// `game_challenges`, cada uno con su propio listener llamando a la misma
+// función. Sin guarda, dos llamadas en vuelo a la vez hacen cada una su
+// propio "innerHTML = '' → volver a pedir → appendChild": la primera en
+// terminar limpia y llena la lista, y cuando la segunda termina (más
+// tarde) NO vuelve a limpiar — solo agrega sus filas arriba de las que ya
+// había, duplicando todo. Arthur lo encontró en producción real (el reto
+// aceptado le apareció dos veces del lado de su hija). Un contador de
+// secuencia por función: cada llamada se anota su propio número al
+// arrancar, y si al terminar de esperar la respuesta de Supabase ya hay
+// una llamada MÁS nueva en curso, se retira sin tocar el DOM — esa más
+// nueva es la que manda.
+let clubMembersSeq = 0, clubChallengesSeq = 0, clubActiveGamesSeq = 0;
+
 async function loadClubMembers(){
+  const mySeq = ++clubMembersSeq;
   const { data, error } = await sb.from("club_members")
     .select("profile_id, profiles(id, username, display_name)");
+  if(mySeq !== clubMembersSeq) return;
   if(error){ clubNote("No se pudo cargar la lista de miembros: " + error.message, true); return; }
   const members = (data || [])
     .map(r => r.profiles)
@@ -4367,10 +4386,12 @@ document.getElementById("club-compose-send").onclick = async () => {
 };
 
 async function loadClubChallenges(){
+  const mySeq = ++clubChallengesSeq;
   const { data: incoming, error: inErr } = await sb.from("game_challenges")
     .select("id, variant, status, created_at, profiles!game_challenges_created_by_fkey(username, display_name)")
     .eq("invited_id", accountProfile.id).eq("status", "pendiente")
     .order("created_at", { ascending: false });
+  if(mySeq !== clubChallengesSeq) return;
   if(inErr){ clubNote("No se pudieron cargar los retos recibidos: " + inErr.message, true); }
   clubChallengesInEl.innerHTML = "";
   if(!incoming || incoming.length === 0){
@@ -4389,6 +4410,7 @@ async function loadClubChallenges(){
     .select("id, variant, status, created_at, profiles!game_challenges_invited_id_fkey(username, display_name)")
     .eq("created_by", accountProfile.id).eq("status", "pendiente")
     .order("created_at", { ascending: false });
+  if(mySeq !== clubChallengesSeq) return;
   if(outErr){ clubNote("No se pudieron cargar tus retos enviados: " + outErr.message, true); }
   clubChallengesOutEl.innerHTML = "";
   if(!outgoing || outgoing.length === 0){
@@ -4641,23 +4663,29 @@ function handleRemoteGameUpdate(payload){
 }
 
 async function loadClubActiveGames(){
+  const mySeq = ++clubActiveGamesSeq;
   const el = document.getElementById("club-active-games");
   if(!el || !accountProfile) return;
   const { data, error } = await sb.from("games")
     .select("id, variant, status, white_id, black_id")
     .eq("status", "en_curso")
     .or("white_id.eq." + accountProfile.id + ",black_id.eq." + accountProfile.id);
+  if(mySeq !== clubActiveGamesSeq) return;
   if(error){ clubNote("No se pudieron cargar tus partidas en curso: " + error.message, true); return; }
   const rows = data || [];
-  el.innerHTML = "";
   if(rows.length === 0){
     el.innerHTML = '<p class="free-hint">No tienes partidas en curso.</p>';
     return;
   }
+  // Ojo: NO se limpia el.innerHTML acá todavía — recién después de este
+  // segundo await, junto con el resto del pintado, para no dejar una
+  // ventana vacía en la que otra llamada más nueva pueda colarse en medio.
   const oppIds = [...new Set(rows.map(r => r.white_id === accountProfile.id ? r.black_id : r.white_id))];
   const { data: opps } = await sb.from("profiles").select("id, username, display_name").in("id", oppIds);
+  if(mySeq !== clubActiveGamesSeq) return;
   const oppById = {};
   (opps || []).forEach(p => { oppById[p.id] = p.display_name || p.username; });
+  el.innerHTML = "";
   rows.forEach(row => {
     const oppId = row.white_id === accountProfile.id ? row.black_id : row.white_id;
     const oppName = oppById[oppId] || "rival";
