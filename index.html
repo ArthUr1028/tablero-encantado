@@ -4309,12 +4309,33 @@ function subscribeClubChannel(){
   clubChannel = sb.channel("club-" + uid)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "created_by=eq." + uid }, () => { loadClubChallenges(); loadClubActiveGames(); })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "created_by=eq." + uid }, handleMyChallengeAccepted)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
     .subscribe();
+}
+
+// Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): el lado que RETÓ se
+// entera de que el rival aceptó por este mismo canal (UPDATE en su propio
+// reto, created_by=uid). En vez de solo refrescar listas y obligarlo a
+// buscar "Jugar" a mano, entra derecho al tablero en vivo — mismo trato que
+// ahora recibe quien acepta, para que a los dos les aparezca el tablero
+// listo sin pasos de más. Si ya está jugando otra partida en vivo, no lo
+// saca de ahí a la fuerza: solo refresca las listas.
+async function handleMyChallengeAccepted(payload){
+  const row = payload.new;
+  loadClubChallenges();
+  if(!row || row.status !== "aceptado" || !row.game_id || liveGame){
+    loadClubActiveGames();
+    return;
+  }
+  const { data: g, error } = await sb.from("games")
+    .select("id, variant, status, white_id, black_id").eq("id", row.game_id).maybeSingle();
+  if(error || !g){ loadClubActiveGames(); return; }
+  await enterLiveGame(g);
+  clubNote("¡Tu rival aceptó! Partida iniciada.");
 }
 function unsubscribeClubChannel(){
   if(clubChannel){ sb.removeChannel(clubChannel); clubChannel = null; }
@@ -4425,13 +4446,24 @@ async function loadClubChallenges(){
   }
 }
 
+// Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): Arthur pidió que el
+// flujo se reduzca a enviar/recibir el reto y aceptar → tablero, sin el
+// paso extra de ir a buscar la partida en «Partidas en curso» y pulsar
+// "Jugar" a mano (eso era además lo que lo tenía mirando esa lista justo
+// cuando podía refrescarse dos veces seguidas y parecer duplicada). Quien
+// acepta entra derecho al tablero en vivo.
 async function respondClubChallenge(id, accept){
   clubNote(accept ? "Aceptando reto…" : "Rechazando reto…");
-  const { error } = await sb.rpc("respond_challenge", { p_challenge_id: id, p_accept: accept });
+  const { data: gameId, error } = await sb.rpc("respond_challenge", { p_challenge_id: id, p_accept: accept });
   if(error){ clubNote("No se pudo responder: " + error.message, true); return; }
-  clubNote(accept ? "¡Partida creada! Ya aparece abajo, en «Partidas en curso»." : "Reto rechazado.");
   loadClubChallenges();
-  if(accept) loadClubActiveGames();
+  if(!accept){ clubNote("Reto rechazado."); return; }
+  if(!gameId){ clubNote("¡Partida creada! Ya aparece abajo, en «Partidas en curso»."); loadClubActiveGames(); return; }
+  const { data: row, error: gErr } = await sb.from("games")
+    .select("id, variant, status, white_id, black_id").eq("id", gameId).maybeSingle();
+  if(gErr || !row){ clubNote("¡Partida creada! Ya aparece abajo, en «Partidas en curso»."); loadClubActiveGames(); return; }
+  await enterLiveGame(row);
+  clubNote("¡Partida iniciada!");
 }
 async function cancelClubChallenge(id){
   clubNote("Cancelando…");
@@ -4674,6 +4706,11 @@ async function loadClubActiveGames(){
   if(error){ clubNote("No se pudieron cargar tus partidas en curso: " + error.message, true); return; }
   const rows = data || [];
   if(rows.length === 0){
+    // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): esta rama también
+    // necesita la guarda — sin ella, una llamada VIEJA que por azar termina
+    // DESPUÉS de una más nueva podía borrar una lista ya correcta y
+    // reemplazarla por "No tienes partidas en curso" con datos obsoletos.
+    if(mySeq !== clubActiveGamesSeq) return;
     el.innerHTML = '<p class="free-hint">No tienes partidas en curso.</p>';
     return;
   }
