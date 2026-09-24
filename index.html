@@ -4191,6 +4191,8 @@ function clearAccountProfile(){
   switchToLocalLibrary();
   const panelClub = document.getElementById("panel-club");
   if(panelClub) panelClub.hidden = true;
+  if(typeof unsubscribeClubChannel === "function") unsubscribeClubChannel();
+  if(typeof exitLiveGame === "function") exitLiveGame();
 }
 async function saveAccountDisplayName(name){
   if(!name) return;
@@ -4288,6 +4290,34 @@ async function refreshClub(){
   if(!isMember) return;
 
   await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames()]);
+  subscribeClubChannel();
+}
+
+// Fase 2 · paso 4 (ronda "avisos sin refrescar", 2026-09-24): Arthur reportó
+// que un reto nuevo, o que le acepten uno, no aparecía hasta recargar la
+// página a mano — el Realtime de la ronda anterior solo escuchaba la
+// partida YA cargada en el tablero, nada del panel Club en sí. Un canal
+// aparte, fijo mientras dura la sesión de cuenta (se crea una sola vez acá
+// y se cierra en clearAccountProfile()), que simplemente vuelve a pedir la
+// lista correspondiente cuando algo cambia — más simple y menos frágil que
+// tratar de aplicar el cambio fila por fila a mano. Postgres Realtime solo
+// admite UNA comparación por filtro, así que blanco/negro necesitan cada
+// uno su propio .on() en vez de un OR.
+function subscribeClubChannel(){
+  if(clubChannel || !accountProfile) return;
+  const uid = accountProfile.id;
+  clubChannel = sb.channel("club-" + uid)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "created_by=eq." + uid }, () => { loadClubChallenges(); loadClubActiveGames(); })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
+    .subscribe();
+}
+function unsubscribeClubChannel(){
+  if(clubChannel){ sb.removeChannel(clubChannel); clubChannel = null; }
 }
 
 async function loadClubMembers(){
@@ -4426,6 +4456,7 @@ document.getElementById("club-invite-btn").onclick = async () => {
    Realtime llega fuera de orden (perdiste uno), reloadLiveGame() vuelve a
    traer todo desde game_moves en vez de arriesgar un tablero desincronizado. */
 let liveChannel = null;
+let clubChannel = null;
 
 function updateLiveBanner(){
   const banner = document.getElementById("live-game-banner");
