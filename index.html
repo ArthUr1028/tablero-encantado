@@ -4471,7 +4471,7 @@ async function enterLiveGame(row){
   if(movesErr){ clubNote("No se pudo cargar el historial de la partida: " + movesErr.message, true); return; }
 
   stopAuto();
-  matchStarted = true; matchPaused = false; clockEnabled = false; vsMachine = false;
+  clockEnabled = false; vsMachine = false;
   if(currentMode !== "play"){
     currentMode = "play";
     document.getElementById("mode-play").setAttribute("aria-pressed", true);
@@ -4482,6 +4482,12 @@ async function enterLiveGame(row){
   const blackName = myColor === "b" ? myName : oppName;
   applySanList(VARIANT_START[row.variant], (moves || []).map(m => m.san),
     { white: whiteName, black: blackName, result: row.result || "", resultNote: "" });
+  // Fase 2 · paso 4 — bug real encontrado por Arthur: newGame() (llamado
+  // arriba, dentro de applySanList()) termina en resetClock(), que pone
+  // matchStarted en false — si se fijaba ANTES de applySanList(), quedaba
+  // pisado, y había que pulsar igual "Iniciar partida" a mano en ambos
+  // lados para poder mover. Por eso se fija DESPUÉS, no antes.
+  matchStarted = true; matchPaused = false;
 
   liveGame = {
     id: row.id, myColor, variant: row.variant,
@@ -4520,6 +4526,11 @@ function reloadLiveGame(){
     if(error){ liveGame = saved; clubNote("No se pudo releer la partida: " + error.message, true); return; }
     applySanList(VARIANT_START[saved.variant], (moves || []).map(m => m.san),
       { white: game.white, black: game.black, result: "", resultNote: "" });
+    // Mismo motivo que en enterLiveGame(): applySanList() pasa por
+    // newGame()/resetClock(), que apaga matchStarted — hay que reencenderlo
+    // después, si no una reconexión silenciosa dejaría el tablero "frenado"
+    // sin que nadie entienda por qué.
+    matchStarted = true; matchPaused = false;
     saved.plyCount = game.sans.length;
     liveGame = saved;
     selected = null;
@@ -4621,8 +4632,40 @@ async function loadClubActiveGames(){
     const oppName = oppById[oppId] || "rival";
     const label = oppName + " · " + VARIANT_LABEL[row.variant] +
       (liveGame && liveGame.id === row.id ? " (jugando ahora)" : "");
-    el.appendChild(clubRow(label, [clubBtn("Jugar", () => enterLiveGame(row))]));
+    el.appendChild(clubRow(label, [
+      clubBtn("Jugar", () => enterLiveGame(row)),
+      clubBtn("Abandonar", () => abandonGame(row))
+    ]));
   });
+}
+
+// Fase 2 · paso 4 (ronda de limpieza, 2026-09-24): Arthur probó varias veces
+// antes de esta ronda y le quedaron partidas de prueba sin forma de
+// sacarlas de "Partidas en curso" — no había ningún botón para cerrar una
+// partida que no se quiere seguir. `abandonada` ya existía como valor del
+// enum game_status desde la Fase 1 (pensado justo para esto), así que no
+// hace falta ninguna migración: alcanza con un UPDATE directo, permitido
+// por la política RLS ya existente ("actualizar partida propia" — vale
+// para cualquiera de los dos jugadores). Gana el rival por default (no hay
+// forma de "abandonar en tablas"); si la partida que se abandona es la que
+// el tablero tiene cargada ahora mismo, también se sale del modo en vivo.
+async function abandonGame(row){
+  if(!accountProfile) return;
+  if(!confirm("¿Abandonar esta partida? Se cuenta como ganada para el rival y no se puede deshacer.")) return;
+  const myColor = row.white_id === accountProfile.id ? "w" : "b";
+  const winnerId = myColor === "w" ? row.black_id : row.white_id;
+  const result = myColor === "w" ? "0-1" : "1-0";
+  const { error } = await sb.from("games")
+    .update({ status: "abandonada", result, winner_id: winnerId })
+    .eq("id", row.id);
+  if(error){ clubNote("No se pudo abandonar la partida: " + error.message, true); return; }
+  if(liveGame && liveGame.id === row.id){
+    exitLiveGame();
+    clubNote("Diste por abandonada la partida y saliste del tablero en vivo.");
+  } else {
+    clubNote("Partida abandonada.");
+  }
+  loadClubActiveGames();
 }
 
 // Un bando que se deja vacío vuelve a "Mi nombre" (o a "claudIA" si es de la máquina).
