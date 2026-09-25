@@ -426,6 +426,22 @@
   }
   .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  /* Ronda "chat flotante" (2026-09-25): chat de la partida en vivo como
+     burbuja fija en la esquina inferior izquierda, fuera del tablero y de los
+     paneles. Solo existe mientras hay partida en vivo. */
+  #chat-widget{ position:fixed; left:12px; bottom:12px; z-index:900; display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+  #chat-widget[hidden]{ display:none; }
+  #chat-fab{ position:relative; }
+  #chat-unread{ margin-left:6px; padding:0 6px; border-radius:9px; background:var(--ember); color:#1b1206; font-weight:700; font-size:.8rem; }
+  #chat-panel{ width:min(280px, calc(100vw - 24px)); padding:8px; background:var(--frame, #241f28); border:1px solid var(--frame-hi, #4c4350);
+    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.45); }
+  #chat-panel[hidden]{ display:none; }
+  #chat-log{ max-height:min(220px, 40vh); overflow-y:auto; font-size:.9rem; margin-bottom:6px; }
+  #chat-log:empty::before{ content:"Aún no hay mensajes."; color:var(--text-dim, #9a919c); font-size:.85rem; }
+  #chat-row{ display:flex; gap:6px; }
+  #chat-input{ flex:1 1 auto; min-width:0; width:0; }
+  #chat-send{ flex:0 0 auto; width:auto; padding-left:12px; padding-right:12px; }
+
   .dot{ width:10px; height:10px; border-radius:50%; flex:0 0 auto; display:inline-block; }
   .dot.w{ background:var(--marble); box-shadow:0 0 0 1px var(--marble-edge); }
   .dot.b{ background:var(--basalt); box-shadow:0 0 0 1px var(--basalt-edge); }
@@ -1881,16 +1897,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
             <button class="btn" id="live-game-resign">Rendirse</button>
             <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
           </div>
-          <!-- Ronda "chat de la partida" (2026-09-25): chat solo entre los dos
-               jugadores, plegable, con frases rápidas. Todo el texto se pinta
-               con textContent, nunca como HTML. -->
-          <div id="live-chat" style="margin-top:10px">
-            <div id="chat-log" role="log" aria-live="polite" hidden style="max-height:170px; overflow-y:auto; padding:6px; border:1px solid var(--line, #444); border-radius:6px; font-size:.9rem; margin-bottom:6px"></div>
-            <div class="btns">
-              <input id="chat-input" type="text" maxlength="300" placeholder="Escribe un mensaje&hellip;" autocomplete="off" aria-label="Mensaje para tu rival" style="flex:1; min-width:0">
-              <button class="btn" id="chat-send">Enviar</button>
-            </div>
-          </div>
         </div>
         <div class="result-row">
           <select id="result-select" aria-label="Resultado de la partida">
@@ -2066,6 +2072,17 @@ var db=[Kw,tp,zp,wq,xq,Hq,Iq,Kw];var eb=[Lw,Dj,Ij,Mj,Wc,Ng,Og,Tg,Vg,zh,Vj,_j,ck,
 
 </script>
 
+<!-- Ronda "chat flotante" (2026-09-25): burbuja de chat de la partida en vivo. -->
+<div id="chat-widget" hidden>
+  <div id="chat-panel" hidden>
+    <div id="chat-log" role="log" aria-live="polite"></div>
+    <div id="chat-row">
+      <input id="chat-input" type="text" maxlength="300" placeholder="Mensaje&hellip;" autocomplete="off" aria-label="Mensaje para tu rival">
+      <button class="btn" id="chat-send">Enviar</button>
+    </div>
+  </div>
+  <button class="btn" id="chat-fab" aria-expanded="false" aria-label="Chat con tu rival">Chat<span id="chat-unread" hidden></span></button>
+</div>
 <!-- Fase 2 · Cuenta (2026-09-23): cliente de Supabase, publicado como
      archivo propio junto al Tablero (igual que fairy-stockfish-engine.js),
      NO desde un CDN externo — Artifact bloquea hosts externos salvo Google
@@ -4602,6 +4619,8 @@ function updateLiveBanner(){
   const rs = document.getElementById("result-select"), rn = document.getElementById("result-note");
   if(rs) rs.disabled = !!liveGame;
   if(rn) rn.disabled = !!liveGame;
+  const cw = document.getElementById("chat-widget");
+  if(cw) cw.hidden = !liveGame;
   if(!liveGame){ banner.hidden = true; return; }
   banner.hidden = false;
   updateDrawUI();
@@ -4625,7 +4644,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V111 · 25-sep-2026 · chat simple";
+const BUILD_ID = "V112 · 25-sep-2026 · chat flotante";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -4706,12 +4725,19 @@ setInterval(() => {
    corrió, un fallo del chat no puede romper la sincronización de jugadas.
    Además se relee por id > último cada 5 s (mismo respaldo que las jugadas).
    Todo el texto entra al DOM con textContent. */
-let chatMsgs = [], chatIds = new Set(), chatChannel = null, chatBroken = false;
+let chatMsgs = [], chatIds = new Set(), chatOpen = false, chatUnread = 0, chatChannel = null, chatBroken = false;
 const chatLogEl = document.getElementById("chat-log");
+const chatWidgetEl = document.getElementById("chat-widget");
+const chatPanelEl = document.getElementById("chat-panel");
+const chatFabEl = document.getElementById("chat-fab");
+const chatUnreadEl = document.getElementById("chat-unread");
+function renderChatUnread(){
+  chatUnreadEl.hidden = chatUnread === 0;
+  chatUnreadEl.textContent = chatUnread ? String(chatUnread) : "";
+}
 const chatInputEl = document.getElementById("chat-input");
 
 function chatNote(text){
-  chatLogEl.hidden = false;
   const p = document.createElement("div");
   p.className = "free-hint";
   p.style.margin = "2px 0";
@@ -4720,7 +4746,6 @@ function chatNote(text){
   chatLogEl.scrollTop = chatLogEl.scrollHeight;
 }
 function renderChatMessage(m){
-  chatLogEl.hidden = false; // el cuadro de mensajes solo aparece cuando hay algo que mostrar
   const mine = accountProfile && m.sender_id === accountProfile.id;
   const row = document.createElement("div");
   row.style.margin = "3px 0";
@@ -4740,11 +4765,11 @@ function addChatMessages(rows, notify){
     chatIds.add(m.id); chatMsgs.push(m);
     renderChatMessage(m);
     if(notify && accountProfile && m.sender_id !== accountProfile.id){
-      // Aviso flotante: en celular el chat puede quedar fuera de la pantalla.
-      showGlobalToast(liveGame.opponentName + ": " + (m.body.length > 80 ? m.body.slice(0, 80) + "…" : m.body));
+      // La burbuja está siempre a la vista: el contador basta como aviso.
+      if(!chatOpen){ chatUnread++; }
     }
   });
-  if(fresh.length){ chatLogEl.scrollTop = chatLogEl.scrollHeight; }
+  if(fresh.length){ chatLogEl.scrollTop = chatLogEl.scrollHeight; renderChatUnread(); }
 }
 async function loadChatHistory(){
   if(!liveGame) return;
@@ -4772,8 +4797,11 @@ async function loadChatSince(){
 function startChat(){
   stopChat();
   chatMsgs = []; chatIds = new Set(); chatBroken = false;
+  chatUnread = 0; chatOpen = false;
   chatLogEl.innerHTML = "";
-  chatLogEl.hidden = true;
+  chatPanelEl.hidden = true;
+  chatFabEl.setAttribute("aria-expanded", "false");
+  renderChatUnread();
   const gid = liveGame.id;
   chatChannel = sb.channel("chat-" + gid)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_messages", filter: "game_id=eq." + gid },
@@ -4794,6 +4822,12 @@ async function sendChat(text){
   if(error){ chatNote("No se pudo enviar: " + error.message); return; }
   addChatMessages([data], false);
 }
+chatFabEl.onclick = () => {
+  chatOpen = !chatOpen;
+  chatPanelEl.hidden = !chatOpen;
+  chatFabEl.setAttribute("aria-expanded", chatOpen ? "true" : "false");
+  if(chatOpen){ chatUnread = 0; renderChatUnread(); chatLogEl.scrollTop = chatLogEl.scrollHeight; chatInputEl.focus(); }
+};
 document.getElementById("chat-send").onclick = () => { const t = chatInputEl.value; chatInputEl.value = ""; sendChat(t); };
 chatInputEl.addEventListener("keydown", e => {
   if(e.key === "Enter"){ e.preventDefault(); const t = chatInputEl.value; chatInputEl.value = ""; sendChat(t); }
