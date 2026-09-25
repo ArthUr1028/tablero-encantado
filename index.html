@@ -4633,6 +4633,14 @@ function updateLiveBanner(){
   if(rn) rn.disabled = !!liveGame;
   const cw = document.getElementById("chat-widget");
   if(cw) cw.hidden = !liveGame;
+  // El chat no sobrevive a la partida (migración 08 borra los mensajes al
+  // terminar): con resultado puesto ya no se puede escribir.
+  const ci = document.getElementById("chat-input"), cs = document.getElementById("chat-send");
+  if(ci && cs){
+    const over = !!(liveGame && game.result);
+    ci.disabled = over; cs.disabled = over;
+    ci.placeholder = over ? "Partida terminada" : "Mensaje…";
+  }
   if(!liveGame){ banner.hidden = true; return; }
   banner.hidden = false;
   updateDrawUI();
@@ -4656,7 +4664,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V113 · 25-sep-2026 · chat con icono";
+const BUILD_ID = "V114 · 25-sep-2026 · chat efímero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -4859,12 +4867,19 @@ async function sendChat(text){
   if(error){ chatNote("No se pudo enviar: " + error.message); return; }
   addChatMessages([data], false);
 }
-chatFabEl.onclick = () => {
-  chatOpen = !chatOpen;
-  chatPanelEl.hidden = !chatOpen;
-  chatFabEl.setAttribute("aria-expanded", chatOpen ? "true" : "false");
-  if(chatOpen){ hideChatFlash(); chatUnread = 0; renderChatUnread(); chatLogEl.scrollTop = chatLogEl.scrollHeight; chatInputEl.focus(); }
-};
+function setChatOpen(open){
+  chatOpen = open;
+  chatPanelEl.hidden = !open;
+  chatFabEl.setAttribute("aria-expanded", open ? "true" : "false");
+  if(open){ hideChatFlash(); chatUnread = 0; renderChatUnread(); chatLogEl.scrollTop = chatLogEl.scrollHeight; if(!chatInputEl.disabled) chatInputEl.focus(); }
+}
+chatFabEl.onclick = () => setChatOpen(!chatOpen);
+// Ronda "clic fuera cierra" (2026-09-25): un toque/clic en cualquier parte
+// fuera del widget del chat lo repliega (el evento sigue su camino: si fue
+// sobre una pieza, la pieza igual se selecciona).
+document.addEventListener("pointerdown", e => {
+  if(chatOpen && !chatWidgetEl.contains(e.target)) setChatOpen(false);
+});
 document.getElementById("chat-send").onclick = () => { const t = chatInputEl.value; chatInputEl.value = ""; sendChat(t); };
 chatInputEl.addEventListener("keydown", e => {
   if(e.key === "Enter"){ e.preventDefault(); const t = chatInputEl.value; chatInputEl.value = ""; sendChat(t); }
