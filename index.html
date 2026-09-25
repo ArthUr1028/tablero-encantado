@@ -1881,6 +1881,25 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
             <button class="btn" id="live-game-resign">Rendirse</button>
             <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
           </div>
+          <!-- Ronda "chat de la partida" (2026-09-25): chat solo entre los dos
+               jugadores, plegable, con frases rápidas. Todo el texto se pinta
+               con textContent, nunca como HTML. -->
+          <div id="live-chat" style="margin-top:10px">
+            <div class="btns">
+              <button class="btn" id="chat-toggle" aria-expanded="false">Chat <span id="chat-unread" hidden></span></button>
+              <label class="free-hint" style="display:inline-flex; gap:6px; align-items:center; margin:0">
+                <input type="checkbox" id="chat-mute"> Silenciar avisos
+              </label>
+            </div>
+            <div id="chat-body" hidden style="margin-top:8px">
+              <div id="chat-log" role="log" aria-live="polite" style="max-height:170px; overflow-y:auto; padding:6px; border:1px solid var(--line, #444); border-radius:6px; font-size:.9rem"></div>
+              <div class="btns" id="chat-quick" style="margin-top:6px"></div>
+              <div class="btns" style="margin-top:6px">
+                <input id="chat-input" type="text" maxlength="300" placeholder="Escribe un mensaje&hellip;" autocomplete="off" aria-label="Mensaje para tu rival" style="flex:1; min-width:0">
+                <button class="btn" id="chat-send">Enviar</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="result-row">
           <select id="result-select" aria-label="Resultado de la partida">
@@ -4615,7 +4634,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V109 · 25-sep-2026 · rendirse+tablas";
+const BUILD_ID = "V110 · 25-sep-2026 · chat";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -4677,6 +4696,7 @@ async function resyncLiveGame(){
   if(error || !g || !liveGame || liveGame.id !== id) return;
   if((g.ply_count || 0) > game.sans.length) reloadLiveGame();
   applyGameRow(g);
+  loadChatSince();
 }
 document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible" && liveGame) resyncLiveGame();
@@ -4688,6 +4708,128 @@ document.addEventListener("visibilitychange", () => {
 setInterval(() => {
   if(liveGame && !game.result && document.visibilityState === "visible") resyncLiveGame();
 }, 5000);
+
+/* ---- Ronda "chat de la partida" (2026-09-25) ----
+   Mensajes solo entre los dos jugadores (tabla game_messages, migración 07).
+   Canal Realtime PROPIO (no el de las jugadas): si la migración aún no se
+   corrió, un fallo del chat no puede romper la sincronización de jugadas.
+   Además se relee por id > último cada 5 s (mismo respaldo que las jugadas).
+   Todo el texto entra al DOM con textContent. */
+const CHAT_MUTE_KEY = "tablero-encantado.chat-mute.v1";
+const CHAT_QUICK = ["Buena jugada", "Gracias", "Buena partida", "Un momento"];
+let chatMsgs = [], chatIds = new Set(), chatOpen = false, chatUnread = 0, chatChannel = null, chatBroken = false;
+const chatLogEl = document.getElementById("chat-log");
+const chatInputEl = document.getElementById("chat-input");
+const chatUnreadEl = document.getElementById("chat-unread");
+const chatMuteEl = document.getElementById("chat-mute");
+try{ chatMuteEl.checked = localStorage.getItem(CHAT_MUTE_KEY) === "1"; }catch(e){}
+chatMuteEl.addEventListener("change", () => { try{ localStorage.setItem(CHAT_MUTE_KEY, chatMuteEl.checked ? "1" : "0"); }catch(e){} });
+
+function chatNote(text){
+  const p = document.createElement("div");
+  p.className = "free-hint";
+  p.style.margin = "2px 0";
+  p.textContent = text;
+  chatLogEl.appendChild(p);
+  chatLogEl.scrollTop = chatLogEl.scrollHeight;
+}
+function renderChatUnread(){
+  chatUnreadEl.hidden = chatUnread === 0;
+  chatUnreadEl.textContent = chatUnread ? "(" + chatUnread + ")" : "";
+}
+function renderChatMessage(m){
+  const mine = accountProfile && m.sender_id === accountProfile.id;
+  const row = document.createElement("div");
+  row.style.margin = "3px 0";
+  row.style.textAlign = mine ? "right" : "left";
+  const who = document.createElement("strong");
+  who.textContent = mine ? "Tú" : (liveGame ? liveGame.opponentName : "Rival");
+  const txt = document.createElement("span");
+  txt.textContent = ": " + m.body;
+  row.appendChild(who); row.appendChild(txt);
+  chatLogEl.appendChild(row);
+}
+// notify=true solo para mensajes NUEVOS (no el historial al entrar).
+function addChatMessages(rows, notify){
+  if(!liveGame) return;
+  const fresh = (rows || []).filter(m => m && !chatIds.has(m.id)).sort((a, b) => a.id - b.id);
+  fresh.forEach(m => {
+    chatIds.add(m.id); chatMsgs.push(m);
+    renderChatMessage(m);
+    if(notify && accountProfile && m.sender_id !== accountProfile.id){
+      if(!chatOpen){ chatUnread++; }
+      if(!chatOpen && !chatMuteEl.checked){
+        showGlobalToast(liveGame.opponentName + ": " + (m.body.length > 80 ? m.body.slice(0, 80) + "…" : m.body));
+      }
+    }
+  });
+  if(fresh.length){ chatLogEl.scrollTop = chatLogEl.scrollHeight; renderChatUnread(); }
+}
+async function loadChatHistory(){
+  if(!liveGame) return;
+  const id = liveGame.id;
+  const { data, error } = await sb.from("game_messages")
+    .select("id, sender_id, body, created_at").eq("game_id", id).order("id", { ascending: true });
+  if(!liveGame || liveGame.id !== id) return;
+  if(error){
+    chatBroken = true;
+    chatNote("Chat no disponible: " + error.message + (/game_messages/.test(error.message) ? " (¿falta correr 07_chat.sql?)" : ""));
+    return;
+  }
+  chatBroken = false;
+  addChatMessages(data, false);
+}
+async function loadChatSince(){
+  if(!liveGame || chatBroken) return;
+  const id = liveGame.id;
+  const last = chatMsgs.length ? chatMsgs[chatMsgs.length - 1].id : 0;
+  const { data, error } = await sb.from("game_messages")
+    .select("id, sender_id, body, created_at").eq("game_id", id).gt("id", last).order("id", { ascending: true });
+  if(error || !liveGame || liveGame.id !== id) return;
+  addChatMessages(data, true);
+}
+function startChat(){
+  stopChat();
+  chatMsgs = []; chatIds = new Set(); chatUnread = 0; chatOpen = false; chatBroken = false;
+  chatLogEl.innerHTML = "";
+  document.getElementById("chat-body").hidden = true;
+  document.getElementById("chat-toggle").setAttribute("aria-expanded", "false");
+  renderChatUnread();
+  const gid = liveGame.id;
+  chatChannel = sb.channel("chat-" + gid)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_messages", filter: "game_id=eq." + gid },
+        payload => addChatMessages([payload.new], true))
+    .subscribe();
+  loadChatHistory();
+}
+function stopChat(){
+  if(chatChannel){ sb.removeChannel(chatChannel); chatChannel = null; }
+}
+async function sendChat(text){
+  text = (text || "").trim();
+  if(!text || !liveGame || !accountProfile) return;
+  if(chatBroken){ chatNote("Chat no disponible (falta la migración 07)."); return; }
+  const { data, error } = await sb.from("game_messages")
+    .insert({ game_id: liveGame.id, sender_id: accountProfile.id, body: text.slice(0, 300) })
+    .select("id, sender_id, body, created_at").single();
+  if(error){ chatNote("No se pudo enviar: " + error.message); return; }
+  addChatMessages([data], false);
+}
+document.getElementById("chat-toggle").onclick = () => {
+  chatOpen = !chatOpen;
+  document.getElementById("chat-body").hidden = !chatOpen;
+  document.getElementById("chat-toggle").setAttribute("aria-expanded", chatOpen ? "true" : "false");
+  if(chatOpen){ chatUnread = 0; renderChatUnread(); chatLogEl.scrollTop = chatLogEl.scrollHeight; chatInputEl.focus(); }
+};
+document.getElementById("chat-send").onclick = () => { const t = chatInputEl.value; chatInputEl.value = ""; sendChat(t); };
+chatInputEl.addEventListener("keydown", e => {
+  if(e.key === "Enter"){ e.preventDefault(); const t = chatInputEl.value; chatInputEl.value = ""; sendChat(t); }
+});
+CHAT_QUICK.forEach(t => {
+  const b = document.createElement("button");
+  b.className = "btn"; b.textContent = t; b.onclick = () => sendChat(t);
+  document.getElementById("chat-quick").appendChild(b);
+});
 
 function updateDrawUI(){
   const drawBtn = document.getElementById("live-game-draw");
@@ -4822,6 +4964,7 @@ async function enterLiveGameInner(row){
     drawOfferedBy: (fullRow && fullRow.draw_offered_by) || null
   };
   saveLiveKey(row.id);
+  startChat();
   let liveSubscribedOnce = false;
   liveChannel = sb.channel("game-" + row.id)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_moves", filter: "game_id=eq." + row.id }, handleRemoteMove)
@@ -4843,6 +4986,7 @@ async function enterLiveGameInner(row){
 function exitLiveGame(){
   if(!liveGame) return;
   if(liveChannel){ sb.removeChannel(liveChannel); liveChannel = null; }
+  stopChat();
   liveGame = null;
   clearLiveKey();
   updateLiveBanner();
