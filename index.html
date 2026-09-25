@@ -1671,6 +1671,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
            Fase 2. Este panel solo abre/cierra sesión y muestra el estado. -->
       <section class="panel" id="panel-account">
         <h2>Cuenta</h2>
+        <p class="free-hint" id="build-stamp" style="margin:0 0 8px"></p>
         <div id="account-signed-out">
           <input id="account-email" type="text" placeholder="Correo" autocomplete="username" aria-label="Correo">
           <input id="account-password" type="password" placeholder="Contrase&ntilde;a" autocomplete="current-password" aria-label="Contrase&ntilde;a">
@@ -1696,28 +1697,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
            refreshClub()/clearAccountProfile() más abajo). -->
       <section class="panel" id="panel-club" hidden>
         <h2>Club</h2>
-        <!-- Fase 2 · paso 4 (2026-09-24): banner de la partida en vivo que
-             el tablero está reflejando ahora mismo (si hay una). Vive acá,
-             no junto al tablero, porque el panel Club es donde Arthur
-             gestiona su vida multijugador; el tablero mismo ya muestra
-             nombres/jugadas de la partida en vivo sin necesitar un cartel
-             propio ahí. -->
-        <div id="live-game-banner" hidden style="margin:0 0 14px; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
-          <p class="free-hint" style="margin:0 0 8px" id="live-game-note"></p>
-          <!-- Ronda "reconexión y tablas" (2026-09-25): oferta de tablas recibida. -->
-          <div id="live-draw-incoming" hidden style="margin:0 0 8px; padding:8px; border:1px solid var(--ember, #c78a3a); border-radius:6px">
-            <p class="free-hint" style="margin:0 0 6px" id="live-draw-incoming-note"></p>
-            <div class="btns">
-              <button class="btn" id="live-draw-accept">Aceptar tablas</button>
-              <button class="btn" id="live-draw-decline">Rechazar</button>
-            </div>
-          </div>
-          <div class="btns">
-            <button class="btn" id="live-game-draw">Ofrecer tablas</button>
-            <button class="btn" id="live-game-resign">Abandonar</button>
-            <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
-          </div>
-        </div>
         <div id="club-joiner">
           <p class="free-hint" style="margin:0 0 10px">Todav&iacute;a no eres miembro del club. Si alguien te pas&oacute; un c&oacute;digo, p&eacute;galo aqu&iacute;.</p>
           <div class="btns">
@@ -1882,6 +1861,27 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <span class="dot b" aria-hidden="true"></span>
         </div>
         <div class="status" id="status">Turno de las blancas</div>
+        <!-- Fase 2 · paso 4 (2026-09-24): banner de la partida en vivo que
+             el tablero está reflejando ahora mismo (si hay una).
+             Ronda "botones en La Partida" (2026-09-25): a pedido de Arthur
+             se movió del panel Club a La Partida — Rendirse y Ofrecer
+             tablas viven junto al estado y las jugadas de la partida. -->
+        <div id="live-game-banner" hidden style="margin:0 0 14px; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
+          <p class="free-hint" style="margin:0 0 8px" id="live-game-note"></p>
+          <!-- Ronda "reconexión y tablas" (2026-09-25): oferta de tablas recibida. -->
+          <div id="live-draw-incoming" hidden style="margin:0 0 8px; padding:8px; border:1px solid var(--ember, #c78a3a); border-radius:6px">
+            <p class="free-hint" style="margin:0 0 6px" id="live-draw-incoming-note"></p>
+            <div class="btns">
+              <button class="btn" id="live-draw-accept">Aceptar tablas</button>
+              <button class="btn" id="live-draw-decline">Rechazar</button>
+            </div>
+          </div>
+          <div class="btns">
+            <button class="btn" id="live-game-draw">Ofrecer tablas</button>
+            <button class="btn" id="live-game-resign">Rendirse</button>
+            <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
+          </div>
+        </div>
         <div class="result-row">
           <select id="result-select" aria-label="Resultado de la partida">
             <option value="">Resultado&hellip;</option>
@@ -3613,7 +3613,11 @@ function render(){
   updateModalitySelectorsUI();
   if(typeof updateLiveBanner === "function") updateLiveBanner();
   fenEl.value = toFEN(pos);
-  document.getElementById("btn-undo").disabled = !(atLive() && L().states.length > 1);
+  // Ronda "sin deshacer en multijugador" (2026-09-25): deshacer solo existe
+  // en Solitario/entrenamiento; en partida en vivo queda bloqueado.
+  const undoBtn = document.getElementById("btn-undo");
+  undoBtn.disabled = !!liveGame || !(atLive() && L().states.length > 1);
+  undoBtn.title = liveGame ? "No disponible en partidas multijugador" : "";
   document.getElementById("nav-prev").disabled = L().cursor === 0;
   document.getElementById("nav-start").disabled = L().cursor === 0;
   document.getElementById("nav-next").disabled = atLive();
@@ -3728,7 +3732,7 @@ function tryMove(from, to){
   // ni mover fuera de tu turno (ver también canPick(), que ya bloquea
   // TOMAR una pieza que no es tuya — esto es la segunda guarda, por si
   // algo llega a intentar mover sin pasar por canPick primero).
-  if(liveGame && (!atLive() || liveState().turn !== liveGame.myColor)) return;
+  if(liveGame && (!atLive() || game.result || liveState().turn !== liveGame.myColor)) return;
   const pos = liveState();
   const candidates = legalMoves(pos).filter(m => sameSq(m.from, from) && sameSq(m.to, to));
   if(!candidates.length) return;
@@ -3849,7 +3853,7 @@ function canPick(r,c){
   // piezas del propio color, incluso durante el turno del rival (sin esto,
   // cualquiera de los dos podría "mover" las piezas del otro en su propia
   // pantalla mientras no es su turno — un bug real que se evitó a propósito).
-  if(liveGame && (!atLive() || p[0] !== liveGame.myColor)) return false;
+  if(liveGame && (!atLive() || p[0] !== liveGame.myColor || game.result)) return false;
   // Fase 3: en turno de la Máquina no se puede tomar ninguna pieza, ni
   // siquiera las propias — evita adelantarse mientras el motor piensa.
   if(vsMachine && liveState().turn !== machineHumanColor) return false;
@@ -4354,8 +4358,8 @@ function subscribeClubChannel(){
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "created_by=eq." + uid }, handleMyChallengeAccepted)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "white_id=eq." + uid }, handleClubGameUpdate)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "black_id=eq." + uid }, handleClubGameUpdate)
     .subscribe(status => {
       // Tras una caída de red, releer listas por si se perdió algún evento.
       if(status === "SUBSCRIBED"){
@@ -4392,6 +4396,17 @@ async function handleMyChallengeAccepted(payload){
   await enterLiveGame(g);
   clubNote("¡" + oppName + " aceptó tu reto! Partida iniciada.");
   showGlobalToast("¡" + oppName + " aceptó tu reto! La partida ya empezó.");
+}
+// Ronda "rendirse" (2026-09-25): si el rival se rinde en una partida que NO
+// es la que el tablero tiene cargada, igual hay que avisar (la cargada ya
+// avisa por applyGameRow()).
+function handleClubGameUpdate(payload){
+  loadClubActiveGames();
+  const row = payload.new;
+  if(!row || !accountProfile) return;
+  if(row.status === "abandonada" && row.winner_id === accountProfile.id && (!liveGame || liveGame.id !== row.id)){
+    showGlobalToast("Tu rival se rindió en una de tus partidas. ¡Ganaste!");
+  }
 }
 function unsubscribeClubChannel(){
   if(clubChannel){ sb.removeChannel(clubChannel); clubChannel = null; }
@@ -4572,12 +4587,17 @@ let clubChannel = null;
 function updateLiveBanner(){
   const banner = document.getElementById("live-game-banner");
   const note = document.getElementById("live-game-note");
+  // En partida en vivo el resultado lo fija el servidor (mate, tablas,
+  // rendición): los campos manuales de resultado se bloquean.
+  const rs = document.getElementById("result-select"), rn = document.getElementById("result-note");
+  if(rs) rs.disabled = !!liveGame;
+  if(rn) rn.disabled = !!liveGame;
   if(!liveGame){ banner.hidden = true; return; }
   banner.hidden = false;
   updateDrawUI();
   const misTurno = liveState().turn === liveGame.myColor;
   note.textContent = "Jugando en vivo contra " + liveGame.opponentName + " · " + VARIANT_LABEL[liveGame.variant] +
-    " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") +
+    " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") + " · " + BUILD_ID.split(" · ")[0] +
     (game.result ? " · partida terminada (" + game.result + ")" : (misTurno ? " · tu turno" : " · turno del rival"));
 }
 
@@ -4591,6 +4611,12 @@ function updateLiveBanner(){
    (2) Tablas: columna games.draw_offered_by (migración 06). Ofrecer =
    UPDATE propio; el rival ve el aviso por el Realtime de `games`; aceptar
    cierra la partida 1/2-1/2; rechazar o simplemente mover borra la oferta. */
+// Ronda "verificar versión" (2026-09-25): sello visible en el panel Cuenta y
+// en el banner de la partida en vivo, para poder confirmar de un vistazo que
+// AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
+// pestaña ya abierta sigue con el JS viejo hasta recargar).
+const BUILD_ID = "V109 · 25-sep-2026 · rendirse+tablas";
+(function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
   try{ localStorage.setItem(LIVE_KEY, JSON.stringify({ uid: accountProfile.id, gameId })); }catch(e){}
@@ -4620,17 +4646,23 @@ async function autoReconnectLive(){
 function applyGameRow(row){
   if(!liveGame || !row) return;
   const prevOffer = liveGame.drawOfferedBy || null;
+  // Una lectura iniciada antes de que nuestra oferta se confirmara puede
+  // traer null; en los primeros 4 s no se le hace caso.
+  if(prevOffer === accountProfile.id && !row.draw_offered_by && !row.result && Date.now() - (liveGame.offerAt || 0) <= 4000) return;
   liveGame.drawOfferedBy = row.draw_offered_by || null;
   if(row.result && !game.result){
     game.result = row.result;
     renderStatus(liveState(), outcome(liveState()));
-    if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
+    if(row.status === "abandonada" && row.winner_id === accountProfile.id){
+      showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
+    } else if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " aceptó las tablas.");
     }
-  } else if(prevOffer === accountProfile.id && !liveGame.drawOfferedBy && !row.result){
+  } else if(prevOffer === accountProfile.id && !liveGame.drawOfferedBy && !row.result &&
+            Date.now() - (liveGame.offerAt || 0) > 4000){
     showGlobalToast(liveGame.opponentName + " rechazó las tablas.");
   } else if(liveGame.drawOfferedBy && liveGame.drawOfferedBy !== accountProfile.id && !prevOffer && !game.result){
-    showGlobalToast(liveGame.opponentName + " te ofrece tablas (mira el panel Club).");
+    showGlobalToast(liveGame.opponentName + " te ofrece tablas (mira el panel La Partida).");
   }
   updateLiveBanner();
 }
@@ -4649,6 +4681,13 @@ async function resyncLiveGame(){
 document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible" && liveGame) resyncLiveGame();
 });
+// Respaldo por si Realtime no entrega algún evento (por ejemplo un UPDATE de
+// `games` con la oferta de tablas o la rendición): mientras hay partida en
+// vivo sin terminar y la pestaña se ve, se relee la fila cada 5 s. Una
+// consulta liviana por jugador; Realtime sigue siendo el camino principal.
+setInterval(() => {
+  if(liveGame && !game.result && document.visibilityState === "visible") resyncLiveGame();
+}, 5000);
 
 function updateDrawUI(){
   const drawBtn = document.getElementById("live-game-draw");
@@ -4669,17 +4708,19 @@ async function setDrawState(patch, okMsg){
   if(!liveGame) return false;
   const { error } = await sb.from("games").update(patch).eq("id", liveGame.id).eq("status", "en_curso");
   if(error){
-    clubNote("No se pudo completar la acción de tablas: " + error.message +
-      (/draw_offered_by/.test(error.message) ? " (¿falta correr la migración 06_tablas.sql?)" : ""), true);
+    const msg = "No se pudo completar la acción de tablas: " + error.message +
+      (/draw_offered_by/.test(error.message) ? " (¿falta correr la migración 06_tablas.sql?)" : "");
+    clubNote(msg, true); showGlobalToast(msg);
     return false;
   }
-  if(okMsg) clubNote(okMsg);
+  if(okMsg){ clubNote(okMsg); showGlobalToast(okMsg); }
   return true;
 }
 document.getElementById("live-game-draw").onclick = async () => {
   if(!liveGame || game.result) return;
   if(await setDrawState({ draw_offered_by: accountProfile.id }, "Tablas ofrecidas. Se cancelan si alguno mueve.")){
     liveGame.drawOfferedBy = accountProfile.id;
+    liveGame.offerAt = Date.now();
     updateLiveBanner();
   }
 };
@@ -4721,7 +4762,17 @@ function applySanList(fen, sanList, meta){
   game.cursor = game.states.length - 1;
 }
 
+// Ronda "verificar versión" (2026-09-25): aceptar un reto puede disparar dos
+// eventos de Realtime casi a la vez; sin guarda, enterLiveGame() corría dos
+// veces en paralelo y dejaba dos canales suscritos a la misma partida.
+let enteringLiveId = null;
 async function enterLiveGame(row){
+  if(enteringLiveId === row.id) return;
+  enteringLiveId = row.id;
+  try{ await enterLiveGameInner(row); }
+  finally{ enteringLiveId = null; }
+}
+async function enterLiveGameInner(row){
   if(!accountProfile) return;
   if(liveGame) exitLiveGame();
   clubNote("Cargando partida en vivo…");
@@ -4934,8 +4985,11 @@ async function loadClubActiveGames(){
       // (recargaste la página, se perdió la conexión, volviste más tarde).
       // La etiqueta lo dice para no confundir a Arthur con un paso que ya
       // no existe.
-      clubBtn("Reconectar", () => enterLiveGame(row)),
-      clubBtn("Abandonar", () => abandonGame(row))
+      // Ronda "un solo Rendirse" (2026-09-25): Arthur señaló que el mismo
+      // botón vivía en dos sitios. Rendirse ahora está SOLO en el panel La
+      // Partida (partida cargada en el tablero); aquí la lista solo sirve
+      // para (re)entrar a una partida, y la que ya está cargada no lleva botones.
+      ...(liveGame && liveGame.id === row.id ? [] : [clubBtn("Reconectar", () => enterLiveGame(row))])
     ]));
   });
 }
@@ -4952,20 +5006,25 @@ async function loadClubActiveGames(){
 // el tablero tiene cargada ahora mismo, también se sale del modo en vivo.
 async function abandonGame(row){
   if(!accountProfile) return;
-  if(!confirm("¿Abandonar esta partida? Se cuenta como ganada para el rival y no se puede deshacer.")) return;
+  if(!confirm("¿Rendirte? La partida se cuenta como ganada para tu rival y no se puede deshacer.")) return;
   const myColor = row.white_id === accountProfile.id ? "w" : "b";
   const winnerId = myColor === "w" ? row.black_id : row.white_id;
   const result = myColor === "w" ? "0-1" : "1-0";
   const { error } = await sb.from("games")
     .update({ status: "abandonada", result, winner_id: winnerId })
     .eq("id", row.id);
-  if(error){ clubNote("No se pudo abandonar la partida: " + error.message, true); return; }
+  if(error){ clubNote("No se pudo rendir la partida: " + error.message, true); showGlobalToast("No se pudo rendir la partida: " + error.message); return; }
   if(liveGame && liveGame.id === row.id){
-    exitLiveGame();
-    clubNote("Diste por abandonada la partida y saliste del tablero en vivo.");
-  } else {
-    clubNote("Partida abandonada.");
+    // Ronda "rendirse" (2026-09-25): se queda en modo en vivo con el
+    // resultado puesto (tablero congelado, como con las tablas) en vez de
+    // soltar el tablero — así no se puede seguir moviendo por accidente.
+    game.result = result;
+    liveGame.drawOfferedBy = null;
+    renderStatus(liveState(), outcome(liveState()));
+    updateLiveBanner();
   }
+  clubNote("Te rendiste.");
+  showGlobalToast("Te rendiste. La partida se cuenta como derrota.");
   loadClubActiveGames();
 }
 
@@ -5329,6 +5388,7 @@ function finishMachineMove(bestUci){
 }
 
 document.getElementById("btn-undo").onclick = () => {
+  if(liveGame) return; // multijugador: nunca se deshace (ver render())
   const line = L();
   if(!atLive() || line.states.length < 2) return;
   line.states.pop(); line.sans.pop(); line.ucis.pop(); line.moves.pop();
