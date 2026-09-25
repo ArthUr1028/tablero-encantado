@@ -1704,7 +1704,17 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
              propio ahí. -->
         <div id="live-game-banner" hidden style="margin:0 0 14px; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
           <p class="free-hint" style="margin:0 0 8px" id="live-game-note"></p>
+          <!-- Ronda "reconexión y tablas" (2026-09-25): oferta de tablas recibida. -->
+          <div id="live-draw-incoming" hidden style="margin:0 0 8px; padding:8px; border:1px solid var(--ember, #c78a3a); border-radius:6px">
+            <p class="free-hint" style="margin:0 0 6px" id="live-draw-incoming-note"></p>
+            <div class="btns">
+              <button class="btn" id="live-draw-accept">Aceptar tablas</button>
+              <button class="btn" id="live-draw-decline">Rechazar</button>
+            </div>
+          </div>
           <div class="btns">
+            <button class="btn" id="live-game-draw">Ofrecer tablas</button>
+            <button class="btn" id="live-game-resign">Abandonar</button>
             <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
           </div>
         </div>
@@ -4321,6 +4331,7 @@ async function refreshClub(){
 
   await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames()]);
   subscribeClubChannel();
+  autoReconnectLive();
 }
 
 // Fase 2 · paso 4 (ronda "avisos sin refrescar", 2026-09-24): Arthur reportó
@@ -4336,6 +4347,7 @@ async function refreshClub(){
 function subscribeClubChannel(){
   if(clubChannel || !accountProfile) return;
   const uid = accountProfile.id;
+  let clubSubscribedOnce = false;
   clubChannel = sb.channel("club-" + uid)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
@@ -4344,7 +4356,13 @@ function subscribeClubChannel(){
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
-    .subscribe();
+    .subscribe(status => {
+      // Tras una caída de red, releer listas por si se perdió algún evento.
+      if(status === "SUBSCRIBED"){
+        if(clubSubscribedOnce){ loadClubChallenges(); loadClubActiveGames(); }
+        clubSubscribedOnce = true;
+      }
+    });
 }
 
 // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24; ajustada en la ronda
@@ -4556,11 +4574,136 @@ function updateLiveBanner(){
   const note = document.getElementById("live-game-note");
   if(!liveGame){ banner.hidden = true; return; }
   banner.hidden = false;
+  updateDrawUI();
   const misTurno = liveState().turn === liveGame.myColor;
   note.textContent = "Jugando en vivo contra " + liveGame.opponentName + " · " + VARIANT_LABEL[liveGame.variant] +
     " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") +
     (game.result ? " · partida terminada (" + game.result + ")" : (misTurno ? " · tu turno" : " · turno del rival"));
 }
+
+/* ---- Ronda "reconexión y tablas" (2026-09-25) ----
+   (1) Reconexión: el id de la partida en vivo se guarda en localStorage
+   (con el id de usuario) al entrar y se borra al salir a propósito; tras
+   iniciar sesión, autoReconnectLive() vuelve a entrar sola si sigue
+   en_curso. Además resyncLiveGame() se dispara al volver a ver la pestaña
+   y cada vez que Realtime se re-suscribe tras una caída, para no perder
+   jugadas llegadas mientras el celular tenía la pestaña dormida.
+   (2) Tablas: columna games.draw_offered_by (migración 06). Ofrecer =
+   UPDATE propio; el rival ve el aviso por el Realtime de `games`; aceptar
+   cierra la partida 1/2-1/2; rechazar o simplemente mover borra la oferta. */
+const LIVE_KEY = "tablero-encantado.live.v1";
+function saveLiveKey(gameId){
+  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({ uid: accountProfile.id, gameId })); }catch(e){}
+}
+function clearLiveKey(){
+  try{ localStorage.removeItem(LIVE_KEY); }catch(e){}
+}
+function readLiveKey(){
+  try{ return JSON.parse(localStorage.getItem(LIVE_KEY) || "null"); }catch(e){ return null; }
+}
+
+async function autoReconnectLive(){
+  if(liveGame || !accountProfile) return;
+  const k = readLiveKey();
+  if(!k || k.uid !== accountProfile.id || !k.gameId) return;
+  const { data: row, error } = await sb.from("games")
+    .select("id, variant, status, white_id, black_id").eq("id", k.gameId).maybeSingle();
+  if(error){ clubNote("No se pudo reconectar a tu partida: " + error.message, true); return; }
+  const mine = row && (row.white_id === accountProfile.id || row.black_id === accountProfile.id);
+  if(!row || !mine || row.status !== "en_curso"){ clearLiveKey(); return; }
+  if(liveGame) return; // mientras esperábamos, el usuario ya entró a otra
+  await enterLiveGame(row);
+  if(liveGame) showGlobalToast("Reconectado a tu partida contra " + liveGame.opponentName + ".");
+}
+
+// Aplica el estado de la fila `games` (resultado + oferta de tablas) al tablero.
+function applyGameRow(row){
+  if(!liveGame || !row) return;
+  const prevOffer = liveGame.drawOfferedBy || null;
+  liveGame.drawOfferedBy = row.draw_offered_by || null;
+  if(row.result && !game.result){
+    game.result = row.result;
+    renderStatus(liveState(), outcome(liveState()));
+    if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
+      showGlobalToast(liveGame.opponentName + " aceptó las tablas.");
+    }
+  } else if(prevOffer === accountProfile.id && !liveGame.drawOfferedBy && !row.result){
+    showGlobalToast(liveGame.opponentName + " rechazó las tablas.");
+  } else if(liveGame.drawOfferedBy && liveGame.drawOfferedBy !== accountProfile.id && !prevOffer && !game.result){
+    showGlobalToast(liveGame.opponentName + " te ofrece tablas (mira el panel Club).");
+  }
+  updateLiveBanner();
+}
+
+// Vuelve a leer la fila de la partida; si el servidor tiene MÁS jugadas que
+// el tablero (nunca al revés: una jugada propia en vuelo aún no llegó),
+// relee todo el historial.
+async function resyncLiveGame(){
+  if(!liveGame) return;
+  const id = liveGame.id;
+  const { data: g, error } = await sb.from("games").select("*").eq("id", id).maybeSingle();
+  if(error || !g || !liveGame || liveGame.id !== id) return;
+  if((g.ply_count || 0) > game.sans.length) reloadLiveGame();
+  applyGameRow(g);
+}
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible" && liveGame) resyncLiveGame();
+});
+
+function updateDrawUI(){
+  const drawBtn = document.getElementById("live-game-draw");
+  const resignBtn = document.getElementById("live-game-resign");
+  const inc = document.getElementById("live-draw-incoming");
+  if(!liveGame){ inc.hidden = true; return; }
+  const me = accountProfile && accountProfile.id;
+  const ended = !!game.result;
+  const offer = liveGame.drawOfferedBy || null;
+  drawBtn.disabled = ended || offer === me;
+  drawBtn.textContent = offer === me ? "Tablas ofrecidas…" : "Ofrecer tablas";
+  resignBtn.disabled = ended;
+  const incoming = !ended && offer && offer !== me;
+  inc.hidden = !incoming;
+  if(incoming) document.getElementById("live-draw-incoming-note").textContent = liveGame.opponentName + " te ofrece tablas.";
+}
+async function setDrawState(patch, okMsg){
+  if(!liveGame) return false;
+  const { error } = await sb.from("games").update(patch).eq("id", liveGame.id).eq("status", "en_curso");
+  if(error){
+    clubNote("No se pudo completar la acción de tablas: " + error.message +
+      (/draw_offered_by/.test(error.message) ? " (¿falta correr la migración 06_tablas.sql?)" : ""), true);
+    return false;
+  }
+  if(okMsg) clubNote(okMsg);
+  return true;
+}
+document.getElementById("live-game-draw").onclick = async () => {
+  if(!liveGame || game.result) return;
+  if(await setDrawState({ draw_offered_by: accountProfile.id }, "Tablas ofrecidas. Se cancelan si alguno mueve.")){
+    liveGame.drawOfferedBy = accountProfile.id;
+    updateLiveBanner();
+  }
+};
+document.getElementById("live-draw-decline").onclick = async () => {
+  if(!liveGame) return;
+  if(await setDrawState({ draw_offered_by: null }, "Rechazaste las tablas.")){
+    liveGame.drawOfferedBy = null;
+    updateLiveBanner();
+  }
+};
+document.getElementById("live-draw-accept").onclick = async () => {
+  if(!liveGame || game.result) return;
+  if(await setDrawState({ status: "finalizada", result: "1/2-1/2", winner_id: null, draw_offered_by: null })){
+    game.result = "1/2-1/2";
+    liveGame.drawOfferedBy = null;
+    renderStatus(liveState(), outcome(liveState()));
+    updateLiveBanner();
+    clubNote("Tablas acordadas.");
+  }
+};
+document.getElementById("live-game-resign").onclick = () => {
+  if(!liveGame || game.result) return;
+  abandonGame({ id: liveGame.id, white_id: liveGame.whiteId, black_id: liveGame.blackId });
+};
 
 function applySanList(fen, sanList, meta){
   newGame(fen, meta);
@@ -4594,6 +4737,14 @@ async function enterLiveGame(row){
     .select("ply, san").eq("game_id", row.id).order("ply", { ascending: true });
   if(movesErr){ clubNote("No se pudo cargar el historial de la partida: " + movesErr.message, true); return; }
 
+  const { data: fullRow } = await sb.from("games").select("*").eq("id", row.id).maybeSingle();
+  if(fullRow && fullRow.status && fullRow.status !== "en_curso"){
+    clearLiveKey();
+    clubNote("Esa partida ya terminó.");
+    loadClubActiveGames();
+    return;
+  }
+
   stopAuto();
   clockEnabled = false; vsMachine = false;
   if(currentMode !== "play"){
@@ -4616,12 +4767,21 @@ async function enterLiveGame(row){
   liveGame = {
     id: row.id, myColor, variant: row.variant,
     whiteId: row.white_id, blackId: row.black_id,
-    opponentName: oppName, plyCount: game.sans.length
+    opponentName: oppName, plyCount: game.sans.length,
+    drawOfferedBy: (fullRow && fullRow.draw_offered_by) || null
   };
+  saveLiveKey(row.id);
+  let liveSubscribedOnce = false;
   liveChannel = sb.channel("game-" + row.id)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_moves", filter: "game_id=eq." + row.id }, handleRemoteMove)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "id=eq." + row.id }, handleRemoteGameUpdate)
-    .subscribe();
+    .subscribe(status => {
+      // Al RE-suscribirse tras una caída de red pudieron perderse eventos.
+      if(status === "SUBSCRIBED"){
+        if(liveSubscribedOnce) resyncLiveGame();
+        liveSubscribedOnce = true;
+      }
+    });
 
   selected = null;
   persist(); render();
@@ -4633,6 +4793,7 @@ function exitLiveGame(){
   if(!liveGame) return;
   if(liveChannel){ sb.removeChannel(liveChannel); liveChannel = null; }
   liveGame = null;
+  clearLiveKey();
   updateLiveBanner();
 }
 document.getElementById("live-game-exit").onclick = () => {
@@ -4692,6 +4853,9 @@ async function pushLiveMove(){
 
   const patch = { current_fen: fenAfter, ply_count: ply, turn_started_at: new Date().toISOString(), status };
   if(result){ patch.result = result; patch.winner_id = winnerId; }
+  // Ronda "tablas": mover borra cualquier oferta pendiente (solo si sabemos
+  // que hay una, así no toca la columna si la migración 06 aún no corrió).
+  if(liveGame.drawOfferedBy){ patch.draw_offered_by = null; liveGame.drawOfferedBy = null; }
   const { error: gameErr } = await sb.from("games").update(patch).eq("id", liveGame.id);
   if(gameErr){ clubNote("Tu jugada se guardó, pero no se pudo actualizar el estado de la partida: " + gameErr.message, true); }
 
@@ -4726,11 +4890,7 @@ function handleRemoteGameUpdate(payload){
   if(!liveGame) return;
   const row = payload.new;
   if(!row || row.id !== liveGame.id) return;
-  if(row.result && !game.result){
-    game.result = row.result;
-    renderStatus(liveState(), outcome(liveState()));
-  }
-  updateLiveBanner();
+  applyGameRow(row);
 }
 
 async function loadClubActiveGames(){
