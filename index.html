@@ -3851,7 +3851,7 @@ function commitMove(mv){
     line.ucis.length = line.cursor;
     line.moves.length = line.cursor;
   }
-  const { n, san } = moveWithSAN(pos, mv);
+  const { n, san, oc } = moveWithSAN(pos, mv);
   line.states.push(n); line.sans.push(san); line.moves.push(mv);
   line.ucis.push(uci);
   line.cursor++;
@@ -3862,8 +3862,16 @@ function commitMove(mv){
   // (tryMove()/canPick() ya bloquearon cualquier otro caso arriba, y
   // liveGame nunca admite ramas — line === game siempre) — se empuja a
   // Supabase después de reflejarla localmente, para que el tablero de
-  // quien mueve nunca espere a la red.
-  if(liveGame) pushLiveMove();
+  // quien mueve nunca espere a la red. pushLiveMove() ya avisa jaque/mate/
+  // tablas por su cuenta (con perspectiva de "yo"); en Solitario/Máquina no
+  // hay red que esperar, así que se avisa acá mismo.
+  if(liveGame){
+    pushLiveMove();
+  } else {
+    announceCheckOrMate(oc, vsMachine ? machineHumanColor : null);
+    const dtxt = drawToastText(oc);
+    if(dtxt) showGlobalToast(dtxt);
+  }
 }
 
 function freeMove(from, to){
@@ -4731,7 +4739,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V117 · 26-sep-2026 · avisos con el mismo fundido + aviso de reto";
+const BUILD_ID = "V119 · 26-sep-2026 · jaque/mate/tablas en todas las modalidades";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -5243,6 +5251,57 @@ async function pushLiveMove(){
   if(result){ game.result = result; renderStatus(liveState(), outcome(liveState())); }
   updateLiveBanner();
   syncLiveClockRunning();
+  announceCheckOrMate(oc, liveGame.myColor);
+  const dtxt = drawToastText(oc);
+  if(dtxt) showGlobalToast(dtxt);
+}
+
+// Ronda "avisos en todas las modalidades" (2026-09-26): al pedido original
+// (jaque/jaque mate solo en vivo) Arthur sumó que corra igual en Solitario
+// y contra la Máquina. Un solo helper para las tres, llamado justo después
+// de aplicar CUALQUIER jugada, con el `oc` de outcome() ya calculado por
+// quien llama (pushLiveMove()/handleRemoteMove() para partidas en vivo,
+// commitMove() para Solitario/Máquina) — outcome() es una función pura
+// sobre el tablero, así que en vivo ambos lados llegan solos al mismo
+// resultado sin que el servidor mande nada aparte (mismo espíritu que el
+// reloj en vivo, "simple, sin anti-trampas").
+//
+// `perspective` es el color desde el que se avisa en primera persona
+// ("Estás en jaque"/"Ganaste"/"Perdiste"): el propio en vivo (liveGame.myColor),
+// el humano contra la Máquina (machineHumanColor) — o null en Solitario
+// puro, donde dos personas comparten pantalla y no hay un "tú": ahí el
+// aviso nombra el color en vez de tutear a nadie ("Jaque a las blancas").
+function announceCheckOrMate(oc, perspective){
+  if(oc !== "check" && oc !== "checkmate") return;
+  const turn = liveState().turn; // lado que queda en jaque/mate tras la jugada
+  if(oc === "checkmate"){
+    if(perspective){
+      showGlobalToast(turn === perspective ? "Jaque mate — perdiste la partida." : "¡Jaque mate! Ganaste la partida.");
+    } else {
+      showGlobalToast("¡Jaque mate! Ganan las " + (turn === "w" ? "negras" : "blancas") + ".");
+    }
+    return;
+  }
+  if(perspective){
+    if(turn === perspective) showGlobalToast("¡Estás en jaque!");
+  } else {
+    showGlobalToast("¡Jaque a las " + (turn === "w" ? "blancas" : "negras") + "!");
+  }
+}
+// Ronda "avisos de tablas" (2026-09-26): mismo trato que el jaque mate, para
+// los tres finales en tablas que el motor SÍ distingue (outcome()). Nunca
+// necesita perspectiva — a nadie le toca "ganar" ni "perder" un empate.
+// Aparte queda "repetición por triple": el motor de este Tablero no la
+// detecta todavía (no lleva historial de posiciones repetidas, solo la
+// regla de 50 jugadas) — avisarla habría sido mentir sobre un final que en
+// realidad no se está comprobando. Si Arthur la quiere, es su propia ronda
+// (hay que guardar y comparar posiciones, no solo un contador), no un
+// aviso más agregado sobre lo que ya existe.
+function drawToastText(oc){
+  if(oc === "stalemate") return "¡Tablas por rey ahogado!";
+  if(oc === "draw50") return "¡Tablas por la regla de las 50 jugadas!";
+  if(oc === "material") return "¡Tablas por material insuficiente!";
+  return null;
 }
 
 function handleRemoteMove(payload){
@@ -5266,6 +5325,9 @@ function handleRemoteMove(payload){
   selected = null;
   persist(); render();
   updateLiveBanner();
+  announceCheckOrMate(r.oc, liveGame.myColor);
+  const dtxt2 = drawToastText(r.oc);
+  if(dtxt2) showGlobalToast(dtxt2);
 }
 
 function handleRemoteGameUpdate(payload){
