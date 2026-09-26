@@ -416,13 +416,17 @@
      vivo (el rival aceptó tu reto, la partida ya arrancó) se note aunque
      Arthur esté mirando otra parte de la página — el panel Club puede estar
      cerrado en ese momento. */
+  /* Ronda "mismo fundido en todos lados" (2026-09-26): a Arthur le gustó
+     tanto el desvanecimiento del chat (ver #chat-flash/#chat-panel) que
+     pidió llevarlo también acá — misma duración y curva (.6s ease) que
+     #chat-flash, en vez de la más corta (.25s) que tenía antes. */
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
     background:var(--frame, #22252b); border:1px solid var(--ember);
     color:var(--text); box-shadow:0 6px 18px rgba(0,0,0,.35);
     text-align:center; font-size:.95rem; opacity:0; pointer-events:none;
-    transition:opacity .25s ease, transform .25s ease;
+    transition:opacity .6s ease, transform .6s ease;
   }
   .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
@@ -4437,7 +4441,7 @@ function subscribeClubChannel(){
   const uid = accountProfile.id;
   let clubSubscribedOnce = false;
   clubChannel = sb.channel("club-" + uid)
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, handleIncomingChallenge)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "invited_id=eq." + uid }, () => loadClubChallenges())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_challenges", filter: "created_by=eq." + uid }, handleMyChallengeAccepted)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "white_id=eq." + uid }, () => loadClubActiveGames())
@@ -4451,6 +4455,23 @@ function subscribeClubChannel(){
         clubSubscribedOnce = true;
       }
     });
+}
+
+// Ronda "aviso de reto entrante" (2026-09-26): hasta ahora, un reto nuevo
+// solo se notaba si el panel Club estaba abierto (loadClubChallenges() lo
+// refresca, pero en silencio). Mismo aviso flotante que ya usa
+// handleMyChallengeAccepted() más abajo — se nota aunque esté mirando el
+// tablero. Falta el nombre de quien retó en el propio evento de Realtime
+// (game_challenges solo trae el uuid en created_by), así que se pide su
+// perfil aparte, igual que ya hace enterLiveGameInner() con el rival.
+async function handleIncomingChallenge(payload){
+  loadClubChallenges();
+  const row = payload.new;
+  if(!row || !row.created_by) return;
+  const { data: p } = await sb.from("profiles")
+    .select("username, display_name").eq("id", row.created_by).maybeSingle();
+  const who = p ? (p.display_name || p.username) : "Alguien";
+  showGlobalToast("¡" + who + " te ha retado a una partida!");
 }
 
 // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24; ajustada en la ronda
@@ -4710,7 +4731,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V116 · 26-sep-2026 · chat con fundido al cerrar";
+const BUILD_ID = "V117 · 26-sep-2026 · avisos con el mismo fundido + aviso de reto";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
