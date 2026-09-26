@@ -1749,6 +1749,19 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
               <option value="blancas">Blancas</option>
               <option value="negras">Negras</option>
             </select>
+            <label class="lib-label" for="club-compose-time" style="margin-top:8px">Reloj</label>
+            <select id="club-compose-time" aria-label="Control de tiempo del reto">
+              <option value="none" selected>Sin reloj</option>
+              <option value="5+0">5+0</option>
+              <option value="10+0">10+0</option>
+              <option value="15+10">15+10</option>
+              <option value="30+0">30+0</option>
+              <option value="custom">Personalizado…</option>
+            </select>
+            <div id="club-compose-time-custom" hidden style="margin-top:6px; display:flex; gap:10px; align-items:center">
+              <label style="font-size:.85rem">Min <input type="number" id="club-compose-time-min" min="1" max="180" value="15" style="width:56px"></label>
+              <label style="font-size:.85rem">Incr. (s) <input type="number" id="club-compose-time-inc" min="0" max="60" value="10" style="width:56px"></label>
+            </div>
             <div class="btns" style="margin-top:10px">
               <button class="btn" id="club-compose-send">Enviar reto</button>
               <button class="btn" id="club-compose-cancel">Cancelar</button>
@@ -3357,11 +3370,14 @@ function renderNameplate(el, color){
   // vez por color en cada render(), así que reconstruirlo acá siempre
   // queda en el nameplate correcto. syncClockRunning() (llamado al final de
   // render()) es quien lo llena de contenido justo después.
-  if(clockEnabled){
+  // Reloj en vivo (Fase 2, paso 5): mismo badge, contenido distinto — ver
+  // liveHasClock()/liveRemainingMs() más abajo. Nunca coinciden los dos a la
+  // vez (clockEnabled se apaga a propósito al entrar en vivo).
+  if(clockEnabled || liveHasClock()){
     const clock = document.createElement("span");
     clock.className = "clock-badge";
     clock.dataset.color = color;
-    clock.textContent = formatClock(clockMs[color]);
+    clock.textContent = liveHasClock() ? formatClock(liveRemainingMs(color)) : formatClock(clockMs[color]);
     el.appendChild(clock);
   }
 }
@@ -3662,6 +3678,7 @@ function render(){
   document.getElementById("nav-next").disabled = atLive();
   document.getElementById("nav-end").disabled = atLive();
   syncClockRunning();
+  syncLiveClockRunning();
   maybeMachineMove();
 }
 
@@ -4314,6 +4331,26 @@ const clubComposeEl = document.getElementById("club-compose");
 const clubComposeNameEl = document.getElementById("club-compose-name");
 const clubComposeVariantEl = document.getElementById("club-compose-variant");
 const clubComposeColorEl = document.getElementById("club-compose-color");
+const clubComposeTimeEl = document.getElementById("club-compose-time");
+const clubComposeTimeCustomEl = document.getElementById("club-compose-time-custom");
+const clubComposeTimeMinEl = document.getElementById("club-compose-time-min");
+const clubComposeTimeIncEl = document.getElementById("club-compose-time-inc");
+const CLUB_TIME_PRESETS = { "5+0":[5,0], "10+0":[10,0], "15+10":[15,10], "30+0":[30,0] };
+clubComposeTimeEl.addEventListener("change", () => {
+  clubComposeTimeCustomEl.hidden = clubComposeTimeEl.value !== "custom";
+});
+// Devuelve [inicial_seg, incremento_seg] o [null, null] para "Sin reloj".
+function clubComposeTimeValues(){
+  const v = clubComposeTimeEl.value;
+  if(v === "none") return [null, null];
+  if(v === "custom"){
+    const min = Math.max(1, Math.min(180, +clubComposeTimeMinEl.value || 15));
+    const inc = Math.max(0, Math.min(60, +clubComposeTimeIncEl.value || 0));
+    return [min * 60, inc];
+  }
+  const preset = CLUB_TIME_PRESETS[v] || CLUB_TIME_PRESETS["15+10"];
+  return [preset[0] * 60, preset[1]];
+}
 
 let clubComposeTarget = null; // {id, name} del miembro al que se está retando
 
@@ -4501,13 +4538,14 @@ document.getElementById("club-compose-send").onclick = async () => {
   if(!clubComposeTarget) return;
   const variant = clubComposeVariantEl.value;
   const color = clubComposeColorEl.value;
+  const [timeInitial, timeIncrement] = clubComposeTimeValues();
   clubNote("Enviando reto…");
   const { error } = await sb.rpc("send_challenge", {
     p_invited_id: clubComposeTarget.id,
     p_variant: variant,
     p_creator_color: color,
-    p_time_initial: null,
-    p_time_increment: null
+    p_time_initial: timeInitial,
+    p_time_increment: timeIncrement
   });
   if(error){ clubNote("No se pudo enviar el reto: " + error.message, true); return; }
   clubNote("Reto enviado a " + clubComposeTarget.name + ".");
@@ -4664,7 +4702,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V114 · 25-sep-2026 · chat efímero";
+const BUILD_ID = "V115 · 25-sep-2026 · reloj en vivo";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -4699,6 +4737,15 @@ function applyGameRow(row){
   // traer null; en los primeros 4 s no se le hace caso.
   if(prevOffer === accountProfile.id && !row.draw_offered_by && !row.result && Date.now() - (liveGame.offerAt || 0) <= 4000) return;
   liveGame.drawOfferedBy = row.draw_offered_by || null;
+  // Reloj en vivo: este es el único punto por el que pasan TODAS las fuentes
+  // de una fila `games` fresca (Realtime, resync cada 5s, volver a la
+  // pestaña) — sincronizar acá cubre los tres caminos con un solo código.
+  const plyBefore = liveGame.plyCount;
+  if(row.time_control_initial_seconds !== undefined) liveGame.timeInitialSec = row.time_control_initial_seconds;
+  if(row.time_control_increment_seconds !== undefined) liveGame.timeIncSec = row.time_control_increment_seconds || 0;
+  if(row.white_time_left_ms != null) liveGame.whiteTimeMs = row.white_time_left_ms;
+  if(row.black_time_left_ms != null) liveGame.blackTimeMs = row.black_time_left_ms;
+  if(row.turn_started_at) liveGame.turnStartedAt = new Date(row.turn_started_at).getTime();
   if(row.result && !game.result){
     game.result = row.result;
     renderStatus(liveState(), outcome(liveState()));
@@ -4706,6 +4753,12 @@ function applyGameRow(row){
       showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
     } else if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " aceptó las tablas.");
+    } else if(row.status === "finalizada" && liveHasClock() && (row.ply_count || 0) === plyBefore){
+      // Terminó sin que llegara una jugada nueva: solo puede ser bandera
+      // caída (claim_timeout la puso el que la detectó primero, cualquiera
+      // de los dos lados). No hay forma de distinguir "quién" la reclamó
+      // desde acá, pero sí quién ganó.
+      showGlobalToast((row.winner_id === accountProfile.id ? "¡Ganaste! " : "Perdiste — ") + "se acabó el tiempo.");
     }
   } else if(prevOffer === accountProfile.id && !liveGame.drawOfferedBy && !row.result &&
             Date.now() - (liveGame.offerAt || 0) > 4000){
@@ -4714,6 +4767,7 @@ function applyGameRow(row){
     showGlobalToast(liveGame.opponentName + " te ofrece tablas (mira el panel La Partida).");
   }
   updateLiveBanner();
+  syncLiveClockRunning();
 }
 
 // Vuelve a leer la fila de la partida; si el servidor tiene MÁS jugadas que
@@ -5015,7 +5069,14 @@ async function enterLiveGameInner(row){
     id: row.id, myColor, variant: row.variant,
     whiteId: row.white_id, blackId: row.black_id,
     opponentName: oppName, plyCount: game.sans.length,
-    drawOfferedBy: (fullRow && fullRow.draw_offered_by) || null
+    drawOfferedBy: (fullRow && fullRow.draw_offered_by) || null,
+    // Reloj en vivo (Fase 2, paso 5, 2026-09-25): ver bloque "Reloj en vivo"
+    // más abajo, junto a claim_timeout(). timeInitialSec null = sin reloj.
+    timeInitialSec: (fullRow && fullRow.time_control_initial_seconds) ?? null,
+    timeIncSec: (fullRow && fullRow.time_control_increment_seconds) || 0,
+    whiteTimeMs: (fullRow && fullRow.white_time_left_ms) ?? null,
+    blackTimeMs: (fullRow && fullRow.black_time_left_ms) ?? null,
+    turnStartedAt: (fullRow && fullRow.turn_started_at) ? new Date(fullRow.turn_started_at).getTime() : Date.now()
   };
   saveLiveKey(row.id);
   startChat();
@@ -5041,6 +5102,7 @@ function exitLiveGame(){
   if(!liveGame) return;
   if(liveChannel){ sb.removeChannel(liveChannel); liveChannel = null; }
   stopChat();
+  stopLiveClockTicking();
   liveGame = null;
   clearLiveKey();
   updateLiveBanner();
@@ -5070,6 +5132,11 @@ function reloadLiveGame(){
     selected = null;
     persist(); render();
     updateLiveBanner();
+    // Reloj en vivo: este releído no traía la fila `games` (solo game_moves),
+    // así que el reloj se quedaba con el turn_started_at/tiempos viejos tras
+    // un hueco de Realtime. applyGameRow() ya sabe sincronizar ambos.
+    const { data: g } = await sb.from("games").select("*").eq("id", saved.id).maybeSingle();
+    if(g && liveGame && liveGame.id === saved.id) applyGameRow(g);
   })();
 }
 
@@ -5100,7 +5167,24 @@ async function pushLiveMove(){
   });
   if(moveErr){ clubNote("No se pudo enviar tu jugada: " + moveErr.message, true); return; }
 
-  const patch = { current_fen: fenAfter, ply_count: ply, turn_started_at: new Date().toISOString(), status };
+  const nowIso = new Date().toISOString();
+  const patch = { current_fen: fenAfter, ply_count: ply, turn_started_at: nowIso, status };
+  // Reloj en vivo: el incremento Fischer se suma al bando que ACABA de mover
+  // (nextState.turn ya es el turno SIGUIENTE, así que el que movió es el
+  // contrario), igual que hace commitMove() con el reloj local. Se calcula
+  // acá y no se espera el viaje de ida y vuelta a Supabase para que el
+  // propio tablero no dependa de la red para mostrar su nuevo tiempo.
+  if(liveHasClock()){
+    const moverColor = nextState.turn === "w" ? "b" : "w";
+    const elapsedMs = Date.now() - liveGame.turnStartedAt;
+    const incMs = (liveGame.timeIncSec || 0) * 1000;
+    const baseMs = moverColor === "w" ? liveGame.whiteTimeMs : liveGame.blackTimeMs;
+    const newMs = Math.max(0, baseMs - elapsedMs) + incMs;
+    if(moverColor === "w") liveGame.whiteTimeMs = newMs; else liveGame.blackTimeMs = newMs;
+    patch.white_time_left_ms = liveGame.whiteTimeMs;
+    patch.black_time_left_ms = liveGame.blackTimeMs;
+  }
+  liveGame.turnStartedAt = new Date(nowIso).getTime();
   if(result){ patch.result = result; patch.winner_id = winnerId; }
   // Ronda "tablas": mover borra cualquier oferta pendiente (solo si sabemos
   // que hay una, así no toca la columna si la migración 06 aún no corrió).
@@ -5110,6 +5194,7 @@ async function pushLiveMove(){
 
   if(result){ game.result = result; renderStatus(liveState(), outcome(liveState())); }
   updateLiveBanner();
+  syncLiveClockRunning();
 }
 
 function handleRemoteMove(payload){
@@ -5452,6 +5537,83 @@ document.getElementById("clock-custom-inc").addEventListener("change", () => {
   persistClockPrefs();
   if(clockEnabled){ resetClock(); persist(); render(); }
 });
+
+/* ---- Reloj en vivo (Fase 2, paso 5, 2026-09-25) ----
+   Reloj de la PARTIDA EN VIVO, ligado a games.time_control_initial_seconds/
+   time_control_increment_seconds/white_time_left_ms/black_time_left_ms/
+   turn_started_at — completamente aparte del reloj local de arriba
+   (clockEnabled/clockMs/resetClock()), que se apaga a propósito al entrar
+   en vivo (ver enterLiveGameInner()). Elegido al retar (panel Club,
+   clubComposeTimeValues()) y ya inicializado por respond_challenge() al
+   aceptar — acá solo falta LEERLO, hacerlo correr, y reclamar la bandera.
+
+   "Simple, sin anti-trampas", tal como se pidió: cada cliente calcula su
+   propio tiempo restante a partir del último turn_started_at que conoce
+   (sincronizado en cada fila fresca de `games` vía applyGameRow(), la
+   jugada propia se adelanta localmente en pushLiveMove() sin esperar la
+   red). Quien detecta la bandera caída llama a claim_timeout() — esa
+   función SÍ recalcula el tiempo en el servidor antes de aceptar el
+   reclamo, así nadie puede cantar victoria antes de tiempo aunque
+   manipule su propio cliente, sin construir un reloj autoritativo
+   completo. Migración: 08_timeout.sql (una sola función nueva). */
+let liveClockTimer = null;
+function liveHasClock(){
+  return !!(liveGame && liveGame.timeInitialSec != null);
+}
+function liveRemainingMs(color){
+  if(!liveHasClock()) return 0;
+  const base = color === "w" ? liveGame.whiteTimeMs : liveGame.blackTimeMs;
+  // Con la partida terminada, o si no es el turno de ese color, su reloj no
+  // corre: se muestra el último valor conocido, sin restarle nada.
+  if(game.result || liveState().turn !== color) return base;
+  return base - (Date.now() - liveGame.turnStartedAt);
+}
+function startLiveClockTicking(){
+  if(liveClockTimer) return;
+  liveClockTimer = setInterval(liveClockTick, 200);
+}
+function stopLiveClockTicking(){
+  if(liveClockTimer){ clearInterval(liveClockTimer); liveClockTimer = null; }
+}
+let timeoutClaimInFlight = false;
+function liveClockTick(){
+  if(!liveHasClock() || !liveGame) return;
+  updateLiveClockDisplay();
+  if(game.result || timeoutClaimInFlight) return;
+  const turn = liveState().turn;
+  if(liveRemainingMs(turn) > 0) return;
+  timeoutClaimInFlight = true;
+  sb.rpc("claim_timeout", { p_game_id: liveGame.id }).then(({ error }) => {
+    timeoutClaimInFlight = false;
+    // Un error acá es lo normal si el rival ya la reclamó primero, o si el
+    // servidor todavía no está de acuerdo en que se acabó (reloj algo
+    // desincronizado entre los dos clientes) — resyncLiveGame() lo aclara
+    // solo en el siguiente tick de todos modos, no hace falta mostrar nada.
+    if(!error) resyncLiveGame();
+  });
+}
+function updateLiveClockDisplay(){
+  if(!liveHasClock()) return;
+  const turn = liveState().turn;
+  const running = !game.result;
+  for(const color of ["w","b"]){
+    const el = document.querySelector('.clock-badge[data-color="' + color + '"]');
+    if(!el) continue;
+    const ms = liveRemainingMs(color);
+    el.textContent = formatClock(ms);
+    el.classList.toggle("active", running && turn === color);
+    el.classList.toggle("out", ms <= 0);
+    el.classList.toggle("low", ms > 0 && ms <= 30000);
+  }
+}
+// Llamado al final de cada render() (junto a syncClockRunning()) y tras
+// cada sincronización de reloj (pushLiveMove(), applyGameRow()): decide si
+// el intervalo de reloj en vivo debe estar corriendo AHORA MISMO.
+function syncLiveClockRunning(){
+  if(!liveHasClock()){ stopLiveClockTicking(); return; }
+  if(game.result) stopLiveClockTicking(); else startLiveClockTicking();
+  updateLiveClockDisplay();
+}
 
 function machineMovetimeFor(level){
   if(level <= 0) return 300;
