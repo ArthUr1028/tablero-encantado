@@ -4739,7 +4739,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V119 · 26-sep-2026 · jaque/mate/tablas en todas las modalidades";
+const BUILD_ID = "V120 · 26-sep-2026 · fix aviso de tiempo pisando el de jaque mate";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -4777,7 +4777,6 @@ function applyGameRow(row){
   // Reloj en vivo: este es el único punto por el que pasan TODAS las fuentes
   // de una fila `games` fresca (Realtime, resync cada 5s, volver a la
   // pestaña) — sincronizar acá cubre los tres caminos con un solo código.
-  const plyBefore = liveGame.plyCount;
   if(row.time_control_initial_seconds !== undefined) liveGame.timeInitialSec = row.time_control_initial_seconds;
   if(row.time_control_increment_seconds !== undefined) liveGame.timeIncSec = row.time_control_increment_seconds || 0;
   if(row.white_time_left_ms != null) liveGame.whiteTimeMs = row.white_time_left_ms;
@@ -4790,11 +4789,24 @@ function applyGameRow(row){
       showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
     } else if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " aceptó las tablas.");
-    } else if(row.status === "finalizada" && liveHasClock() && (row.ply_count || 0) === plyBefore){
-      // Terminó sin que llegara una jugada nueva: solo puede ser bandera
-      // caída (claim_timeout la puso el que la detectó primero, cualquiera
-      // de los dos lados). No hay forma de distinguir "quién" la reclamó
-      // desde acá, pero sí quién ganó.
+    } else if(row.status === "finalizada" && liveHasClock() && row.current_fen &&
+              !["checkmate", "stalemate", "material", "nokings"].includes(outcome(parseFEN(row.current_fen)))){
+      // Bug real (2026-09-26, reportado por Arthur): esto antes comparaba
+      // row.ply_count con plyBefore ("¿llegó la fila `games` SIN que antes
+      // llegara la jugada que la explica?") para adivinar timeout — pero
+      // handleRemoteMove() (que aplica la jugada del rival y YA avisa jaque
+      // mate por su cuenta, ver announceCheckOrMate()) actualiza
+      // liveGame.plyCount ANTES de que esta función llegue a leerlo, así que
+      // plyBefore terminaba SIEMPRE igual a row.ply_count — el aviso de
+      // "tiempo" pisaba al de jaque mate ya mostrado, con el mate real. En
+      // vez de adivinar por contadores que dependen de en qué orden llega
+      // cada evento de Realtime, se recalculan las reglas sobre la posición
+      // final (current_fen) — si por las reglas el tablero NO está en mate/
+      // ahogado/material insuficiente, el resultado solo pudo llegar sin
+      // jugada de por medio: bandera caída (claim_timeout). Checkmate/
+      // tablas por reglas ya se avisan solos en el momento en que se aplica
+      // la jugada que los produce (pushLiveMove()/handleRemoteMove()) —
+      // este aviso es solo para el caso que ningún otro lugar anuncia.
       showGlobalToast((row.winner_id === accountProfile.id ? "¡Ganaste! " : "Perdiste — ") + "se acabó el tiempo.");
     }
   } else if(prevOffer === accountProfile.id && !liveGame.drawOfferedBy && !row.result &&
