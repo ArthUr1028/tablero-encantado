@@ -442,8 +442,16 @@
   #chat-flash.fading{ opacity:0; }
   #chat-unread{ position:absolute; top:-7px; right:-7px; margin:0; padding:0 6px; border-radius:9px; background:var(--ember); color:#1b1206; font-weight:700; font-size:.8rem; }
   #chat-panel{ width:min(280px, calc(100vw - 24px)); padding:8px; background:var(--frame, #241f28); border:1px solid var(--frame-hi, #4c4350);
-    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.45); }
+    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.45);
+    opacity:1; transform:translateY(0); transition:opacity .35s ease, transform .35s ease; }
   #chat-panel[hidden]{ display:none; }
+  /* Ronda "desvanecido al cerrar" (2026-09-26): mismo efecto que ya tenía
+     #chat-flash (ver showChatFlash/hideChatFlash) — a Arthur le gustó tanto
+     que pidió llevarlo también al cierre del panel entero (clic afuera o el
+     propio ícono). .fading se agrega ANTES de poner [hidden] (ver
+     setChatOpen) para que la transición alcance a correr — [hidden] sería
+     display:none instantáneo si se pusiera de una. */
+  #chat-panel.fading{ opacity:0; transform:translateY(6px); pointer-events:none; }
   #chat-log{ max-height:min(220px, 40vh); overflow-y:auto; font-size:.9rem; margin-bottom:6px; }
   #chat-log:empty::before{ content:"Aún no hay mensajes."; color:var(--text-dim, #9a919c); font-size:.85rem; }
   #chat-row{ display:flex; gap:6px; }
@@ -4702,7 +4710,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V115 · 25-sep-2026 · reloj en vivo";
+const BUILD_ID = "V116 · 26-sep-2026 · chat con fundido al cerrar";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -4897,6 +4905,8 @@ function startChat(){
   chatMsgs = []; chatIds = new Set(); chatBroken = false;
   chatUnread = 0; chatOpen = false;
   hideChatFlash();
+  clearTimeout(chatPanelHideTimer);
+  chatPanelEl.classList.remove("fading");
   chatLogEl.innerHTML = "";
   chatPanelEl.hidden = true;
   chatFabEl.setAttribute("aria-expanded", "false");
@@ -4921,11 +4931,28 @@ async function sendChat(text){
   if(error){ chatNote("No se pudo enviar: " + error.message); return; }
   addChatMessages([data], false);
 }
+// Ronda "desvanecido al cerrar" (2026-09-26): cerrar ya no es instantáneo
+// (chatPanelEl.hidden = true de una) — se agrega .fading, se espera a que
+// termine la transición CSS (350ms, ver #chat-panel.fading) y RECIÉN
+// entonces se pone [hidden], igual que el globito flotante de un mensaje
+// (showChatFlash/hideChatFlash) ya hacía. Abrir sigue siendo instantáneo,
+// solo se pidió el efecto para el cierre.
+let chatPanelHideTimer = null;
 function setChatOpen(open){
   chatOpen = open;
-  chatPanelEl.hidden = !open;
   chatFabEl.setAttribute("aria-expanded", open ? "true" : "false");
-  if(open){ hideChatFlash(); chatUnread = 0; renderChatUnread(); chatLogEl.scrollTop = chatLogEl.scrollHeight; if(!chatInputEl.disabled) chatInputEl.focus(); }
+  clearTimeout(chatPanelHideTimer);
+  if(open){
+    chatPanelEl.classList.remove("fading");
+    chatPanelEl.hidden = false;
+    hideChatFlash(); chatUnread = 0; renderChatUnread(); chatLogEl.scrollTop = chatLogEl.scrollHeight; if(!chatInputEl.disabled) chatInputEl.focus();
+  } else {
+    chatPanelEl.classList.add("fading");
+    chatPanelHideTimer = setTimeout(() => {
+      chatPanelEl.hidden = true;
+      chatPanelEl.classList.remove("fading");
+    }, 350);
+  }
 }
 chatFabEl.onclick = () => setChatOpen(!chatOpen);
 // Ronda "clic fuera cierra" (2026-09-25): un toque/clic en cualquier parte
