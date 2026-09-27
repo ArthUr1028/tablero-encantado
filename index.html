@@ -1067,6 +1067,15 @@
   .oracle-alts li{ padding:2px 0; }
   .oracle-alts b{ color:var(--text); }
   .oracle-depth{ font-size:.72rem; color:var(--text-faint); font-style:italic; margin:4px 0 0; }
+  /* V122 — torneos (liguilla) */
+  .tour-table{ width:100%; border-collapse:collapse; font-size:.85rem; margin:6px 0 10px; }
+  .tour-table th, .tour-table td{ padding:4px 6px; border-bottom:1px solid var(--line); text-align:center; }
+  .tour-table th:nth-child(2), .tour-table td:nth-child(2){ text-align:left; }
+  .tour-table tr.me td{ font-weight:600; }
+  .tour-round{ margin:10px 0 2px; font-size:.82rem; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; }
+  .tour-match{ display:flex; gap:8px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin:3px 0; font-size:.88rem; }
+  .tour-match.mine{ font-weight:600; }
+  .tour-champ{ padding:8px 10px; border:1px solid var(--line); border-radius:6px; margin:8px 0; }
 </style>
 
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
@@ -1788,6 +1797,39 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 
           <h3 style="margin:14px 0 6px; font-size:.95rem">Partidas en curso</h3>
           <div id="club-active-games"></div>
+
+          <h3 style="margin:14px 0 6px; font-size:.95rem">Torneos</h3>
+          <div class="btns" style="margin-bottom:6px">
+            <button class="btn" id="club-tournament-new">Crear torneo</button>
+          </div>
+          <div id="club-tournament-compose" hidden style="margin:10px 0; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
+            <label class="lib-label" for="club-tournament-name">Nombre del torneo</label>
+            <input id="club-tournament-name" type="text" maxlength="60" placeholder="Ej. Primer torneo del club" aria-label="Nombre del torneo">
+            <label class="lib-label" for="club-tournament-variant" style="margin-top:8px">Variante</label>
+            <select id="club-tournament-variant" aria-label="Variante del torneo">
+              <option value="clasico">Cl&aacute;sico</option>
+              <option value="capablanca">Capablanca</option>
+              <option value="maharaja">Maharaj&aacute;</option>
+              <option value="amazonas">Amazonas</option>
+            </select>
+            <label class="lib-label" for="club-tournament-time" style="margin-top:8px">Reloj</label>
+            <select id="club-tournament-time" aria-label="Control de tiempo del torneo">
+              <option value="none" selected>Sin reloj</option>
+              <option value="5+0">5+0</option>
+              <option value="10+0">10+0</option>
+              <option value="15+10">15+10</option>
+              <option value="30+0">30+0</option>
+            </select>
+            <label class="lib-label" for="club-tournament-deadline" style="margin-top:8px">Plazo para jugar todas las partidas (opcional)</label>
+            <input id="club-tournament-deadline" type="date" aria-label="Fecha l&iacute;mite del torneo">
+            <p class="free-hint">Liguilla: todos contra todos, una sola vuelta. Al iniciar se sortean los colores y se crean todas las partidas.</p>
+            <div class="btns" style="margin-top:10px">
+              <button class="btn" id="club-tournament-create">Crear</button>
+              <button class="btn" id="club-tournament-cancel">Cancelar</button>
+            </div>
+          </div>
+          <div id="club-tournaments"></div>
+          <div id="club-tournament-detail" style="margin-top:10px"></div>
 
           <h3 style="margin:14px 0 6px; font-size:.95rem">Miembros del club</h3>
           <div id="club-members-list"></div>
@@ -4485,7 +4527,7 @@ async function refreshClub(){
   clubMemberAreaEl.hidden = !isMember;
   if(!isMember) return;
 
-  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames()]);
+  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments()]);
   subscribeClubChannel();
   autoReconnectLive();
 }
@@ -4535,7 +4577,9 @@ async function handleIncomingChallenge(payload){
   const { data: p } = await sb.from("profiles")
     .select("username, display_name").eq("id", row.created_by).maybeSingle();
   const who = p ? (p.display_name || p.username) : "Alguien";
-  showGlobalToast("¡" + who + " te ha retado a una partida!");
+  showGlobalToast(row.tournament_match_id
+    ? "¡" + who + " te manda tu partida de torneo! Acéptala en el panel Club."
+    : "¡" + who + " te ha retado a una partida!");
 }
 
 // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24; ajustada en la ronda
@@ -4571,6 +4615,9 @@ async function handleMyChallengeAccepted(payload){
 // avisa por applyGameRow()).
 function handleClubGameUpdate(payload){
   loadClubActiveGames();
+  // V122: el trigger de la base anota el resultado del torneo en la misma
+  // transacción que este UPDATE — al llegar el evento ya está al día.
+  if(clubTournamentOpenId) loadTournamentDetail(clubTournamentOpenId);
   const row = payload.new;
   if(!row || !accountProfile) return;
   if(row.status === "abandonada" && row.winner_id === accountProfile.id && (!liveGame || liveGame.id !== row.id)){
@@ -4650,7 +4697,7 @@ document.getElementById("club-compose-send").onclick = async () => {
 async function loadClubChallenges(){
   const mySeq = ++clubChallengesSeq;
   const { data: incoming, error: inErr } = await sb.from("game_challenges")
-    .select("id, variant, status, created_at, profiles!game_challenges_created_by_fkey(username, display_name)")
+    .select("id, variant, status, created_at, tournament_match_id, profiles!game_challenges_created_by_fkey(username, display_name)")
     .eq("invited_id", accountProfile.id).eq("status", "pendiente")
     .order("created_at", { ascending: false });
   if(mySeq !== clubChallengesSeq) return;
@@ -4661,10 +4708,11 @@ async function loadClubChallenges(){
   } else {
     incoming.forEach(ch => {
       const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
-      clubChallengesInEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant], [
-        clubBtn("Aceptar", () => respondClubChallenge(ch.id, true)),
-        clubBtn("Rechazar", () => respondClubChallenge(ch.id, false))
-      ]));
+      // V122: una partida de torneo no se rechaza (la base de datos también
+      // lo impide) — solo se acepta cuando puedas jugar, dentro del plazo.
+      const btns = [clubBtn("Aceptar", () => respondClubChallenge(ch.id, true))];
+      if(!ch.tournament_match_id) btns.push(clubBtn("Rechazar", () => respondClubChallenge(ch.id, false)));
+      clubChallengesInEl.appendChild(clubRow((ch.tournament_match_id ? "Torneo · " : "") + who + " · " + VARIANT_LABEL[ch.variant], btns));
     });
   }
 
@@ -4714,6 +4762,319 @@ async function cancelClubChallenge(id){
   clubNote("Reto cancelado.");
   loadClubChallenges();
 }
+
+
+/* ============================================================================
+   Ronda "torneos: liguilla" (V122, 2026-09-27)
+   Todos contra todos, una sola vuelta. La base de datos (migración
+   09_liguilla.sql) sortea, crea todas las partidas, anota los resultados
+   sola (trigger en `games`) y cierra el torneo al terminar la última; acá
+   solo se pide y se muestra. Todo texto de usuario entra con textContent.
+   ============================================================================ */
+const clubTournamentsEl = document.getElementById("club-tournaments");
+const clubTournamentDetailEl = document.getElementById("club-tournament-detail");
+const TOURNAMENT_STATUS_LABEL = { inscripciones: "inscripciones abiertas", en_curso: "en curso", finalizado: "terminado" };
+let clubTournamentOpenId = null, clubTournamentsSeq = 0, clubTournamentDetailSeq = 0;
+const profileNameCache = {};
+
+async function tournamentNames(ids){
+  const need = ids.filter(id => id && !profileNameCache[id]);
+  if(need.length){
+    const { data } = await sb.from("profiles").select("id, username, display_name").in("id", need);
+    (data || []).forEach(pr => { profileNameCache[pr.id] = pr.display_name || pr.username; });
+  }
+  return id => profileNameCache[id] || "jugador";
+}
+function tournamentClockLabel(t){
+  if(t.time_control_initial_seconds == null) return "sin reloj";
+  return Math.round(t.time_control_initial_seconds / 60) + "+" + (t.time_control_increment_seconds || 0);
+}
+function tournamentDeadlineText(t){
+  if(!t.deadline) return "";
+  const d = new Date(t.deadline);
+  let txt = "plazo " + d.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+  if(t.status === "en_curso" && d.getTime() < Date.now()) txt += " (vencido)";
+  return txt;
+}
+// Puntos [del jugador 1, del jugador 2] de una partida cerrada.
+function tournamentMatchPoints(m){
+  if(m.result === "1/2-1/2") return [0.5, 0.5];
+  if(m.result === "1-0" || m.result === "0-1"){
+    const whiteIsP1 = m.white_id === m.player1_id;
+    const p1Wins = (m.result === "1-0") === whiteIsP1;
+    return p1Wins ? [1, 0] : [0, 1];
+  }
+  return [0, 0]; // ausencia de ambos
+}
+// Tabla de posiciones: puntos; con empate, el resultado directo entre los
+// empatados (mini-liguilla); si aún persiste, queda marcado `tied`.
+function computeStandings(parts, matches){
+  const rows = {};
+  parts.forEach(pt => { rows[pt.profile_id] = { id: pt.profile_id, pj: 0, g: 0, e: 0, p: 0, pts: 0, h2h: 0, tied: false }; });
+  const done = matches.filter(m => m.status === "jugada" || m.status === "ausencia");
+  done.forEach(m => {
+    const a = rows[m.player1_id], b = rows[m.player2_id];
+    if(!a || !b) return;
+    const [pa, pb] = tournamentMatchPoints(m);
+    a.pj++; b.pj++; a.pts += pa; b.pts += pb;
+    if(pa > pb){ a.g++; b.p++; } else if(pb > pa){ b.g++; a.p++; }
+    else if(pa === 0.5){ a.e++; b.e++; } else { a.p++; b.p++; }
+  });
+  const list = Object.values(rows).sort((x, y) => y.pts - x.pts);
+  const out = [];
+  let i = 0;
+  while(i < list.length){
+    let j = i;
+    while(j + 1 < list.length && list[j + 1].pts === list[i].pts) j++;
+    const grp = list.slice(i, j + 1);
+    if(grp.length > 1){
+      const ids = new Set(grp.map(r => r.id));
+      done.forEach(m => {
+        if(ids.has(m.player1_id) && ids.has(m.player2_id)){
+          const [pa, pb] = tournamentMatchPoints(m);
+          rows[m.player1_id].h2h += pa; rows[m.player2_id].h2h += pb;
+        }
+      });
+      grp.sort((x, y) => y.h2h - x.h2h);
+      grp.forEach((r, k) => { r.tied = grp.some((o, q) => q !== k && o.h2h === r.h2h); });
+    }
+    out.push(...grp);
+    i = j + 1;
+  }
+  return out;
+}
+
+async function loadClubTournaments(){
+  const mySeq = ++clubTournamentsSeq;
+  const { data, error } = await sb.from("tournaments").select("*")
+    .order("created_at", { ascending: false }).limit(8);
+  if(mySeq !== clubTournamentsSeq) return;
+  if(error){ clubNote("No se pudieron cargar los torneos: " + error.message, true); return; }
+  clubTournamentsEl.innerHTML = "";
+  if(!data || data.length === 0){
+    clubTournamentsEl.innerHTML = '<p class="free-hint">Todavía no hay torneos. Crea el primero.</p>';
+  } else {
+    data.forEach(t => {
+      const label = t.name + " · " + (VARIANT_LABEL[t.variant] || t.variant) + " · " + (TOURNAMENT_STATUS_LABEL[t.status] || t.status);
+      clubTournamentsEl.appendChild(clubRow(label, [
+        clubBtn(clubTournamentOpenId === t.id ? "Cerrar" : "Abrir", () => toggleClubTournament(t.id))
+      ]));
+    });
+  }
+  if(clubTournamentOpenId) loadTournamentDetail(clubTournamentOpenId);
+}
+function toggleClubTournament(id){
+  if(clubTournamentOpenId === id){
+    clubTournamentOpenId = null;
+    clubTournamentDetailEl.innerHTML = "";
+    loadClubTournaments();
+    return;
+  }
+  clubTournamentOpenId = id;
+  loadClubTournaments(); // repinta los botones y carga el detalle
+}
+async function loadTournamentDetail(id){
+  const mySeq = ++clubTournamentDetailSeq;
+  const [tRes, pRes, mRes] = await Promise.all([
+    sb.from("tournaments").select("*").eq("id", id).maybeSingle(),
+    sb.from("tournament_participants").select("profile_id, seed").eq("tournament_id", id),
+    sb.from("tournament_matches").select("*").eq("tournament_id", id).order("round").order("match_number")
+  ]);
+  if(mySeq !== clubTournamentDetailSeq) return;
+  const err = tRes.error || pRes.error || mRes.error;
+  if(err){ clubNote("No se pudo cargar el torneo: " + err.message, true); return; }
+  if(!tRes.data){ clubTournamentDetailEl.innerHTML = ""; return; }
+  const parts = pRes.data || [], matches = mRes.data || [];
+  const ids = [...new Set([...parts.map(x => x.profile_id), ...matches.flatMap(m => [m.player1_id, m.player2_id])])];
+  const nm = await tournamentNames(ids);
+  if(mySeq !== clubTournamentDetailSeq) return;
+  renderTournamentDetail(tRes.data, parts, matches, nm);
+}
+function tourText(tag, text, cls){
+  const el = document.createElement(tag);
+  el.textContent = text;
+  if(cls) el.className = cls;
+  return el;
+}
+// Selector del organizador para resolver una partida por ausencia. En una
+// partida ya EN JUEGO no existe "ninguno se presentó" (los dos llegaron):
+// hay que elegir ganador, y la partida real se cierra para ambos.
+function tournamentForfeitSelect(m, blackId, nm, allowNone){
+  const sel = document.createElement("select");
+  sel.setAttribute("aria-label", allowNone ? "Dar por ausencia" : "Resolver partida atascada");
+  const opts = [["", allowNone ? "Ausencia…" : "Resolver…"], [m.white_id, "Gana " + nm(m.white_id)], [blackId, "Gana " + nm(blackId)]];
+  if(allowNone) opts.push(["none", "Ninguno se presentó"]);
+  opts.forEach(([v, l]) => { const o = document.createElement("option"); o.value = v; o.textContent = l; sel.appendChild(o); });
+  sel.onchange = async () => {
+    if(!sel.value) return;
+    const winner = sel.value === "none" ? null : sel.value;
+    const msg = !winner
+      ? "¿Dar la partida por ausencia de ambos (0 puntos para los dos)?"
+      : allowNone
+        ? "¿Dar la partida por ausencia a favor de " + nm(winner) + "?"
+        : "Esta partida ya está en juego. ¿Darla por ganada a favor de " + nm(winner) + "? Se cierra para los dos jugadores.";
+    if(!confirm(msg)){ sel.value = ""; return; }
+    clubNote("Registrando resultado…");
+    const { error } = await sb.rpc("forfeit_match", { p_match_id: m.id, p_winner_id: winner });
+    if(error){ clubNote("No se pudo registrar: " + error.message, true); sel.value = ""; return; }
+    clubNote("Resultado registrado.");
+    loadClubTournaments();
+  };
+  return sel;
+}
+function renderTournamentDetail(t, parts, matches, nm){
+  const box = clubTournamentDetailEl;
+  box.innerHTML = "";
+  const me = accountProfile.id;
+  const iCreated = t.created_by === me;
+  const inside = parts.some(x => x.profile_id === me);
+
+  box.appendChild(tourText("h4", t.name, ""));
+  const meta = [VARIANT_LABEL[t.variant] || t.variant, tournamentClockLabel(t), "liguilla (una vuelta)", tournamentDeadlineText(t)].filter(Boolean).join(" · ");
+  box.appendChild(tourText("p", meta, "free-hint"));
+
+  if(t.status === "inscripciones"){
+    box.appendChild(tourText("p", "Inscritos (" + parts.length + "): " + (parts.map(x => nm(x.profile_id)).join(", ") || "nadie todavía"), "free-hint"));
+    const btns = [];
+    if(!inside) btns.push(clubBtn("Inscribirme", async () => {
+      clubNote("Inscribiendo…");
+      const { error } = await sb.from("tournament_participants").insert({ tournament_id: t.id, profile_id: me });
+      if(error){ clubNote("No se pudo inscribir: " + error.message, true); return; }
+      clubNote("Inscrito en «" + t.name + "».");
+      loadTournamentDetail(t.id);
+    }));
+    else btns.push(clubBtn("Darme de baja", async () => {
+      clubNote("Saliendo…");
+      const { error } = await sb.from("tournament_participants").delete().eq("tournament_id", t.id).eq("profile_id", me);
+      if(error){ clubNote("No se pudo dar de baja: " + error.message, true); return; }
+      clubNote("Ya no estás inscrito.");
+      loadTournamentDetail(t.id);
+    }));
+    if(iCreated){
+      const start = clubBtn("Iniciar torneo", async () => {
+        if(parts.length < 3){ clubNote("Hacen falta al menos 3 jugadores inscritos.", true); return; }
+        const n = parts.length, games = n * (n - 1) / 2;
+        if(!confirm("Se cerrarán las inscripciones y se sortearán las " + games + " partidas (" + n + " jugadores). ¿Iniciar el torneo?")) return;
+        clubNote("Iniciando torneo…");
+        const { error } = await sb.rpc("start_tournament", { p_tournament_id: t.id });
+        if(error){ clubNote("No se pudo iniciar: " + error.message, true); return; }
+        clubNote("¡Torneo iniciado! Ya están todas las partidas.");
+        showGlobalToast("¡El torneo «" + t.name + "» ya empezó!");
+        loadClubTournaments();
+      });
+      btns.push(start);
+    }
+    const row = document.createElement("div");
+    row.className = "btns";
+    btns.forEach(b => row.appendChild(b));
+    box.appendChild(row);
+    if(iCreated && parts.length < 3) box.appendChild(tourText("p", "Para iniciar hacen falta al menos 3 inscritos.", "free-hint"));
+    return;
+  }
+
+  // ---- en curso / terminado: posiciones
+  const st = computeStandings(parts, matches);
+  const table = document.createElement("table");
+  table.className = "tour-table";
+  const head = document.createElement("tr");
+  ["#", "Jugador", "PJ", "G", "E", "P", "Pts"].forEach(h => head.appendChild(tourText("th", h)));
+  table.appendChild(head);
+  st.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    if(r.id === me) tr.className = "me";
+    [String(i + 1) + (r.tied && t.status === "finalizado" ? "=" : ""), nm(r.id), r.pj, r.g, r.e, r.p, String(r.pts).replace(".5", "½").replace(/^0½$/, "½")]
+      .forEach(v => tr.appendChild(tourText("td", String(v))));
+    table.appendChild(tr);
+  });
+  box.appendChild(table);
+
+  if(t.status === "finalizado" && st.length){
+    const top = st[0];
+    const leaders = st.filter(r => r.pts === top.pts && r.h2h === top.h2h);
+    const champ = document.createElement("div");
+    champ.className = "tour-champ";
+    if(!top.tied) champ.textContent = "Campeón: " + nm(top.id) + " con " + String(top.pts).replace(".5", "½") + " puntos.";
+    else champ.textContent = "Empate en el primer lugar entre " + leaders.map(r => nm(r.id)).join(" y ") + ". Decídanlo con una partida extra (un reto normal).";
+    box.appendChild(champ);
+  }
+
+  // ---- partidas por jornada
+  box.appendChild(tourText("p", "B = blancas, N = negras. Las partidas se juegan cuando les convenga" + (t.deadline ? ", antes del plazo" : "") + "; quien pulsa «Jugar» manda el reto y el rival lo acepta.", "free-hint"));
+  let round = null;
+  matches.forEach(m => {
+    if(m.round !== round){ round = m.round; box.appendChild(tourText("div", "Jornada " + round, "tour-round")); }
+    const isMine = m.player1_id === me || m.player2_id === me;
+    const blackId = m.white_id === m.player1_id ? m.player2_id : m.player1_id;
+    const row = document.createElement("div");
+    row.className = "tour-match" + (isMine ? " mine" : "");
+    row.appendChild(tourText("span", nm(m.white_id) + " (B) vs " + nm(blackId) + " (N)"));
+    const right = document.createElement("span");
+    right.style.display = "flex"; right.style.gap = "6px"; right.style.alignItems = "center";
+    if(m.status === "jugada"){
+      right.appendChild(tourText("span", m.result === "1/2-1/2" ? "½–½" : (m.result === "1-0" ? "1–0" : "0–1")));
+    } else if(m.status === "ausencia"){
+      right.appendChild(tourText("span", m.result ? ((m.result === "1-0" ? "1–0" : "0–1") + " por ausencia") : "ausencia de ambos"));
+    } else if(m.status === "en_juego"){
+      right.appendChild(tourText("span", "en juego"));
+      // V123: una partida que empezó y nadie termina se resuelve a mano.
+      if(iCreated && t.status === "en_curso") right.appendChild(tournamentForfeitSelect(m, blackId, nm, false));
+    } else {
+      if(isMine && t.status === "en_curso"){
+        right.appendChild(clubBtn("Jugar", async () => {
+          clubNote("Enviando reto de torneo…");
+          const { error } = await sb.rpc("send_tournament_challenge", { p_match_id: m.id });
+          if(error){ clubNote("No se pudo enviar: " + error.message, true); return; }
+          const oppId = m.player1_id === me ? m.player2_id : m.player1_id;
+          clubNote("Reto enviado a " + nm(oppId) + ". Cuando lo acepte, empieza la partida.");
+          loadClubChallenges();
+          loadTournamentDetail(t.id);
+        }));
+      } else right.appendChild(tourText("span", "pendiente"));
+      if(iCreated && t.status === "en_curso") right.appendChild(tournamentForfeitSelect(m, blackId, nm, true));
+    }
+    row.appendChild(right);
+    box.appendChild(row);
+  });
+}
+
+document.getElementById("club-tournament-new").onclick = () => {
+  const c = document.getElementById("club-tournament-compose");
+  c.hidden = !c.hidden;
+};
+document.getElementById("club-tournament-cancel").onclick = () => {
+  document.getElementById("club-tournament-compose").hidden = true;
+};
+document.getElementById("club-tournament-create").onclick = async () => {
+  const name = document.getElementById("club-tournament-name").value.trim();
+  if(!name){ clubNote("Ponle un nombre al torneo.", true); return; }
+  const variant = document.getElementById("club-tournament-variant").value;
+  const preset = CLUB_TIME_PRESETS[document.getElementById("club-tournament-time").value];
+  const dv = document.getElementById("club-tournament-deadline").value;
+  const deadline = dv ? new Date(dv + "T23:59:59").toISOString() : null;
+  clubNote("Creando torneo…");
+  const { data: t, error } = await sb.from("tournaments").insert({
+    name, variant, mode: "tiempo_real", status: "inscripciones", created_by: accountProfile.id,
+    format: "liguilla",
+    time_control_initial_seconds: preset ? preset[0] * 60 : null,
+    time_control_increment_seconds: preset ? preset[1] : null,
+    deadline
+  }).select().single();
+  if(error){ clubNote("No se pudo crear el torneo: " + error.message, true); return; }
+  // Quien organiza queda inscrito (puede darse de baja si solo organiza).
+  const { error: pErr } = await sb.from("tournament_participants").insert({ tournament_id: t.id, profile_id: accountProfile.id });
+  clubNote(pErr ? "Torneo creado, pero no pude inscribirte: " + pErr.message : "Torneo «" + name + "» creado. Avisa al club para que se inscriban.", !!pErr);
+  document.getElementById("club-tournament-name").value = "";
+  document.getElementById("club-tournament-compose").hidden = true;
+  clubTournamentOpenId = t.id;
+  loadClubTournaments();
+};
+// Sin Realtime en las tablas de torneos: se refresca solo mientras el panel
+// Club está a la vista.
+setInterval(() => {
+  if(accountProfile && clubPanelEl && !clubPanelEl.hidden && !clubMemberAreaEl.hidden &&
+     document.visibilityState === "visible" &&
+     !clubTournamentDetailEl.contains(document.activeElement)) loadClubTournaments();
+}, 12000);
 
 document.getElementById("club-join-btn").onclick = async () => {
   const input = document.getElementById("club-code-input");
@@ -4795,7 +5156,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V121 · 26-sep-2026 · tablas por repetición triple";
+const BUILD_ID = "V123 · 27-sep-2026 · torneos: resolver partidas atascadas";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
