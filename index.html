@@ -3635,7 +3635,33 @@ if(typeof ResizeObserver !== "undefined"){
 // dispara más abajo, justo después del primer render() — acá arriba el
 // tablero todavía no está pintado (el `render()` inicial corre al final
 // del script) y medir el bloque fijo ahora daría alturas en cero.
-window.addEventListener("resize", syncBoardMetrics);
+/* Ronda "el tablero cambia de tamaño varias veces al girar el celular"
+   (V136, 2026-09-27, reportado por Arthur en horizontal, sin poder subir
+   la grabación de pantalla): este listener llamaba a `syncBoardMetrics()`
+   -- la pasada CARA, con el bucle de achique de hasta 6 vueltas -- de
+   forma directa en CADA evento `resize`, sin ningún filtro. Girar un
+   celular real no dispara un solo `resize`: la barra de direcciones del
+   navegador se esconde/reaparece durante la animación de rotación, y
+   eso por sí solo genera varios eventos `resize` seguidos, cada uno con
+   un `window.innerHeight` todavía a mitad de esa transición -- exactamente
+   el mismo tipo de causa ya documentada para el parpadeo de la Versión
+   109 (una medición corriendo contra un estado que todavía se está
+   asentando), pero acá mucho más visible porque cada evento de la ráfaga
+   dispara el bucle de achique completo con su propia medida intermedia,
+   y cada una de esas medidas intermedias SÍ llega a pintarse en pantalla.
+   Arreglo: el mismo patrón "debounce" que ya usa este archivo para el
+   resize de los nameplates en horizontal táctil (`nmResizeTimer`, unas
+   líneas más abajo) -- esperar a que la ráfaga de eventos se calme antes
+   de correr la pasada cara, en vez de correrla en cada uno. No se pudo
+   reproducir la ráfaga en Playwright (headless no anima la barra de
+   direcciones ni dispara resize intermedios durante una rotación), así
+   que este arreglo queda sin confirmar hasta que Arthur lo pruebe en su
+   celular real. */
+let boardMetricsResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(boardMetricsResizeTimer);
+  boardMetricsResizeTimer = setTimeout(syncBoardMetrics, 150);
+});
 document.addEventListener("fullscreenchange", syncBoardMetricsDeferred);
 document.addEventListener("webkitfullscreenchange", syncBoardMetricsDeferred);
 const statusEl = document.getElementById("status");
@@ -5373,7 +5399,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V136 · 27-sep-2026 · Coordenadas sin salto por orientación; panel fijo al costado en táctil horizontal";
+const BUILD_ID = "V137 · 27-sep-2026 · Tablero no cambia de tamaño repetido al girar el celular (resize con debounce)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
