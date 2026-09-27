@@ -5207,7 +5207,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V125 · 27-sep-2026 · Salón: nombres de ambos bandos y retratos vía Wikidata";
+const BUILD_ID = "V126 · 27-sep-2026 · Salón: retratos por lotes (Wikidata+Commons)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -7300,7 +7300,7 @@ function hofAttachImg(wrap, m, c){
   const img = document.createElement("img");
   img.alt = "Retrato de " + m.name;
   img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
-  img.onerror = () => img.remove();
+  img.onerror = () => { hofDebugLog.push("img falló: " + m.id + " " + c.src); img.remove(); };
   img.onload = () => { const md = wrap.querySelector(".hof-medal"); if(md) md.style.display = "none"; };
   img.src = c.src;
   wrap.appendChild(img);
@@ -7320,7 +7320,7 @@ function hofFillCredit(m){
   if(!box || hofView.id !== m.id) return;
   box.textContent = "";
   const c = hofImgCache[m.id];
-  if(!c || !c.src) return;
+  if(!c || !c.src){ if(c && c.none) box.textContent = "Sin retrato libre disponible en Wikimedia Commons."; return; }
   box.appendChild(document.createTextNode("Imagen: " + (c.artist ? c.artist + " · " : "")));
   if(c.license){
     if(c.licenseUrl){ const a = hofEl("a", "", c.license); a.href = c.licenseUrl; a.target = "_blank"; a.rel = "noopener noreferrer"; box.appendChild(a); }
@@ -7332,47 +7332,69 @@ function hofFillCredit(m){
   src.target = "_blank"; src.rel = "noopener noreferrer";
   box.appendChild(src);
 }
-async function hofFetchPortrait(m){
-  const c = hofImgCache[m.id];
-  if(c && Date.now() - (c.t || 0) < (c.none ? 86400000 : 30 * 86400000)) return;
-  const miss = () => { hofImgCache[m.id] = { none:1, t:Date.now() }; hofSaveImgCache(); };
-  try{
-    // Wikidata P18 = imagen principal, SIEMPRE alojada en Wikimedia Commons (libre).
-    // (El resumen de en.wikipedia a menudo devuelve fotos "uso legítimo" locales, que no sirven.)
-    const wr = await fetch("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=claims&sites=enwiki&titles=" + encodeURIComponent(m.wiki));
-    if(!wr.ok) return;
-    const wj = await wr.json();
-    const ent = Object.values((wj && wj.entities) || {})[0];
-    const claims = (ent && ent.claims && ent.claims.P18) || [];
-    const best = claims.find(x => x.rank === "preferred") || claims.find(x => x.rank !== "deprecated");
-    const file = best && best.mainsnak && best.mainsnak.datavalue && best.mainsnak.datavalue.value;
-    if(typeof file !== "string" || !file){ miss(); return; }
-    const ir = await fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=360&titles=" + encodeURIComponent("File:" + file));
-    if(!ir.ok) return;
-    const ij = await ir.json();
-    const page = Object.values((ij && ij.query && ij.query.pages) || {})[0];
-    const info = page && page.imageinfo && page.imageinfo[0];
-    const src = info && (info.thumburl || info.url);
-    if(typeof src !== "string" || !HOF_SAFE_IMG.test(src)){ miss(); return; }
-    const em = info.extmetadata || {};
-    // DOMParser crea un documento inerte: no ejecuta scripts ni carga imágenes del HTML de Commons.
-    const txt = h => h ? (new DOMParser().parseFromString(String(h), "text/html").body.textContent || "").replace(/\s+/g, " ").trim() : "";
-    const entry = { src, file, t:Date.now(), artist:txt(em.Artist && em.Artist.value).slice(0, 70),
-      license:txt(em.LicenseShortName && em.LicenseShortName.value).slice(0, 40), licenseUrl:"" };
-    const lu = em.LicenseUrl && em.LicenseUrl.value;
-    if(typeof lu === "string" && /^https:\/\//.test(lu)) entry.licenseUrl = lu;
-    hofImgCache[m.id] = entry; hofSaveImgCache();
+const hofFresh = c => c && Date.now() - (c.t || 0) < (c.none ? 3600000 : 30 * 86400000);
+const hofTxt = h => h ? (new DOMParser().parseFromString(String(h), "text/html").body.textContent || "").replace(/\s+/g, " ").trim() : "";
+function hofApply(m, entry){
+  hofImgCache[m.id] = entry; hofSaveImgCache();
+  if(entry.src){
     document.querySelectorAll('[data-hofm="' + m.id + '"]').forEach(w => hofAttachImg(w, m, entry));
     hofFillCredit(m);
-  }catch(e){ /* sin red o bloqueado: quedan los medallones */ }
+  }
 }
+/* Retratos: DOS peticiones en total (antes ~40 en paralelo, que Wikimedia podía limitar).
+   1) Wikidata, todos los maestros a la vez: P18 = imagen principal, siempre en Commons (libre).
+   2) Commons, todos los archivos a la vez: miniatura + autor + licencia.
+   Sin foto libre queda el medallón; el motivo se guarda en hofImgCache[id].why (consola: hofDebug()). */
 async function hofStartPortraits(){
   if(hofPortraitsStarted) return;
   hofPortraitsStarted = true;
-  const queue = HOF.masters.slice();
-  const worker = async () => { while(queue.length) await hofFetchPortrait(queue.shift()); };
-  await Promise.all([worker(), worker(), worker()]);
+  const todo = HOF.masters.filter(m => !hofFresh(hofImgCache[m.id]));
+  if(!todo.length) return;
+  const norm = t => String(t).replace(/_/g, " ").trim().toLowerCase();
+  const byTitle = {}; todo.forEach(m => { byTitle[norm(m.wiki)] = m; });
+  const fileOf = {};   // m.id -> nombre de archivo P18
+  try{
+    const wr = await fetch("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=claims|sitelinks&sitefilter=enwiki&sites=enwiki&titles=" +
+      encodeURIComponent(todo.map(m => m.wiki.replace(/_/g, " ")).join("|")));
+    if(!wr.ok) throw new Error("wikidata HTTP " + wr.status);
+    const wj = await wr.json();
+    for(const ent of Object.values((wj && wj.entities) || {})){
+      const title = ent && ent.sitelinks && ent.sitelinks.enwiki && ent.sitelinks.enwiki.title;
+      const m = title && byTitle[norm(title)];
+      if(!m) continue;
+      const claims = (ent.claims && ent.claims.P18) || [];
+      const best = claims.find(x => x.rank === "preferred") || claims.find(x => x.rank !== "deprecated");
+      const f = best && best.mainsnak && best.mainsnak.datavalue && best.mainsnak.datavalue.value;
+      if(typeof f === "string" && f) fileOf[m.id] = f;
+    }
+  }catch(e){ hofDebugLog.push("wikidata: " + e.message); return; }   // sin red: no se cachea nada, reintenta al abrir
+  const withFile = todo.filter(m => fileOf[m.id]);
+  todo.filter(m => !fileOf[m.id]).forEach(m => hofApply(m, { none:1, why:"Wikidata sin P18", t:Date.now() }));
+  if(!withFile.length) return;
+  try{
+    const ir = await fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=330&titles=" +
+      encodeURIComponent(withFile.map(m => "File:" + fileOf[m.id]).join("|")));
+    if(!ir.ok) throw new Error("commons HTTP " + ir.status);
+    const ij = await ir.json();
+    const pages = Object.values((ij && ij.query && ij.query.pages) || {});
+    const norms = {}; ((ij.query && ij.query.normalized) || []).forEach(n => { norms[n.from] = n.to; });
+    for(const m of withFile){
+      const want = "File:" + fileOf[m.id];
+      const pg = pages.find(p => p.title === (norms[want] || want));
+      const info = pg && pg.imageinfo && pg.imageinfo[0];
+      const src = info && (info.thumburl || info.url);
+      if(typeof src !== "string" || !HOF_SAFE_IMG.test(src)){ hofApply(m, { none:1, why:"Commons sin miniatura: " + fileOf[m.id], t:Date.now() }); continue; }
+      const em = info.extmetadata || {};
+      const entry = { src, file:fileOf[m.id], t:Date.now(), artist:hofTxt(em.Artist && em.Artist.value).slice(0, 70),
+        license:hofTxt(em.LicenseShortName && em.LicenseShortName.value).slice(0, 40), licenseUrl:"" };
+      const lu = em.LicenseUrl && em.LicenseUrl.value;
+      if(typeof lu === "string" && /^https:\/\//.test(lu)) entry.licenseUrl = lu;
+      hofApply(m, entry);
+    }
+  }catch(e){ hofDebugLog.push("commons: " + e.message); }
 }
+const hofDebugLog = [];
+window.hofDebug = () => ({ log:hofDebugLog.slice(), cache:JSON.parse(JSON.stringify(hofImgCache)) });
 
 function hofRenderTimeline(){
   hofView = { kind:"timeline", id:null };
@@ -7464,7 +7486,6 @@ function hofRenderMaster(id){
   hofBodyEl.appendChild(sheet);
   hofBodyEl.scrollTop = 0;
   hofFillCredit(m);
-  hofFetchPortrait(m);
 }
 function hofLoadGame(g){
   stopAuto();
