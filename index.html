@@ -3101,7 +3101,11 @@ const OPENINGS = [
   { id:"tactica-eliminacion", type:"Táctica", name:"Eliminación del Defensor", eco:"Táctica", fen:"r5k1/8/8/3b4/8/1B6/8/R5K1 w - - 0 1", practice:"w", moves:["b3d5","g8g7","a1a8"],
     desc:"Antes de intentar ganar una pieza bien defendida, conviene preguntarse: ¿quién la defiende, y puedo quitar de en medio a ese defensor primero? A veces el propio defensor está indefenso, y la combinación gana dos piezas en vez de una. Aquí el único defensor de la Torre de a8 es el Alfil de d5 — y ese Alfil, además, está completamente indefenso.",
     tip:"Antes de calcular cómo ganar una pieza bien protegida, identifica primero quién la protege — a veces ese defensor es el verdadero blanco.",
-    goal:"Objetivo de la práctica: capturar el Alfil indefenso con Bxd5+ y luego la Torre con Rxa8 contra claudIA." }
+    goal:"Objetivo de la práctica: capturar el Alfil indefenso con Bxd5+ y luego la Torre con Rxa8 contra claudIA." },
+  { id:"tactica-sacrificio-griego", type:"Táctica", name:"El Sacrificio Griego (Bxh7+)", eco:"Táctica", fen:"3q2k1/3p1ppp/8/8/8/3B1N2/8/3Q2K1 w - - 0 1", practice:"w", moves:["d3h7","g8h7","f3g5","h7g8","d1h5"],
+    desc:"El sacrificio más famoso contra el enroque corto: con el Alfil apuntando a h7, el Caballo listo para saltar a g5 y la Dama con acceso a la columna h, Bxh7+ obliga casi siempre a capturar (declinar con Rh8 deja a blancas simplemente arriba un peón, con el Alfil todavía en juego, así que tampoco es un desastre si el rival no cae). Tras Rxh7, Cg5+ vuelve a dar jaque y de paso amenaza el peón de f7; el Rey solo tiene dos retiradas razonables — g8 o g6 — y cada una pide una jugada distinta de Dama.",
+    tip:"Aquí está el detalle que hace célebre esta combinación, y que casi nadie recuerda bien: si el Rey vuelve a g8, sigue Dh5 amenazando mate en h7. Pero si el Rey se atreve a ir a g6 (la defensa más resistente), Dh5+ es un ERROR que regala la Dama con ...Rxh5 — ahí hace falta Dg4 en su lugar, manteniendo la amenaza sin dejarse capturar. Fíjate bien en qué casilla fue el Rey antes de mover la Dama; no repitas la misma jugada de memoria en las dos ramas.",
+    goal:"Objetivo de la práctica: sacrificar con Bxh7+ y encontrar la jugada de Dama correcta según adónde se retire el Rey de claudIA — ganar material decisivo o rematar el ataque." }
 ];
 
 /* ---------- Identificación automática de apertura (catálogo ECO) ---------- */
@@ -5245,7 +5249,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V131 · 27-sep-2026 · Grimorio: tácticas de medio juego con práctica";
+const BUILD_ID = "V132 · 27-sep-2026 · Grimorio: se agrega el Sacrificio Griego";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
