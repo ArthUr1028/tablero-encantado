@@ -228,9 +228,32 @@
      funciona bien, así que apaisado usa ahora exactamente las mismas
      reglas: una sola columna, sin nada fijo. Sin condicionar por
      orientación, solo por si el dispositivo es táctil. */
-  @media (hover:none) and (pointer:coarse){
+  @media (hover:none) and (pointer:coarse) and (orientation:portrait){
     .stage{ grid-template-columns:1fr; }
     .board-area{ position:static; }
+  }
+  /* Ronda "invertir layout táctil según orientación" (V136, 2026-09-27):
+     en horizontal, Arthur pidió el comportamiento de escritorio
+     maximizado -- panel al costado y tablero fijo -- incluso en anchos
+     angostos donde @media(max-width:880px), de arriba, ya forzó una sola
+     columna. Encontrado al verificar (no pedido por Arthur, pero real):
+     un celular chico en horizontal (568×320, p.ej. iPhone SE apaisado)
+     con el panel de 328px fijo de escritorio dejaba el tablero en apenas
+     78px -- inservible. Mismo principio que ya usa el propio
+     `min-width:1100px` de escritorio ("el tablero fijo solo tiene
+     sentido con espacio de sobra"): por debajo de 700px de ancho
+     (medido: 690px ya da ~190px de tablero, razonable; 667px da 169px,
+     ya ajustado), horizontal se queda en una sola columna igual que
+     vertical -- el cementerio SIGUE yendo a los costados igual (esa
+     decisión no depende del ancho, solo de la orientación), simplemente
+     sin el panel de escritorio al lado. */
+  @media (hover:none) and (pointer:coarse) and (orientation:landscape) and (max-width:699px){
+    .stage{ grid-template-columns:1fr; }
+    .board-area{ position:static; }
+  }
+  @media (hover:none) and (pointer:coarse) and (orientation:landscape) and (min-width:700px){
+    .stage{ grid-template-columns:minmax(0,1fr) 328px; }
+    .board-area{ position:sticky; top:20px; align-self:start; }
   }
 
   /* ---------- Tablero ---------- */
@@ -282,7 +305,8 @@
   .ranks, .files{
     display:grid;
     font-family:"Cinzel", serif; font-weight:600;
-    font-size:clamp(9px,1.7vw,12px);
+    font-size:clamp(9px,1.4vmin,12px);
+    line-height:1;
     letter-spacing:.06em;
     color:var(--ember-soft);
     opacity:.85;
@@ -3448,22 +3472,67 @@ function syncStickyBoardHeight(boardScale){
      achicar o no — en vez de solo saber achicar más a partir de lo que ya
      había. */
   document.documentElement.style.setProperty("--board-max-w", baseBoardMaxW(boardScale));
-  const stickyActive = window.matchMedia("(min-width:1100px)").matches &&
-    !window.matchMedia("(hover:none) and (pointer:coarse)").matches;
+  // V136: position:sticky ahora también se activa en táctil+horizontal
+  // (ver el nuevo bloque @media junto a .board-area en el CSS) -- este
+  // chequeo tiene que reconocer EXACTAMENTE los mismos casos que esa regla
+  // CSS, si no el recorte de seguridad de altura (más abajo) no correría
+  // justo cuando sí hace falta (celular apaisado, poca altura real).
+  // V136 (refinado tras medir el caso de celular chico en horizontal,
+  // ver la nota junto al CSS de .board-area): el umbral de 700px acá
+  // tiene que ser EXACTAMENTE el mismo que el min-width:700px del CSS,
+  // si no este chequeo (usado por el recorte de seguridad de altura de
+  // más abajo) quedaría desincronizado con cuándo el tablero REALMENTE
+  // está en position:sticky.
+  const touchNow = window.matchMedia("(hover:none) and (pointer:coarse)").matches;
+  const touchLandscapeWide = touchNow &&
+    window.matchMedia("(orientation:landscape)").matches &&
+    window.matchMedia("(min-width:700px)").matches;
+  const stickyActive =
+    (window.matchMedia("(min-width:1100px)").matches && !touchNow) ||
+    touchLandscapeWide;
   if(!(stickyActive && boardFrameEl && nameplateTopEl && nameplateBottomEl)) return;
   const STICKY_TOP = 20, LANE_GAP = 14, SAFETY = 10;
-  const bfH = boardFrameEl.getBoundingClientRect().height;
   const npTopH = nameplateTopEl.getBoundingClientRect().height;
   const npBottomH = nameplateBottomEl.getBoundingClientRect().height;
-  const totalNeeded = STICKY_TOP + npTopH + LANE_GAP + bfH + LANE_GAP + npBottomH + SAFETY;
-  const overflow = totalNeeded - window.innerHeight;
-  if(overflow > 0){
-    const bfW = boardFrameEl.getBoundingClientRect().width;
-    const newW = Math.max(200, bfW - overflow);
+  const fixedH = STICKY_TOP + npTopH + LANE_GAP + LANE_GAP + npBottomH + SAFETY;
+  let overflow = fixedH + boardFrameEl.getBoundingClientRect().height - window.innerHeight;
+  /* Ronda "el achique no alcanzaba en celular apaisado" (V136, 2026-09-27):
+     un solo intento de achique (restar `overflow` directo del ancho)
+     subestimaba lo que hacía falta: `board-frame` tiene padding FIJO
+     (no se achica proporcional al ancho), así que su alto baja MENOS que
+     el ancho que se le quita, y con poco margen vertical (celular
+     apaisado, ~375-390px de alto) ese faltante dejaba el nameplate
+     inferior recortado -- confirmado con Playwright, no a ojo: a 812×375
+     el nameplate inferior quedaba ~30px fuera de la pantalla incluso con
+     este "arreglo" aplicado. Mismo principio que ya usa
+     `syncGraveyardLayout()` para su propio ajuste por deficit real: se
+     itera unas pocas veces, remidiendo el alto real de `board-frame`
+     después de cada achique, hasta que entra o se llega al piso de
+     200px (por debajo de eso el tablero deja de ser jugable, igual que
+     el piso ya existente). */
+  let bfW = boardFrameEl.getBoundingClientRect().width;
+  for(let i = 0; i < 6 && overflow > 0; i++){
+    const newW = Math.max(200, Math.round(bfW - overflow));
     document.documentElement.style.setProperty(
       "--board-max-w",
       "min(" + newW + "px, 82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
     );
+    if(newW <= 200) break;
+    bfW = newW;
+    /* El achique de arriba SÍ recalcula bien el ancho de `#board` (su
+       aspect-ratio 1/1 reacciona solo, vía CSS), pero `.board-wrap` fija
+       su fila superior con un PX exacto puesto por `syncRanksHeight()`
+       la última vez que corrió -- ANTES de este achique, con el tablero
+       todavía grande. Sin volver a llamarla acá, `board-frame` medía
+       SIEMPRE el mismo alto viejo en cada vuelta del bucle (confirmado
+       con Playwright: bfH clavado en 314.7px probando 307/269/230/200px
+       de ancho, ninguno cambiaba nada), así que "overflow" nunca bajaba
+       y el bucle terminaba agotando las 6 vueltas sin arreglar nada real
+       -- la causa de fondo del recorte del nameplate en celular apaisado,
+       no la falta de más vueltas ni el line-height de las coordenadas
+       (ambas teorías se probaron primero y no cambiaban el resultado). */
+    syncRanksHeight();
+    overflow = fixedH + boardFrameEl.getBoundingClientRect().height - window.innerHeight;
   }
 }
 /* Ronda "parpadeo al seleccionar pieza, intento 3" (Versión 110,
@@ -5304,7 +5373,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V135 · 27-sep-2026 · Cementerio en tira solo en vertical; en horizontal vuelve a los lados";
+const BUILD_ID = "V136 · 27-sep-2026 · Coordenadas sin salto por orientación; panel fijo al costado en táctil horizontal";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
