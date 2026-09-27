@@ -248,10 +248,25 @@
       inset 0 0 0 1px rgba(0,0,0,.5),
       inset 0 2px 6px rgba(0,0,0,.6),
       var(--shadow);
+    /* Ronda "cementerio en tira horizontal" (V134, 2026-09-27): display:flex
+       en columna no cambia nada en escritorio (los cementerios siguen
+       position:absolute ahí, fuera del flujo flex) pero es lo que permite
+       que, en el modo tira (ver media query junto a #graveyard-top/bottom
+       más abajo), graveyard-top/board-wrap/graveyard-bottom se apilen solos
+       en el orden real del DOM sin position:absolute ni JS de por medio. */
+    display:flex; flex-direction:column; align-items:center; gap:8px;
   }
   .board-wrap{
+    /* width:100% explícito: .board-frame pasó a flex-columna en la Ronda
+       V134 (cementerio en tira) y align-items:center NO estira los hijos
+       flex a lo ancho por defecto (a diferencia del layout de bloque de
+       antes, donde un div ocupa 100% del padre solo). Sin esto,
+       .board-wrap volvía a su ancho de contenido (shrink-to-fit) en vez
+       de llenar el marco — bug real encontrado al verificar: el tablero
+       se achicaba en vez de agrandarse a partir de ~600px de ancho. */
+    width:100%;
     display:grid;
-    grid-template-columns:1.5em minmax(0,1fr);
+    grid-template-columns:1.05em minmax(0,1fr);
     /* "auto" y no "minmax(0,1fr)": con un tablero cuadrado (ajedrez clásico,
        relación 1/1) ambos daban el mismo resultado porque ancho y alto ya
        coincidían, así que el error quedó invisible durante rondas enteras.
@@ -261,8 +276,8 @@
        la fila de números terminaba más alta que el propio tablero y las
        coordenadas se corrían hacia abajo/fuera. "auto" sí respeta el alto
        real que el aspect-ratio le dio al tablero. */
-    grid-template-rows:auto 1.5em;
-    gap:3px;
+    grid-template-rows:auto 1.05em;
+    gap:2px;
   }
   .ranks, .files{
     display:grid;
@@ -775,6 +790,17 @@
   .graveyard .piece.dragging{ opacity:.92; }
   #graveyard-top{ top:10px; left:calc(100% + 10px); }
   #graveyard-bottom{ bottom:10px; right:calc(100% + 10px); flex-direction:column-reverse; flex-wrap:wrap-reverse; }
+  @media (max-width:880px), (hover:none) and (pointer:coarse){
+    .graveyard{
+      position:static;
+      width:100%; max-width:100%;
+      display:flex; flex-direction:row; flex-wrap:wrap;
+      justify-content:center;
+    }
+    .gy-lane{ display:contents; }
+    #graveyard-top{ top:auto; left:auto; flex-direction:row; flex-wrap:wrap; }
+    #graveyard-bottom{ bottom:auto; right:auto; flex-direction:row; flex-wrap:wrap; }
+  }
 
   .seg{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px; }
   .seg.seg3{ grid-template-columns:1fr 1fr 1fr; }
@@ -3261,9 +3287,35 @@ function syncPieceSize(){
    ocurra en el momento exacto correcto: aunque llegara a haber una
    medida desfasada, el peor caso posible pasó de "invade el panel" a
    "se ve un poco más angosto de lo ideal", que no rompe nada visualmente. */
+/* Ronda "cementerio en tira horizontal" (V134, 2026-09-27): mismo criterio
+   de ancho/táctil que ya colapsa `.stage`/`.board-area` a una columna —
+   deliberadamente NO se reusa `stickyActive` (esa exige además
+   min-width:1100px, pensada para el panel fijo) porque el quiebre real
+   que nos importa acá es el mismo que ya decide "hay presión de espacio
+   lateral", sin atarlo a si el panel queda fijo o no. */
+function narrowOrTouchGY(){
+  return window.matchMedia("(max-width:880px)").matches ||
+    window.matchMedia("(hover:none) and (pointer:coarse)").matches;
+}
 function syncGraveyardLayout(){
   const rootPx = parseFloat(document.documentElement.style.getPropertyValue("--piece-size")) || 0;
   if(!(rootPx > 0)) return;
+  if(narrowOrTouchGY()){
+    /* Modo tira horizontal: no hay corte lateral que reservar (el CSS de
+       la media query ya puso los cementerios en flujo normal, arriba y
+       abajo del tablero) — flex-wrap hace solo el trabajo de acomodar
+       filas según el ancho real del tablero, sin ninguna cuenta en JS.
+       Solo hace falta soltar cualquier padding lateral o max-height que
+       hubiera quedado fijado por el modo escritorio (p.ej. al rotar una
+       tablet y cruzar el quiebre de los 880px con el panel aún activo). */
+    boardAreaEl.style.removeProperty("padding-left");
+    boardAreaEl.style.removeProperty("padding-right");
+    [graveyardTopEl, graveyardBottomEl].forEach(el => {
+      el.style.removeProperty("max-height");
+      el.style.removeProperty("flex-direction");
+    });
+    return;
+  }
   const pieceSize = Math.min(40, Math.max(19, rootPx * 0.5));
   // PAD_V incluye el padding vertical (6px arriba + 6px abajo) MÁS el
   // borde (1px arriba + 1px abajo, `.graveyard` usa box-sizing:border-box
@@ -5246,7 +5298,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V133 · 27-sep-2026 · Tablero más grande en celular/tablet (--board-max-w 74vw→82vw)";
+const BUILD_ID = "V134 · 27-sep-2026 · Cementerio en tira horizontal en móvil/tablet; coordenadas más angostas";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
