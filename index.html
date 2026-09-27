@@ -3225,7 +3225,27 @@ const sidePanelsEl = document.getElementById("side-panels");
    cuándo se llama a render(). */
 function syncRanksHeight(){
   const h = boardEl.getBoundingClientRect().height;
-  if(h > 0) boardWrapEl.style.gridTemplateRows = h + "px 1.5em";
+  /* Ronda "las coordenadas vuelven a su ancho viejo en horizontal" (V138,
+     2026-09-27): el "1.5em" de abajo estaba escrito LITERAL desde antes
+     de la Ronda V134 (angostar el gutter de coordenadas de 1.5em a
+     1.05em) -- ese cambio solo tocó la regla CSS de `.board-wrap`, nunca
+     este `em` fijo de acá, y un estilo puesto por JS (inline) le gana
+     SIEMPRE a la hoja de estilos sin importar cuál se escribió después.
+     Encima, ese "1.5em" nunca se resolvía contra el font-size del propio
+     texto de coordenadas (el `clamp(...,1.4vmin,...)` de `.ranks`/`.files`)
+     sino contra el font-size HEREDADO de `.board-wrap` (16px del body,
+     nunca declarado ahí a propósito) -- por eso medía 24px fijos sin
+     importar cuánto achicara el clamp real, en cualquier orientación; es
+     el mismo mecanismo exacto que causó el recorte del nameplate de la
+     V136 (ver esa nota, más arriba). Arreglo real: leer el font-size YA
+     RESUELTO del propio elemento de coordenadas y calcular el 1.05em a
+     partir de ESE valor, no de uno heredado sin relación. Con esto el
+     gutter angostado de la V134 por fin se respeta en cualquier ancho y
+     orientación, en vez de solo en la hoja de estilos sin poder ganarle
+     nunca al inline. */
+  const coordFontPx = parseFloat(getComputedStyle(filesEl).fontSize) || 12;
+  const gutterPx = coordFontPx * 1.05;
+  if(h > 0) boardWrapEl.style.gridTemplateRows = h + "px " + gutterPx.toFixed(2) + "px";
 }
 /* Mismo tipo de bug que el de arriba, esta vez con las piezas: su tamaño
    se calculaba con una fórmula fija de viewport (min(10.5vw,8.2vh,62px))
@@ -3491,6 +3511,28 @@ function syncStickyBoardHeight(boardScale){
     (window.matchMedia("(min-width:1100px)").matches && !touchNow) ||
     touchLandscapeWide;
   if(!(stickyActive && boardFrameEl && nameplateTopEl && nameplateBottomEl)) return;
+  /* Ronda "el achique nunca se disparaba a 812x375/844x390" (V138,
+     2026-09-27): el reset de arriba a la fórmula BASE agranda `#board` de
+     inmediato (su aspect-ratio reacciona solo), pero `.board-wrap` sigue
+     con la fila-1 fijada en px por `syncRanksHeight()` a partir del
+     tablero VIEJO (más chico) -- esa fila NO se agranda sola para seguirlo
+     (a diferencia de lo que se esperaría de un track "auto": acá es un
+     valor fijo en píxeles puesto por JS, no una palabra clave "auto" de
+     CSS, así que la protección de tamaño mínimo automático de Grid no
+     aplica). El resultado: `board-frame` medía su alto VIEJO (chico) en
+     esta primera medición, la única prueba que decide si hace falta
+     entrar al bucle de achique -- con un alto de partida ya subestimado,
+     el "overflow" calculado acá daba <=0 (parecía que ya entraba en la
+     pantalla) y el bucle nunca corría ni una vuelta, dejando el tablero
+     en su tamaño SIN achicar de verdad (confirmado con Playwright,
+     comparando paso a paso `syncBoardMetricsLight()` vs `syncStickyBoardHeight()`:
+     tras el reset, `#board` ya medía más grande pero `.board-wrap` seguía
+     fijado al alto viejo). Arreglo: llamar `syncRanksHeight()` ACÁ, recién
+     después del reset a la fórmula base y antes de la primera medición --
+     no alcanza con la llamada que ya corre dentro del bucle más abajo,
+     porque esa nunca llega a ejecutarse si la primera medición ya decide
+     (mal) que no hace falta achicar. */
+  syncRanksHeight();
   const STICKY_TOP = 20, LANE_GAP = 14, SAFETY = 10;
   const npTopH = nameplateTopEl.getBoundingClientRect().height;
   const npBottomH = nameplateBottomEl.getBoundingClientRect().height;
@@ -5399,7 +5441,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V137 · 27-sep-2026 · Tablero no cambia de tamaño repetido al girar el celular (resize con debounce)";
+const BUILD_ID = "V138 · 27-sep-2026 · Gutter de coordenadas angosto también en horizontal; achique del tablero fijo endurecido en más tamaños";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
