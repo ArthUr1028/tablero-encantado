@@ -3081,7 +3081,27 @@ const OPENINGS = [
   { id:"fin-philidor", type:"Final", name:"Posición de Philidor (defensa de la tercera fila)", eco:"T+P vs T", fen:"4k3/8/r7/4PK2/8/8/8/6R1 w - - 0 1", practice:"b", moves:["e5e6","a6a2","g1g8","e8e7","g8g7","e7e8","e6e7","a2a4","g7h7","e8d7","e7e8q","d7e8","f5e6","a4a6"],
     desc:"La defensa esencial en los finales de torre. Mientras el peón no ha pasado de la quinta fila, la torre defensora se queda en la sexta (la tercera fila contando desde el bando defensor) para impedir que el rey rival avance. Cuando el peón llega a la sexta, la torre se va lejos y da jaques desde atrás. Es tablas con juego correcto.",
     tip:"Como defensor: 1) torre en la tercera fila mientras el peón no la cruce, 2) rey cerca de la casilla de coronación, 3) cuando el peón avanza a esa fila, jaques desde atrás y a distancia. Es de las defensas más rentables de aprender.",
-    goal:"Objetivo de la práctica: lograr tablas con las negras contra claudIA." }
+    goal:"Objetivo de la práctica: lograr tablas con las negras contra claudIA." },
+  { id:"tactica-clavada", type:"Táctica", name:"La Clavada (Pin): absoluta y relativa", eco:"Táctica", fen:"4k3/1p6/2n5/1B1P4/8/8/8/4K3 w - - 0 1", practice:"w", moves:["d5c6","b7c6"],
+    desc:"Una pieza está clavada cuando no puede moverse porque detrás de ella, en la misma línea, hay algo más valioso. Si detrás está el propio Rey, la clavada es absoluta: mover esa pieza sería ilegal, sin excepción. Si detrás hay otra pieza (una Dama, una Torre), la clavada es relativa: mover la pieza clavada sí es legal, pero suele perder material. Aquí el Caballo de c6 está clavado de forma absoluta por el Alfil de b5 contra el Rey de e8: no puede capturar el peón de d5 ni huir a ningún lado.",
+    tip:"Antes de decidir cómo ganar la pieza clavada, pregúntate: ¿quién más la ataca, y con qué? Aquí no hace falta sacrificar nada — basta con capturarla con el peón, porque el Caballo no puede recapturar ni escapar.",
+    goal:"Objetivo de la práctica: ganar el Caballo clavado con dxc6 y convertir la ventaja de pieza contra claudIA." },
+  { id:"tactica-horquilla", type:"Táctica", name:"La Horquilla (ataque doble)", eco:"Táctica", fen:"4q1k1/5p1p/6p1/8/6N1/8/3P4/6K1 w - - 0 1", practice:"w", moves:["g4f6","g8h8","f6e8"],
+    desc:"Una horquilla es una sola jugada que ataca dos piezas rivales a la vez — casi siempre un Caballo, por su forma de moverse en «L». El rival solo puede salvar una de las dos. Aquí el Caballo salta a f6 dando jaque al Rey y, con la misma jugada, atacando la Dama: el Rey se ve obligado a moverse, y la Dama cae en la jugada siguiente.",
+    tip:"Antes de mover cualquier Caballo, pregúntate qué casillas ataca desde ahí — con la práctica, ver los saltos que dan jaque Y atacan algo más se vuelve automático.",
+    goal:"Objetivo de la práctica: ganar la Dama con la horquilla Nf6+ y convertir la ventaja de material contra claudIA." },
+  { id:"tactica-descubierta", type:"Táctica", name:"El Ataque a la Descubierta", eco:"Táctica", fen:"r2k4/8/8/3B4/8/8/8/3R2K1 w - - 0 1", practice:"w", moves:["d5b7","d8e8","b7a8"],
+    desc:"Una pieza se aparta de en medio y «descubre» el ataque de otra pieza propia que estaba detrás, en la misma línea. Es especialmente fuerte cuando lo que se descubre es jaque: el rival está obligado a atenderlo, aunque la pieza que se movió también amenace algo por su cuenta. Aquí la Torre de d1 apunta al Rey de d8, tapada por el propio Alfil en d5; al moverlo a b7 se descubre el jaque Y el Alfil ataca de paso la Torre de a8.",
+    tip:"Busca piezas propias alineadas con el Rey rival, tapadas por otra pieza tuya — mover esa pieza tapando de forma que ataque algo más es la esencia de la descubierta.",
+    goal:"Objetivo de la práctica: ganar la Torre con Bb7+ y convertir la ventaja de material contra claudIA." },
+  { id:"tactica-rayosx", type:"Táctica", name:"Rayos X (Enfilada / Skewer)", eco:"Táctica", fen:"3q4/8/8/3k4/8/8/8/K6R w - - 0 1", practice:"w", moves:["h1d1","d5e5","d1d8"],
+    desc:"Es el hermano invertido de la clavada. En la clavada, la pieza más valiosa está detrás (protegida, inmovilizando a la de delante). En los rayos X, la pieza más valiosa está delante, obligada a moverse (normalmente por un jaque) — y al hacerlo, deja indefensa a la pieza de menor valor que tenía detrás, en la misma línea. Aquí la Torre entra en la columna d dando jaque al Rey; al moverse, deja expuesta a la Dama que estaba detrás.",
+    tip:"Compárala con la clavada jugada por jugada: ¿qué pieza está adelante, y por qué está obligada a moverse? Nombrar el patrón en voz alta ayuda a reconocerlo la próxima vez.",
+    goal:"Objetivo de la práctica: ganar la Dama con la enfilada Rd1+ y convertir la ventaja de material contra claudIA." },
+  { id:"tactica-eliminacion", type:"Táctica", name:"Eliminación del Defensor", eco:"Táctica", fen:"r5k1/8/8/3b4/8/1B6/8/R5K1 w - - 0 1", practice:"w", moves:["b3d5","g8g7","a1a8"],
+    desc:"Antes de intentar ganar una pieza bien defendida, conviene preguntarse: ¿quién la defiende, y puedo quitar de en medio a ese defensor primero? A veces el propio defensor está indefenso, y la combinación gana dos piezas en vez de una. Aquí el único defensor de la Torre de a8 es el Alfil de d5 — y ese Alfil, además, está completamente indefenso.",
+    tip:"Antes de calcular cómo ganar una pieza bien protegida, identifica primero quién la protege — a veces ese defensor es el verdadero blanco.",
+    goal:"Objetivo de la práctica: capturar el Alfil indefenso con Bxd5+ y luego la Torre con Rxa8 contra claudIA." }
 ];
 
 /* ---------- Identificación automática de apertura (catálogo ECO) ---------- */
@@ -5225,7 +5245,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V130 · 27-sep-2026 · Grimorio: finales con práctica; partidas célebres al Salón";
+const BUILD_ID = "V131 · 27-sep-2026 · Grimorio: tácticas de medio juego con práctica";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -6444,8 +6464,8 @@ const opNoteEl = document.getElementById("opening-mynote");
 const opGoalEl = document.getElementById("opening-goal");
 const opPracticeBtn = document.getElementById("op-practice");
 
-const GRIMORIO_TYPES = ["Apertura", "Defensa", "Trampa", "Final"];
-const GRIMORIO_TYPE_LABELS = { "Apertura":"Aperturas", "Defensa":"Defensas", "Trampa":"Trampas", "Final":"Finales (con práctica)" };
+const GRIMORIO_TYPES = ["Apertura", "Defensa", "Trampa", "Táctica", "Final"];
+const GRIMORIO_TYPE_LABELS = { "Apertura":"Aperturas", "Defensa":"Defensas", "Trampa":"Trampas", "Táctica":"Tácticas de medio juego (con práctica)", "Final":"Finales (con práctica)" };
 for(const t of GRIMORIO_TYPES){
   const entries = OPENINGS.map((o,i) => [o,i]).filter(([o]) => o.type === t);
   if(!entries.length) continue;
