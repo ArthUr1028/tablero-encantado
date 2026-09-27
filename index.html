@@ -489,8 +489,32 @@
     color:var(--ember-soft);
     margin:0 0 12px;
     display:flex; align-items:center; gap:.55em;
+    /* Ronda "paneles colapsables" (V142, 2026-09-27): pedido explícito de
+       Arthur, sin acotar a ningún tamaño de pantalla -- aplica igual en
+       escritorio, vertical y horizontal. El propio <h2> hace de encabezado
+       clicable (más fácil de acertar con el dedo que un botón aparte al
+       costado, y no exige tocar el HTML de cada panel uno por uno). */
+    cursor:pointer; user-select:none;
+    justify-content:space-between;
   }
   .panel h2::before{ content:"\25C6"; font-size:.6em; color:var(--ember); }
+  /* Flecha a la derecha del título, gira 180° cuando el panel está
+     colapsado -- misma técnica que ya usa el proyecto en otros lados
+     (transform en vez de dos glifos distintos, para que la transición
+     sea un giro suave y no un parpadeo). */
+  .panel h2::after{
+    content:"\25BE"; margin-left:auto; font-size:.85em; color:var(--ember-soft);
+    transition:transform .15s ease; flex:0 0 auto;
+  }
+  .panel.collapsed h2::after{ transform:rotate(-90deg); }
+  .panel.collapsed h2{ margin-bottom:0; }
+  /* Todo lo que no sea el propio <h2> se oculta -- cubre cualquier panel
+     presente y futuro sin tener que listar sus hijos particulares (inputs,
+     selects, botones, notas, sub-paneles como #machine-panel/#clock-config
+     que además tienen su PROPIO `hidden` de estado -- ambos mecanismos
+     conviven sin pisarse: colapsar el panel no toca esos `hidden`, así que
+     al reabrirlo cada cosa aparece exactamente como había quedado). */
+  .panel.collapsed > *:not(h2){ display:none; }
 
   .status{
     font-family:"Cinzel", serif; font-size:.9rem; letter-spacing:.03em;
@@ -5682,7 +5706,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V141 · 27-sep-2026 · Tablero asume la barra de direcciones oculta (más espacio real); cementerio alineado a la izquierda en vertical; gutter de números angosto";
+const BUILD_ID = "V142 · 27-sep-2026 · Paneles colapsables (recuerda tu preferencia)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -8070,6 +8094,68 @@ document.addEventListener("keydown", e => {
     if(j >= 0 && j < HOF.masters.length) hofRenderMaster(HOF.masters[j].id);
   }
 });
+
+/* Ronda "paneles colapsables" (V142, 2026-09-27): pedido explícito de
+   Arthur, como mejora general -- sin acotar a ningún dispositivo u
+   orientación, a diferencia de otros cambios recientes de esta sesión que
+   sí estaban limitados a táctil+horizontal. Genérico a propósito: recorre
+   TODOS los `.panel` que haya en el HTML (once y para siempre, no hace
+   falta tocar esta función si mañana se agrega un panel nuevo), usa el
+   `<h2>` de cada uno como encabezado clicable/tecleable, y guarda el
+   estado colapsado/expandido de cada panel por separado en `localStorage`
+   -- esto es el sitio real (GitHub Pages), no un artefacto de vista previa
+   con almacenamiento aislado, así que `localStorage` persiste de verdad
+   entre visitas, a diferencia de otros contextos donde este proyecto NO
+   podría confiar en él.
+   Clave de persistencia: el `id` del panel cuando lo tiene (la mayoría);
+   si no (p.ej. "La Partida", sin `id` propio), un slug armado a partir del
+   texto del `<h2>` -- estable mientras no se traduzca el título, y de
+   todas formas perder la preferencia de un panel sin `id` en particular
+   no rompe nada (vuelve a su default expandido, nunca un error). */
+const PANEL_COLLAPSE_KEY = "tablero-encantado.paneles-colapsados.v1";
+function slugifyPanelTitle(text){
+  return "panel-" + text.trim().toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "") // quita acentos
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function initCollapsiblePanels(){
+  let collapsedSet;
+  try{
+    collapsedSet = new Set(JSON.parse(localStorage.getItem(PANEL_COLLAPSE_KEY) || "[]"));
+  } catch(e){ collapsedSet = new Set(); }
+  const saveCollapsedSet = () => {
+    try{ localStorage.setItem(PANEL_COLLAPSE_KEY, JSON.stringify([...collapsedSet])); }
+    catch(e){ /* localStorage no disponible (modo privado, cuota, etc.) -- el
+                 colapso sigue funcionando en esta visita, solo no se recuerda
+                 para la próxima; no es motivo para romper nada más. */ }
+  };
+  document.querySelectorAll(".panel").forEach((panel, i) => {
+    const h2 = panel.querySelector(":scope > h2");
+    if(!h2) return;
+    const key = panel.id || slugifyPanelTitle(h2.textContent) + "-" + i;
+    const setCollapsed = (collapsed) => {
+      panel.classList.toggle("collapsed", collapsed);
+      h2.setAttribute("aria-expanded", String(!collapsed));
+    };
+    h2.setAttribute("role", "button");
+    h2.setAttribute("tabindex", "0");
+    setCollapsed(collapsedSet.has(key));
+    const toggle = () => {
+      const collapsed = !panel.classList.contains("collapsed");
+      setCollapsed(collapsed);
+      if(collapsed) collapsedSet.add(key); else collapsedSet.delete(key);
+      saveCollapsedSet();
+    };
+    h2.addEventListener("click", toggle);
+    // Espacio/Enter: mismo comportamiento esperado de cualquier botón real,
+    // ya que un <h2> no es nativamente interactivo con el teclado pese al
+    // `role="button"`.
+    h2.addEventListener("keydown", (ev) => {
+      if(ev.key === " " || ev.key === "Enter"){ ev.preventDefault(); toggle(); }
+    });
+  });
+}
+initCollapsiblePanels();
 
 /* ============================ Arranque ============================ */
 // Ronda "reloj": tiene que ir ANTES de restore(), porque restore() llama a
