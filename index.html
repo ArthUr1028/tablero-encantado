@@ -67,11 +67,12 @@
        vista. */
     --board-max-w: min(82vw, 82vh, 760px);
     /* Valor por defecto: se sobrescribe SOLO en táctil+horizontal+ancho
-       (ver `syncStableLandscapeMetrics()` en el JS) con un px ya calculado
-       contra el alto "pequeño" garantizado (`100svh`) en vez de este
-       `vmin` vivo -- en cualquier otro caso (vertical, escritorio, táctil
-       angosto) esta variable queda intacta y el clamp de abajo se
-       comporta exactamente como antes. */
+       (ver `syncStickyBoardHeight()` en el JS) con un px ya calculado
+       contra el alto ESTABLE del viewport (`100lvh`, el que ya asume la
+       barra de direcciones escondida -- ver `stableViewportHeight()`) en
+       vez de este `vmin` vivo -- en cualquier otro caso (vertical,
+       escritorio, táctil angosto) esta variable queda intacta y el clamp
+       de abajo se comporta exactamente como antes. */
     --coord-vmin: 1.4vmin;
   }
 
@@ -871,7 +872,9 @@
       position:static;
       width:100%; max-width:100%;
       display:flex; flex-direction:row; flex-wrap:wrap;
-      justify-content:center;
+      /* V141: Arthur pidió piezas capturadas alineadas de izquierda a
+         derecha en vez de centradas -- `flex-start` en vez de `center`. */
+      justify-content:flex-start;
     }
     .gy-lane{ display:contents; }
     #graveyard-top{ top:auto; left:auto; flex-direction:row; flex-wrap:wrap; }
@@ -1836,23 +1839,29 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 </svg>
 
 <!-- Ronda "el tablero no debe saltar cuando se oculta la barra de
-     direcciones" (V139, 2026-09-27): sonda invisible que mide el alto
-     "pequeño" garantizado del viewport (100svh -- el que ya cuenta con la
-     barra de direcciones a la vista, el peor caso posible), en vez de
-     `window.innerHeight`, que en el celular real CAMBIA solo mientras la
-     barra se esconde o reaparece al hacer scroll (Arthur lo confirmó en su
-     dispositivo: eso es justo lo que causaba los saltos de tamaño y,
-     probablemente, que el gutter de coordenadas se viera "ancho" de nuevo
-     tras el scroll -- su font-size en vmin también depende del alto vivo
-     del viewport). `100svh` no cambia cuando la barra se anima, solo
-     cuando de verdad cambia el tamaño real de pantalla/orientación --
-     así el cálculo de achique puede "asumir de una vez" el peor caso y
-     nunca necesitar recalcular por culpa de la barra. La doble
-     declaración de `height` es a propósito: el navegador se queda con la
-     última que entienda -- `100vh` para cualquiera que no soporte `svh`
-     (sigue funcionando, solo sin esta mejora), `100svh` la pisa en
-     cualquier navegador moderno. -->
-<div id="svh-probe" aria-hidden="true" style="position:fixed; visibility:hidden; pointer-events:none; width:0; top:0; left:0; height:100vh; height:100svh;"></div>
+     direcciones" (V139, 2026-09-27; CORREGIDA en V141, 2026-09-27): sonda
+     invisible que mide un alto de viewport ESTABLE (no cambia mientras la
+     barra de direcciones se anima, solo cuando de verdad cambia el
+     tamaño real de pantalla/orientación), para no depender de
+     `window.innerHeight` -- que en el celular real CAMBIA solo mientras la
+     barra se esconde o reaparece al hacer scroll.
+     V139 había usado `100svh` (alto "pequeño", el que YA CUENTA con la
+     barra de direcciones a la vista -- el peor caso, asumiendo la barra
+     siempre presente). Arthur probó eso en su celular real y señaló el
+     error: quedaba espacio desperdiciado cuando la barra se ocultaba de
+     verdad, porque el tablero se había plantado en el tamaño MÁS CHICO
+     posible y nunca volvía a crecer. Lo que Arthur pidió (V139 y de nuevo
+     acá) es lo contrario: asumir de una vez que la barra YA ESTÁ oculta
+     (el mejor caso, más espacio), no que está presente. Arreglo: `100lvh`
+     ("large viewport height" -- el alto que YA CUENTA con la barra
+     escondida) en vez de `100svh`. Sigue siendo estable frente a la
+     animación de la barra (por eso no vuelve el salto de tamaño), pero
+     ahora el tablero ocupa el máximo real disponible en vez del mínimo.
+     La doble declaración de `height` es a propósito: el navegador se
+     queda con la última que entienda -- `100vh` para cualquiera que no
+     soporte viewport units dinámicas (sigue funcionando, solo sin esta
+     mejora), `100lvh` la pisa en cualquier navegador moderno. -->
+<div id="lvh-probe" aria-hidden="true" style="position:fixed; visibility:hidden; pointer-events:none; width:0; top:0; left:0; height:100vh; height:100lvh;"></div>
 
 <div class="wrap">
   <header>
@@ -3328,6 +3337,21 @@ function syncRanksHeight(){
   const coordFontPx = parseFloat(getComputedStyle(filesEl).fontSize) || 12;
   const gutterPx = coordFontPx * 1.05;
   if(h > 0) boardWrapEl.style.gridTemplateRows = h + "px " + gutterPx.toFixed(2) + "px";
+  /* Ronda "el estrechamiento del gutter faltó en los números" (V141,
+     2026-09-27): Arthur notó que el arreglo de arriba (V138) solo angostó
+     la FILA de coordenadas (los números, .files, bajo el tablero) porque
+     ahí sí se corregía con JS -- pero la COLUMNA de coordenadas (las
+     letras, .ranks, al costado izquierdo) seguía viniendo del CSS
+     literal `grid-template-columns:1.05em minmax(0,1fr)` de `.board-wrap`,
+     nunca tocado por ningún JS. Ese "1.05em" tiene el MISMO problema que
+     ya se diagnosticó y arregló para la fila: se resuelve contra el
+     font-size HEREDADO de `.board-wrap` (16px del body), no contra el de
+     las coordenadas mismas -- por eso las letras quedaban con un ancho
+     fijo (~16.8px) sin importar cuánto se angostara el `clamp()` real.
+     Arreglo simétrico: escribir también `gridTemplateColumns` acá, con el
+     mismo `gutterPx` ya calculado (mismo font-size que `.files`, porque
+     `.ranks`/`.files` comparten la misma regla `font-size:clamp(...)`). */
+  boardWrapEl.style.gridTemplateColumns = gutterPx.toFixed(2) + "px minmax(0,1fr)";
 }
 /* Mismo tipo de bug que el de arriba, esta vez con las piezas: su tamaño
    se calculaba con una fórmula fija de viewport (min(10.5vw,8.2vh,62px))
@@ -3559,24 +3583,32 @@ function baseBoardMaxW(boardScale){
   return "min(82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)";
 }
 /* Ronda "el tablero debe asumir de una vez el tamaño sin la barra de
-   direcciones" (V139, 2026-09-27): Arthur confirmó en su celular real que
-   los saltos en horizontal seguían pasando incluso con el debounce de la
-   V137 -- tenía razón, el debounce solo agrupa la RÁFAGA de eventos
-   `resize` durante la animación, pero no arregla que el estado YA
-   ASENTADO (barra escondida) mida un `window.innerHeight` genuinamente
-   distinto al de antes de esconderse, así que el tablero (y, con él, el
-   font-size en `vmin` de las coordenadas) vuelve a calcularse más grande
-   apenas se gana esa franja extra -- de ahí también que el gutter de
-   coordenadas se viera "ancho" de nuevo tras hacer scroll, aunque en
-   Playwright (sin barra de direcciones real) midiera angosto. Esta
-   función lee el alto "pequeño" garantizado del viewport (sonda
-   `#svh-probe`, `100svh` -- el que ya cuenta con la barra a la vista, el
-   peor caso) UNA sola vez por cambio de tamaño/orientación real, y con
-   eso calcula de una vez el tamaño final: nunca hay que recalcular de
-   nuevo solo porque la barra se escondió, porque ya se planificó como si
-   siguiera visible. */
+   direcciones" (V139, 2026-09-27; CORREGIDA en V141, 2026-09-27): Arthur
+   confirmó en su celular real que los saltos en horizontal seguían
+   pasando incluso con el debounce de la V137 -- tenía razón, el debounce
+   solo agrupa la RÁFAGA de eventos `resize` durante la animación, pero no
+   arregla que el estado YA ASENTADO (barra escondida) mida un
+   `window.innerHeight` genuinamente distinto al de antes de esconderse,
+   así que el tablero (y, con él, el font-size en `vmin` de las
+   coordenadas) vuelve a calcularse más grande apenas se gana esa franja
+   extra -- de ahí también que el gutter de coordenadas se viera "ancho"
+   de nuevo tras hacer scroll, aunque en Playwright (sin barra de
+   direcciones real) midiera angosto.
+   V139 leyó acá el alto "pequeño" garantizado del viewport (sonda
+   `100svh` -- el que YA CUENTA con la barra a la vista, el PEOR caso),
+   asumiendo que la barra siempre estaba presente -- arreglaba el salto,
+   pero dejaba el tablero plantado en el tamaño más chico posible, con
+   espacio desperdiciado cada vez que la barra sí se escondía de verdad
+   (exactamente lo que Arthur reportó con una captura). Lo que pidió
+   -- en la V139 y de nuevo acá -- es lo opuesto: asumir de una vez que la
+   barra YA ESTÁ escondida (el MEJOR caso, más espacio), no que está
+   presente. Arreglo: leer `100lvh` ("large viewport height", sonda
+   `#lvh-probe`) en vez de `100svh` -- sigue siendo estable frente a la
+   animación de la barra (nunca hay que recalcular solo porque se
+   esconda), pero ahora el tablero usa el máximo real disponible en vez
+   del mínimo. */
 function stableViewportHeight(){
-  const probe = document.getElementById("svh-probe");
+  const probe = document.getElementById("lvh-probe");
   const h = probe && probe.getBoundingClientRect().height;
   return (h && h > 0) ? h : window.innerHeight;
 }
@@ -5650,7 +5682,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V140 · 27-sep-2026 · Tablero horizontal aprovecha el espacio máximo: nombres, relojes y cementerios pasan al panel lateral";
+const BUILD_ID = "V141 · 27-sep-2026 · Tablero asume la barra de direcciones oculta (más espacio real); cementerio alineado a la izquierda en vertical; gutter de números angosto";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
