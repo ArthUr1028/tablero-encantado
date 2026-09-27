@@ -258,9 +258,54 @@
     .stage{ grid-template-columns:1fr; }
     .board-area{ position:static; }
   }
+  /* Ronda "tablero al máximo, info al costado" (V140, 2026-09-27): Arthur
+     probó el táctil+horizontal de la V139 y no le alcanzó -- pidió el
+     tablero al máximo espacio posible, y para ganarlo, mover nombres,
+     relojes Y cementerios al costado derecho (donde antes solo vivían los
+     paneles de Modalidad/Cuenta/etc.), dejando `.board-area` con el
+     tablero SOLO. `#landscape-info` (nuevo, vacío en el HTML) recibe esos
+     nodos vía JS (`syncLandscapeInfoPlacement()`) solo en este modo -- acá
+     solo se define DÓNDE cae en la grilla una vez que están ahí. */
+  #landscape-info{ display:none; }
   @media (hover:none) and (pointer:coarse) and (orientation:landscape) and (min-width:700px){
-    .stage{ grid-template-columns:minmax(0,1fr) 328px; }
-    .board-area{ position:sticky; top:20px; align-self:start; }
+    .stage{
+      grid-template-columns:minmax(0,1fr) 328px;
+      grid-template-rows:auto 1fr;
+    }
+    .board-area{
+      position:sticky; top:20px; align-self:start;
+      grid-column:1; grid-row:1 / 3;
+    }
+    #landscape-info{
+      display:flex; flex-direction:column; gap:8px;
+      grid-column:2; grid-row:1;
+      margin-bottom:4px; padding-bottom:12px;
+      border-bottom:1px solid var(--line);
+    }
+    /* Los cementerios normalmente son `position:absolute` colgando de las
+       esquinas de `.board-frame` (ver `.graveyard` más abajo) -- una vez
+       que la JS los mueve DENTRO de `#landscape-info`, este selector
+       descendiente los reacomoda solos, en flujo normal, apenas cambian
+       de padre real en el DOM (nada de clases nuevas que sincronizar a
+       mano): mismo tratamiento visual "en fila, envolviendo" que ya usa
+       el modo tira vertical (ver el `@media` de `.graveyard` un poco más
+       abajo), reutilizado acá tal cual porque el problema (piezas
+       capturadas en flujo normal, no en una esquina) es el mismo. */
+    #landscape-info .graveyard{
+      position:static; top:auto; left:auto; right:auto; bottom:auto;
+      width:100%; max-width:100%;
+      display:flex; flex-direction:row; flex-wrap:wrap;
+      justify-content:flex-start;
+    }
+    #landscape-info .nameplate{ font-size:.75rem; }
+    /* "reducir el tamaño de los paneles de controles" (pedido explícito):
+       la cromería de cada `<section class="panel">` (Modalidad, Cuenta,
+       etc.) se achica en este modo específico -- el contenido real
+       (botones, textos) no cambia, solo el relleno/tipografía del molde
+       que los envuelve, para que quepa más información sin scroll en el
+       poco alto real de un celular/tablet apaisado. */
+    #side-panels .panel{ padding:10px 10px 12px; margin-bottom:10px; }
+    #side-panels .panel h2{ font-size:.72rem; margin-bottom:8px; }
   }
 
   /* ---------- Tablero ---------- */
@@ -1835,6 +1880,16 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
       <div class="nameplate" id="nameplate-bottom" aria-hidden="true"></div>
     </div>
 
+    <!-- Ronda "tablero al máximo, info al costado" (V140, 2026-09-27):
+         contenedor vacío por defecto (oculto, ver CSS junto a `.stage`) --
+         `syncLandscapeInfoPlacement()` en el JS es quien MUEVE acá adentro
+         los nameplates y cementerios (ya existentes arriba, nunca
+         duplicados) solo en táctil+horizontal+ancho, y los devuelve a su
+         lugar de siempre en cualquier otro caso. Ver la nota larga junto a
+         esa función para el porqué de mover nodos reales en vez de
+         reconstruir esta info con otro HTML/JS aparte. -->
+    <div class="landscape-info" id="landscape-info"></div>
+
     <div class="side" id="side-panels">
       <!-- Fase 2 · Cuenta (2026-09-23): primer paso del multijugador —
            registro/login/logout contra Supabase Auth. A propósito NO toca
@@ -3236,6 +3291,7 @@ const graveyardTopEl = document.getElementById("graveyard-top");
 const graveyardBottomEl = document.getElementById("graveyard-bottom");
 const boardAreaEl = document.querySelector(".board-area");
 const sidePanelsEl = document.getElementById("side-panels");
+const landscapeInfoEl = document.getElementById("landscape-info");
 
 /* La fila de números (#ranks) debe medir exactamente lo mismo que el
    tablero real. Se intentó resolverlo con CSS puro (grid-template-rows:
@@ -3376,14 +3432,20 @@ function useGraveyardStrip(){
 function syncGraveyardLayout(){
   const rootPx = parseFloat(document.documentElement.style.getPropertyValue("--piece-size")) || 0;
   if(!(rootPx > 0)) return;
-  if(useGraveyardStrip()){
-    /* Modo tira horizontal: no hay corte lateral que reservar (el CSS de
-       la media query ya puso los cementerios en flujo normal, arriba y
-       abajo del tablero) — flex-wrap hace solo el trabajo de acomodar
-       filas según el ancho real del tablero, sin ninguna cuenta en JS.
-       Solo hace falta soltar cualquier padding lateral o max-height que
-       hubiera quedado fijado por el modo escritorio (p.ej. al rotar una
-       tablet y cruzar el quiebre de los 880px con el panel aún activo). */
+  if(useGraveyardStrip() || isTouchLandscapeWide()){
+    /* Modo tira horizontal (vertical angosto) O V140 táctil+horizontal+
+       ancho: en ambos casos los cementerios ya NO están en las esquinas
+       absolutas de `board-frame` -- el segundo caso porque
+       `syncLandscapeInfoPlacement()` los movió físicamente a
+       `#landscape-info`, donde el CSS (`#landscape-info .graveyard`, ver
+       la nota junto a esa regla) reutiliza el mismo tratamiento visual de
+       flujo normal que ya existía para la tira vertical. No hay corte
+       lateral que reservar en ninguno de los dos: flex-wrap hace solo el
+       trabajo de acomodar filas según el ancho real disponible, sin
+       ninguna cuenta en JS. Solo hace falta soltar cualquier padding
+       lateral o max-height que hubiera quedado fijado por el modo
+       escritorio/esquina (p.ej. al rotar una tablet y cruzar un quiebre
+       con el panel aún activo). */
     boardAreaEl.style.removeProperty("padding-left");
     boardAreaEl.style.removeProperty("padding-right");
     [graveyardTopEl, graveyardBottomEl].forEach(el => {
@@ -3551,9 +3613,15 @@ function syncStickyBoardHeight(boardScale){
   // más abajo) quedaría desincronizado con cuándo el tablero REALMENTE
   // está en position:sticky.
   const touchNow = window.matchMedia("(hover:none) and (pointer:coarse)").matches;
-  const touchLandscapeWide = touchNow &&
-    window.matchMedia("(orientation:landscape)").matches &&
-    window.matchMedia("(min-width:700px)").matches;
+  // V140: mismo criterio ahora consolidado en `isTouchLandscapeWide()`
+  // (única fuente de verdad, ver la nota junto a esa función) en vez de
+  // repetir acá las tres condiciones en línea.
+  const touchLandscapeWide = isTouchLandscapeWide();
+  // V140: el traslado de nameplates/cementerios a `#landscape-info` tiene
+  // que decidirse ACÁ, antes de medir nada más abajo -- así `fixedH` ve
+  // el estado de posición ya asentado (nameplates fuera de esta columna
+  // cuando corresponde) y no el de la vuelta anterior.
+  syncLandscapeInfoPlacement();
   const stickyActive =
     (window.matchMedia("(min-width:1100px)").matches && !touchNow) ||
     touchLandscapeWide;
@@ -3566,12 +3634,22 @@ function syncStickyBoardHeight(boardScale){
      táctil angosto) esto queda exactamente como antes: fórmula base en
      `vh`/`vmin` puros, sin ningún cambio de comportamiento. */
   const stableH = touchLandscapeWide ? stableViewportHeight() : null;
+  /* V140: con nombres/relojes/cementerios ya afuera de esta columna (ver
+     `syncLandscapeInfoPlacement()`), el 82% heredado de la fórmula de
+     escritorio/vertical (pensado para dejar lugar a esos elementos Y al
+     padding lateral que `syncGraveyardLayout()` reservaba para los
+     cementerios en la esquina) queda corto -- ya no hay nada de eso que
+     reservar en touchLandscapeWide. Se sube a 94% (no 100%: `board-frame`
+     todavía tiene su propio padding/borde, y queda un margen mínimo de
+     seguridad a propósito) SOLO en esta rama; la fórmula de escritorio/
+     vertical (rama `else`, `baseBoardMaxW()`) no se toca. */
+  const TLW_PCT = 94;
   if(touchLandscapeWide){
     const stableVminPx = Math.min(window.innerWidth, stableH) / 100 * 1.4;
     document.documentElement.style.setProperty("--coord-vmin", stableVminPx.toFixed(2) + "px");
     document.documentElement.style.setProperty(
       "--board-max-w",
-      "min(82vw, " + (82 * boardScale / 100 * stableH).toFixed(1) + "px, " + Math.round(760 * boardScale) + "px)"
+      "min(" + TLW_PCT + "vw, " + (TLW_PCT * boardScale / 100 * stableH).toFixed(1) + "px, " + Math.round(760 * boardScale) + "px)"
     );
   } else {
     document.documentElement.style.setProperty("--coord-vmin", "1.4vmin");
@@ -3601,9 +3679,17 @@ function syncStickyBoardHeight(boardScale){
      (mal) que no hace falta achicar. */
   syncRanksHeight();
   const STICKY_TOP = 20, LANE_GAP = 14, SAFETY = 10;
-  const npTopH = nameplateTopEl.getBoundingClientRect().height;
-  const npBottomH = nameplateBottomEl.getBoundingClientRect().height;
-  const fixedH = STICKY_TOP + npTopH + LANE_GAP + LANE_GAP + npBottomH + SAFETY;
+  /* V140: en touchLandscapeWide los nameplates ya NO viven en esta columna
+     (`syncLandscapeInfoPlacement()` los movió a `#landscape-info`, al lado
+     del tablero) -- por lo tanto ya no ocupan alto acá arriba/abajo del
+     `board-frame`, y reservarles espacio en `fixedH` volvería a achicar el
+     tablero por algo que ya no está en su camino. Fuera de este modo
+     (vertical, escritorio, táctil angosto) el nameplate sigue en su lugar
+     de siempre y esta cuenta queda exactamente como antes. */
+  const npTopH = touchLandscapeWide ? 0 : nameplateTopEl.getBoundingClientRect().height;
+  const npBottomH = touchLandscapeWide ? 0 : nameplateBottomEl.getBoundingClientRect().height;
+  const gapH = touchLandscapeWide ? 0 : (LANE_GAP + LANE_GAP);
+  const fixedH = STICKY_TOP + npTopH + gapH + npBottomH + SAFETY;
   // V139: `effH` es el alto contra el que se decide TODO el achique de acá
   // en adelante -- el estable (sin barra) en touchLandscapeWide, el vivo
   // de siempre en cualquier otro caso (desktop nunca tuvo este problema).
@@ -3629,7 +3715,7 @@ function syncStickyBoardHeight(boardScale){
     document.documentElement.style.setProperty(
       "--board-max-w",
       touchLandscapeWide
-        ? "min(" + newW + "px, 82vw, " + (82 * boardScale / 100 * effH).toFixed(1) + "px, " + Math.round(760 * boardScale) + "px)"
+        ? "min(" + newW + "px, " + TLW_PCT + "vw, " + (TLW_PCT * boardScale / 100 * effH).toFixed(1) + "px, " + Math.round(760 * boardScale) + "px)"
         : "min(" + newW + "px, 82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
     );
     if(newW <= 200) break;
@@ -3784,6 +3870,56 @@ const movesEl = document.getElementById("moves");
 const fenEl = document.getElementById("fen");
 const nameplateTopEl = document.getElementById("nameplate-top");
 const nameplateBottomEl = document.getElementById("nameplate-bottom");
+/* Ronda "tablero ocupa poco espacio, mucho desperdiciado" (V140,
+   2026-09-27): Arthur mandó una captura mostrando el tablero chico con
+   mucho negro vacío alrededor en horizontal, y pidió explícitamente pasar
+   nombres/relojes/cementerios a la columna lateral derecha para que la
+   columna del tablero quede libre para el tablero solo. En vez de duplicar
+   la lógica que llena estos elementos (ya se referencian por ID en el
+   resto del código: `syncPlayerFields()`, los relojes, `syncGraveyardLayout()`,
+   etc.), se MUEVEN los nodos reales del DOM hacia `#landscape-info` (nuevo
+   contenedor vacío, ver HTML junto a `.side` en `.stage`) mientras el modo
+   táctil+horizontal+ancho está activo, y se devuelven a su lugar original
+   apenas deja de estarlo -- así ningún otro código nota el cambio de
+   posición visual, solo ve los mismos elementos con los mismos IDs.
+   El "ancla" de restauración (padre + hermano siguiente) se captura ACÁ,
+   una sola vez al cargar la página, antes de que cualquier movimiento haya
+   podido ocurrir -- es la única forma de deshacer el traslado con
+   precisión exacta sin importar cuántas veces se entre y salga del modo
+   (rotar el celular de un lado a otro, redimensionar una ventana táctil). */
+const landscapeRelocatable = [nameplateTopEl, graveyardTopEl, nameplateBottomEl, graveyardBottomEl];
+const landscapeAnchors = landscapeRelocatable.map(el => ({ el, parent: el.parentNode, next: el.nextSibling }));
+let landscapeInfoActive = false;
+/* Único criterio para "modo horizontal ancho táctil" en todo el script --
+   antes `syncStickyBoardHeight()` repetía este mismo cálculo en línea; se
+   consolida acá para que el traslado de nameplates/cementerios, el cálculo
+   de `fixedH` y el salto de reserva de padding en `syncGraveyardLayout()`
+   nunca puedan quedar desincronizados entre sí. Tiene que seguir
+   coincidiendo EXACTO con el `@media` del CSS de `.board-area`/`#landscape-info`. */
+function isTouchLandscapeWide(){
+  return window.matchMedia("(hover:none) and (pointer:coarse)").matches &&
+    window.matchMedia("(orientation:landscape)").matches &&
+    window.matchMedia("(min-width:700px)").matches;
+}
+function syncLandscapeInfoPlacement(){
+  if(!landscapeInfoEl) return;
+  const wantActive = isTouchLandscapeWide();
+  if(wantActive === landscapeInfoActive) return;
+  if(wantActive){
+    landscapeRelocatable.forEach(el => landscapeInfoEl.appendChild(el));
+  } else {
+    // Se restaura en el mismo orden en que se capturaron las anclas, así
+    // cada `insertBefore` todavía encuentra a su hermano siguiente en el
+    // lugar correcto (si se restaurara en orden inverso, mover el último
+    // elemento de la lista primero podría desacomodar el `nextSibling`
+    // capturado para uno anterior, si ambos compartieran el mismo padre).
+    landscapeAnchors.forEach(({ el, parent, next }) => {
+      if(next && next.parentNode === parent) parent.insertBefore(el, next);
+      else parent.appendChild(el);
+    });
+  }
+  landscapeInfoActive = wantActive;
+}
 const whiteNameEl = document.getElementById("white-name");
 const blackNameEl = document.getElementById("black-name");
 const resultSelectEl = document.getElementById("result-select");
@@ -5514,7 +5650,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V139 · 27-sep-2026 · Tablero y coordenadas en horizontal ya no saltan al ocultarse la barra de direcciones";
+const BUILD_ID = "V140 · 27-sep-2026 · Tablero horizontal aprovecha el espacio máximo: nombres, relojes y cementerios pasan al panel lateral";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
