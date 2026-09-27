@@ -66,6 +66,13 @@
        menos de ancho de tablero libera ese margen sin notarse a simple
        vista. */
     --board-max-w: min(82vw, 82vh, 760px);
+    /* Valor por defecto: se sobrescribe SOLO en táctil+horizontal+ancho
+       (ver `syncStableLandscapeMetrics()` en el JS) con un px ya calculado
+       contra el alto "pequeño" garantizado (`100svh`) en vez de este
+       `vmin` vivo -- en cualquier otro caso (vertical, escritorio, táctil
+       angosto) esta variable queda intacta y el clamp de abajo se
+       comporta exactamente como antes. */
+    --coord-vmin: 1.4vmin;
   }
 
   /* Agua (Fase 2, 2026-09-15 — tema de los 4 elementos; antes "Hielo
@@ -305,7 +312,7 @@
   .ranks, .files{
     display:grid;
     font-family:"Cinzel", serif; font-weight:600;
-    font-size:clamp(9px,1.4vmin,12px);
+    font-size:clamp(9px,var(--coord-vmin),12px);
     line-height:1;
     letter-spacing:.06em;
     color:var(--ember-soft);
@@ -1782,6 +1789,25 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
     </symbol>
   </defs>
 </svg>
+
+<!-- Ronda "el tablero no debe saltar cuando se oculta la barra de
+     direcciones" (V139, 2026-09-27): sonda invisible que mide el alto
+     "pequeño" garantizado del viewport (100svh -- el que ya cuenta con la
+     barra de direcciones a la vista, el peor caso posible), en vez de
+     `window.innerHeight`, que en el celular real CAMBIA solo mientras la
+     barra se esconde o reaparece al hacer scroll (Arthur lo confirmó en su
+     dispositivo: eso es justo lo que causaba los saltos de tamaño y,
+     probablemente, que el gutter de coordenadas se viera "ancho" de nuevo
+     tras el scroll -- su font-size en vmin también depende del alto vivo
+     del viewport). `100svh` no cambia cuando la barra se anima, solo
+     cuando de verdad cambia el tamaño real de pantalla/orientación --
+     así el cálculo de achique puede "asumir de una vez" el peor caso y
+     nunca necesitar recalcular por culpa de la barra. La doble
+     declaración de `height` es a propósito: el navegador se queda con la
+     última que entienda -- `100vh` para cualquiera que no soporte `svh`
+     (sigue funcionando, solo sin esta mejora), `100svh` la pisa en
+     cualquier navegador moderno. -->
+<div id="svh-probe" aria-hidden="true" style="position:fixed; visibility:hidden; pointer-events:none; width:0; top:0; left:0; height:100vh; height:100svh;"></div>
 
 <div class="wrap">
   <header>
@@ -3470,6 +3496,28 @@ let lastBoardScale = 1;
 function baseBoardMaxW(boardScale){
   return "min(82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)";
 }
+/* Ronda "el tablero debe asumir de una vez el tamaño sin la barra de
+   direcciones" (V139, 2026-09-27): Arthur confirmó en su celular real que
+   los saltos en horizontal seguían pasando incluso con el debounce de la
+   V137 -- tenía razón, el debounce solo agrupa la RÁFAGA de eventos
+   `resize` durante la animación, pero no arregla que el estado YA
+   ASENTADO (barra escondida) mida un `window.innerHeight` genuinamente
+   distinto al de antes de esconderse, así que el tablero (y, con él, el
+   font-size en `vmin` de las coordenadas) vuelve a calcularse más grande
+   apenas se gana esa franja extra -- de ahí también que el gutter de
+   coordenadas se viera "ancho" de nuevo tras hacer scroll, aunque en
+   Playwright (sin barra de direcciones real) midiera angosto. Esta
+   función lee el alto "pequeño" garantizado del viewport (sonda
+   `#svh-probe`, `100svh` -- el que ya cuenta con la barra a la vista, el
+   peor caso) UNA sola vez por cambio de tamaño/orientación real, y con
+   eso calcula de una vez el tamaño final: nunca hay que recalcular de
+   nuevo solo porque la barra se escondió, porque ya se planificó como si
+   siguiera visible. */
+function stableViewportHeight(){
+  const probe = document.getElementById("svh-probe");
+  const h = probe && probe.getBoundingClientRect().height;
+  return (h && h > 0) ? h : window.innerHeight;
+}
 function syncStickyBoardHeight(boardScale){
   /* Ronda "tablero recortado no vuelve a agrandarse" (Versión 110,
      2026-09-18, arreglo #2 del mismo parche): esta función SOLO tenía una
@@ -3491,7 +3539,6 @@ function syncStickyBoardHeight(boardScale){
      de cero y decide de nuevo, con las medidas actuales, si hace falta
      achicar o no — en vez de solo saber achicar más a partir de lo que ya
      había. */
-  document.documentElement.style.setProperty("--board-max-w", baseBoardMaxW(boardScale));
   // V136: position:sticky ahora también se activa en táctil+horizontal
   // (ver el nuevo bloque @media junto a .board-area en el CSS) -- este
   // chequeo tiene que reconocer EXACTAMENTE los mismos casos que esa regla
@@ -3510,6 +3557,26 @@ function syncStickyBoardHeight(boardScale){
   const stickyActive =
     (window.matchMedia("(min-width:1100px)").matches && !touchNow) ||
     touchLandscapeWide;
+  /* V139: en touchLandscapeWide, tanto el límite de ancho del tablero
+     (el término "vh") como el font-size de las coordenadas (--coord-vmin)
+     se calculan contra el alto ESTABLE (`stableViewportHeight()`, ver la
+     nota junto a esa función) en vez del `vh`/`vmin` vivos de CSS -- así
+     ninguno de los dos vuelve a "crecer" solo porque la barra de
+     direcciones se escondió. Fuera de ese caso (vertical, escritorio,
+     táctil angosto) esto queda exactamente como antes: fórmula base en
+     `vh`/`vmin` puros, sin ningún cambio de comportamiento. */
+  const stableH = touchLandscapeWide ? stableViewportHeight() : null;
+  if(touchLandscapeWide){
+    const stableVminPx = Math.min(window.innerWidth, stableH) / 100 * 1.4;
+    document.documentElement.style.setProperty("--coord-vmin", stableVminPx.toFixed(2) + "px");
+    document.documentElement.style.setProperty(
+      "--board-max-w",
+      "min(82vw, " + (82 * boardScale / 100 * stableH).toFixed(1) + "px, " + Math.round(760 * boardScale) + "px)"
+    );
+  } else {
+    document.documentElement.style.setProperty("--coord-vmin", "1.4vmin");
+    document.documentElement.style.setProperty("--board-max-w", baseBoardMaxW(boardScale));
+  }
   if(!(stickyActive && boardFrameEl && nameplateTopEl && nameplateBottomEl)) return;
   /* Ronda "el achique nunca se disparaba a 812x375/844x390" (V138,
      2026-09-27): el reset de arriba a la fórmula BASE agranda `#board` de
@@ -3537,7 +3604,11 @@ function syncStickyBoardHeight(boardScale){
   const npTopH = nameplateTopEl.getBoundingClientRect().height;
   const npBottomH = nameplateBottomEl.getBoundingClientRect().height;
   const fixedH = STICKY_TOP + npTopH + LANE_GAP + LANE_GAP + npBottomH + SAFETY;
-  let overflow = fixedH + boardFrameEl.getBoundingClientRect().height - window.innerHeight;
+  // V139: `effH` es el alto contra el que se decide TODO el achique de acá
+  // en adelante -- el estable (sin barra) en touchLandscapeWide, el vivo
+  // de siempre en cualquier otro caso (desktop nunca tuvo este problema).
+  const effH = touchLandscapeWide ? stableH : window.innerHeight;
+  let overflow = fixedH + boardFrameEl.getBoundingClientRect().height - effH;
   /* Ronda "el achique no alcanzaba en celular apaisado" (V136, 2026-09-27):
      un solo intento de achique (restar `overflow` directo del ancho)
      subestimaba lo que hacía falta: `board-frame` tiene padding FIJO
@@ -3557,7 +3628,9 @@ function syncStickyBoardHeight(boardScale){
     const newW = Math.max(200, Math.round(bfW - overflow));
     document.documentElement.style.setProperty(
       "--board-max-w",
-      "min(" + newW + "px, 82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
+      touchLandscapeWide
+        ? "min(" + newW + "px, 82vw, " + (82 * boardScale / 100 * effH).toFixed(1) + "px, " + Math.round(760 * boardScale) + "px)"
+        : "min(" + newW + "px, 82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
     );
     if(newW <= 200) break;
     bfW = newW;
@@ -3574,7 +3647,7 @@ function syncStickyBoardHeight(boardScale){
        no la falta de más vueltas ni el line-height de las coordenadas
        (ambas teorías se probaron primero y no cambiaban el resultado). */
     syncRanksHeight();
-    overflow = fixedH + boardFrameEl.getBoundingClientRect().height - window.innerHeight;
+    overflow = fixedH + boardFrameEl.getBoundingClientRect().height - effH;
   }
 }
 /* Ronda "parpadeo al seleccionar pieza, intento 3" (Versión 110,
@@ -5441,7 +5514,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V138 · 27-sep-2026 · Gutter de coordenadas angosto también en horizontal; achique del tablero fijo endurecido en más tamaños";
+const BUILD_ID = "V139 · 27-sep-2026 · Tablero y coordenadas en horizontal ya no saltan al ocultarse la barra de direcciones";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
