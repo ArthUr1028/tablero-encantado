@@ -65,7 +65,7 @@
        `.wrap` sin dejar nada de margen lateral para separarlos — un 4%
        menos de ancho de tablero libera ese margen sin notarse a simple
        vista. */
-    --board-max-w: min(74vw, 82vh, 760px);
+    --board-max-w: min(82vw, 82vh, 760px);
   }
 
   /* Agua (Fase 2, 2026-09-15 — tema de los 4 elementos; antes "Hielo
@@ -3366,7 +3366,7 @@ function syncGraveyardLayout(){
    misma fórmula de ancho sin tener que recalcular todo el tablero. */
 let lastBoardScale = 1;
 function baseBoardMaxW(boardScale){
-  return "min(74vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)";
+  return "min(82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)";
 }
 function syncStickyBoardHeight(boardScale){
   /* Ronda "tablero recortado no vuelve a agrandarse" (Versión 110,
@@ -3404,7 +3404,7 @@ function syncStickyBoardHeight(boardScale){
     const newW = Math.max(200, bfW - overflow);
     document.documentElement.style.setProperty(
       "--board-max-w",
-      "min(" + newW + "px, 74vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
+      "min(" + newW + "px, 82vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
     );
   }
 }
@@ -3747,10 +3747,7 @@ function render(){
      variable tal cual estaba, ya asentada, sin ningún reflujo de por
      medio. */
   if(boardScale !== lastBoardScale){
-    document.documentElement.style.setProperty(
-      "--board-max-w",
-      "min(74vw, " + (82 * boardScale).toFixed(1) + "vh, " + Math.round(760 * boardScale) + "px)"
-    );
+    document.documentElement.style.setProperty("--board-max-w", baseBoardMaxW(boardScale));
   }
   /* Ronda "nameplate inferior recortado al fijarse" (Versión 108,
      2026-09-18): Arthur reportó con captura que, en escritorio, al hacer
@@ -5249,7 +5246,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V132 · 27-sep-2026 · Grimorio: se agrega el Sacrificio Griego";
+const BUILD_ID = "V133 · 27-sep-2026 · Tablero más grande en celular/tablet (--board-max-w 74vw→82vw)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
