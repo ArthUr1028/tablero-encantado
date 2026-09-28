@@ -367,26 +367,26 @@
      sin fondo ni borde propio, apenas atenuado (`opacity`) y que se aclara
      al pasar el mouse/tocar, en vez de depender de bordes/colores para
      notarse "activo". Esto aplica SIEMPRE (dentro y fuera de pantalla
-     completa: es el mismo botón en ambos casos, ver nota de la fila más
-     arriba), no solo en zen -- afuera de zen ya no lleva tampoco la chapa
-     `.btn.icon` completa. */
-  #zen-toggle{
+     completa: son dos botones ahora -- ver nota junto al HTML -- pero
+     comparten esta misma chapa vía `.zen-toggle-btn`), no solo en zen --
+     afuera de zen ya no lleva tampoco la chapa `.btn.icon` completa. */
+  .zen-toggle-btn{
     background:none; border-color:transparent; box-shadow:none;
     opacity:.65; transition:opacity .15s, border-color .15s, transform .06s;
   }
-  #zen-toggle:hover{ opacity:1; border-color:transparent; }
-  #zen-toggle:active{ transform:translateY(1px); }
+  .zen-toggle-btn:hover{ opacity:1; border-color:transparent; }
+  .zen-toggle-btn:active{ transform:translateY(1px); }
   /* V145: en zen, el botón mismo se achica más (mismo motivo que el padding
      de arriba: cada píxel de "chrome" fijo resta directo al presupuesto de
      alto del tablero en pantallas horizontales cortas) -- fuera de zen sigue
      con el padding reducido de la regla de arriba (V146), pero sin este
      achique extra. V146: además, dentro de zen se lo atenúa un poco más
-     (opacity más baja en reposo) -- es el mismo botón cuyo peso visual
-     Arthur pidió reducir, y en pantalla completa es donde más "de más" se
-     siente si se nota. */
+     (opacity más baja en reposo) -- es el mismo par de botones cuyo peso
+     visual Arthur pidió reducir, y en pantalla completa es donde más "de
+     más" se siente si se nota. */
   body.zen-mode .zen-toggle-row{ margin-bottom:6px; }
-  body.zen-mode #zen-toggle{ padding:4px 6px; min-width:0; opacity:.5; }
-  body.zen-mode #zen-toggle:hover{ opacity:.9; }
+  body.zen-mode .zen-toggle-btn{ padding:4px 6px; min-width:0; opacity:.5; }
+  body.zen-mode .zen-toggle-btn:hover{ opacity:.9; }
   /* Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
      segunda parte del pedido de Arthur -- "aprovechemos el espacio
      disponible a ambos lados del tablero: ahí colocaremos los jugadores,
@@ -2043,13 +2043,17 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
        sobre la textura del tablero; acá, sobre el fondo liso de la
        página, alcanza con la misma chapa `.btn.icon` que usa cualquier
        otro botón del proyecto) -- y ya no necesita `position`/`z-index`
-       en absoluto. Dos <svg> en vez de uno: se alterna cuál está `hidden`
-       según el modo, mismo patrón que ya usa el proyecto en
-       #account-signed-in/#account-signed-out. -->
+       en absoluto. V146: a pedido explícito de Arthur ("uno para ampliar,
+       uno para reducir"), dejó de ser un solo botón con dos <svg> alternados
+       por `hidden` -- ahora son dos <button> separados, cada uno con su
+       propio ícono fijo y su propia acción de una sola dirección; el que
+       no aplica según el modo actual se oculta entero con `hidden`. -->
   <div class="zen-toggle-row">
-    <button class="btn icon" id="zen-toggle" type="button" aria-pressed="false" aria-label="Pantalla completa" title="Pantalla completa">
-      <svg id="zen-icon-enter" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-      <svg id="zen-icon-exit" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M9 3v4a2 2 0 0 1-2 2H3M15 3v4a2 2 0 0 0 2 2h4M9 21v-4a2 2 0 0 0-2-2H3M15 21v-4a2 2 0 0 1 2-2h4"/></svg>
+    <button class="btn icon zen-toggle-btn" id="zen-toggle-enter" type="button" aria-label="Pantalla completa" title="Pantalla completa">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    </button>
+    <button class="btn icon zen-toggle-btn" id="zen-toggle-exit" type="button" aria-label="Salir de pantalla completa" title="Salir de pantalla completa" hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4a2 2 0 0 1-2 2H3M15 3v4a2 2 0 0 0 2 2h4M9 21v-4a2 2 0 0 0-2-2H3M15 21v-4a2 2 0 0 1 2-2h4"/></svg>
     </button>
   </div>
 
@@ -3882,15 +3886,19 @@ function zenBoardMaxW(boardScale, effH, useStableH, extraCapPx){
    GESTO DE SCROLL, y esta pantalla, a propósito, nunca necesita scroll (es
    el pedido explícito de la V144) -- sin scroll que hacer, no hay gesto
    que dispare el auto-ocultado del navegador, y la barra se queda ahí para
-   siempre "de gorra". El arreglo real entonces no es adivinar mejor un
-   alto -- es pedirle DIRECTO al navegador que saque su propia barra, sin
-   depender de que decida hacerlo solo: ver `requestRealFullscreen()`/
-   `exitRealFullscreen()`, llamadas desde `setZenMode()` más abajo. Esta
-   función queda con el `Math.max` simple de siempre (sonda + `innerHeight`
-   en vivo, SIN historial): sigue dando el máximo real apenas la barra se
-   esconda de verdad (por el motivo que sea), y sigue garantizando cero
-   scroll en todo momento porque nunca "miente" sobre el alto disponible
-   ACTUAL. */
+   siempre "de gorra". Se había probado acá mismo pedirle DIRECTO al
+   navegador la Fullscreen API real (`requestFullscreen()`, desde
+   `setZenMode()`) para sacar la barra sin depender de ese gesto -- REVERTIDO
+   en la misma ronda (ver la nota junto a `setZenMode()` más abajo): Arthur
+   confirmó, con su celular real, que la transición asíncrona de esa API
+   dejaba el tablero desplazado y con la primera fila cortada, exactamente
+   el "hay que hacer scroll" que nunca se puede negociar. El diagnóstico de
+   fondo (la barra nunca se esconde sola en una pantalla sin scroll) queda
+   entonces SIN resolver de este lado -- lo único que queda acá es la
+   fórmula simple y segura de siempre: `Math.max` (sonda + `innerHeight` en
+   vivo, SIN historial), que nunca "miente" sobre el alto disponible ACTUAL
+   y por eso nunca puede romper el cero-scroll, aunque tampoco alcance por
+   sí sola para sacar la barra si el navegador no la esconde solo. */
 function stableViewportHeight(){
   const probe = document.getElementById("lvh-probe");
   const h = probe && probe.getBoundingClientRect().height;
@@ -4435,65 +4443,53 @@ function syncInfoPlacement(){
    muestra solo con una partida en vivo en curso (ver `liveGame` en el
    resto del script) -- exactamente la condición "reto contra un miembro
    del club" que pidió Arthur, sin tocar una sola línea de esa lógica. */
-const zenToggleEl = document.getElementById("zen-toggle");
-const zenIconEnterEl = document.getElementById("zen-icon-enter");
-const zenIconExitEl = document.getElementById("zen-icon-exit");
-/* V146: "pantalla completa" (zen mode) hasta ahora era PURAMENTE un modo
-   visual propio (clase CSS `zen-mode`, oculta encabezado/pie, agranda el
-   tablero) -- nunca le pedía nada a la barra del navegador. El diagnóstico
-   de más arriba (junto a `stableViewportHeight()`) es que varios
-   navegadores/WebViews de Android solo ocultan su propia barra de
-   direcciones en respuesta a un gesto de SCROLL -- y esta pantalla, a
-   propósito, nunca lo necesita (ese es justamente el pedido "cero scroll"
-   de la V144), así que el gesto que la escondería nunca llega a pasar.
-   Pedirle al navegador la Fullscreen API real (`requestFullscreen()`) es
-   la única forma de sacar esa barra SIN depender de que el navegador
-   decida hacerlo solo -- funciona bien en Chrome/Android (el caso de
-   Arthur, a juzgar por sus capturas); Safari/iOS históricamente no soporta
-   pedir pantalla completa sobre un elemento cualquiera (solo sobre
-   `<video>`) y ahí `requestFullscreen` simplemente no existe o rechaza la
-   promesa -- por eso todo esto es "mejor esfuerzo": si el navegador no lo
-   soporta o el usuario lo bloqueó, el `catch` no hace nada y el modo zen
-   de siempre (CSS solo) sigue funcionando exactamente igual que antes,
-   sin ningún cambio de comportamiento. Nunca se fuerza la salida de zen si
-   el pedido de fullscreen falla -- son dos cosas independientes: zen es el
-   modo visual (siempre disponible), fullscreen real es un plus que además
-   saca la barra cuando el navegador lo permite. */
-function requestRealFullscreen(){
-  const el = document.documentElement;
-  const req = el.requestFullscreen || el.webkitRequestFullscreen;
-  if(!req) return;
-  try{
-    const p = req.call(el);
-    if(p && p.catch) p.catch(() => {});
-  }catch(err){ /* mejor esfuerzo: si falla, sigue el modo zen CSS solo */ }
-}
-function exitRealFullscreen(){
-  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
-  if(!isFs) return;
-  const exit = document.exitFullscreen || document.webkitExitFullscreen;
-  if(!exit) return;
-  try{
-    const p = exit.call(document);
-    if(p && p.catch) p.catch(() => {});
-  }catch(err){ /* nada que hacer si ni siquiera se puede salir a mano */ }
-}
+/* V146, REVERTIDO en la misma ronda: se había agregado acá un pedido a la
+   Fullscreen API real del navegador (`requestFullscreen()`) al entrar en
+   zen mode, apostando a que eso sacaría la barra de direcciones sin
+   depender de un gesto de scroll (ver el diagnóstico, todavía vigente,
+   junto a `stableViewportHeight()` más arriba). Arthur lo probó en su
+   celular real y reportó algo PEOR que el problema original: el tablero
+   quedaba desplazado hacia abajo, con la primera fila de piezas cortada a
+   la mitad, y SÍ hacía falta hacer scroll -- justo la garantía que nunca
+   se puede negociar en este modo. Causa más probable: `requestFullscreen`
+   es asíncrono (la transición real puede tardar uno o más cuadros, a
+   veces con un aviso nativo del navegador tapando temporalmente parte de
+   la pantalla) y `syncBoardMetrics()` corría de inmediato, ANTES de que el
+   navegador terminara de asentar el tamaño real de pantalla completa --
+   un tipo de desfase que no se puede reproducir ni depurar desde acá (sin
+   dispositivo real, Playwright headless no tiene siquiera el concepto).
+   Ante una regresión real y confirmada contra un experimento que solo
+   podía verificarse "mejor esfuerzo", se revierte por completo: vuelve a
+   ser el modo puramente visual (CSS) de siempre, sin pedirle nada a la
+   barra del navegador. El diagnóstico de fondo (que el navegador nunca
+   llega a esconder su barra sola porque esta pantalla nunca scrollea)
+   sigue en pie y sin resolver -- lo más honesto acá es no seguir
+   adivinando mecanismos que no se pueden probar sin el celular de Arthur
+   en la mano. */
+/* V146: segundo pedido explícito de Arthur, tras notar que el botón único
+   (un solo `<button>`, ícono que se alterna con `hidden`) "no quedó bien
+   simplificado" -- pidió DOS botones separados, uno para ampliar y uno
+   para reducir, en vez de uno solo que cambia de ícono. Implementado tal
+   cual: `#zen-toggle-enter`/`#zen-toggle-exit`, cada uno con su propio
+   ícono fijo (nunca alternado) y su propio listener de click de una sola
+   acción -- se muestran/ocultan con `hidden` según `zenMode`, mismo
+   mecanismo que antes usaban los dos `<svg>` DENTRO de un solo botón,
+   ahora aplicado al botón entero. */
+const zenToggleEnterEl = document.getElementById("zen-toggle-enter");
+const zenToggleExitEl = document.getElementById("zen-toggle-exit");
 function setZenMode(active){
   zenMode = active;
   document.body.classList.toggle("zen-mode", active);
-  zenToggleEl.setAttribute("aria-pressed", String(active));
-  zenToggleEl.title = active ? "Salir de pantalla completa" : "Pantalla completa";
-  zenToggleEl.setAttribute("aria-label", zenToggleEl.title);
-  zenIconEnterEl.hidden = active;
-  zenIconExitEl.hidden = !active;
-  if(active) requestRealFullscreen(); else exitRealFullscreen();
+  zenToggleEnterEl.hidden = active;
+  zenToggleExitEl.hidden = !active;
   // Pasada completa: recalcula `syncInfoPlacement()` (mueve nameplates/
   // cementerios a donde corresponda, o los devuelve a su lugar de siempre)
   // Y el tamaño del tablero con la fórmula de pantalla completa (o la de
   // siempre, al salir) -- una sola llamada cubre ambos.
   syncBoardMetrics();
 }
-zenToggleEl.addEventListener("click", () => setZenMode(!zenMode));
+zenToggleEnterEl.addEventListener("click", () => setZenMode(true));
+zenToggleExitEl.addEventListener("click", () => setZenMode(false));
 document.addEventListener("keydown", (e) => {
   if(!zenMode) return;
   if(["TEXTAREA","SELECT","INPUT"].includes(e.target.tagName)) return;
@@ -6230,7 +6226,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V146 · 27-sep-2026 · Pantalla completa: alto estable robusto (barra de direcciones) + botón simplificado";
+const BUILD_ID = "V146 · 27-sep-2026 · Pantalla completa: se revirtió la Fullscreen API real (causaba scroll), dos botones separados (ampliar/reducir)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
