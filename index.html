@@ -356,11 +356,37 @@
      Arthur ("saca el botón del tablero"): un botón que ya no vive DENTRO de
      algo necesita su propio lugar afuera. */
   .zen-toggle-row{ display:flex; justify-content:flex-end; margin-bottom:10px; }
-  /* V145: en zen, el botón mismo se achica (mismo motivo que el padding de
-     arriba) -- fuera de zen sigue con el tamaño `.btn.icon` de siempre,
-     nunca tocado por este selector de 2 clases. */
+  /* V146: segundo pedido de Arthur ("quiero el botón para pantalla completa
+     más simplificado"), independiente del arreglo de altura de arriba. La
+     V144 ya le había sacado el fondo semitransparente con blur que tenía
+     ANTES de salir de `.board-frame`, pero seguía usando la chapa `.btn.icon`
+     de siempre (fondo en degradé, borde visible) -- la misma que cualquier
+     botón de acción ("Iniciar sesión", "Crear torneo") de la app. Para un
+     control que está SIEMPRE presente en pantalla, en todo momento, ese peso
+     visual (borde + fondo) es de más -- se lo simplifica a un ícono solo,
+     sin fondo ni borde propio, apenas atenuado (`opacity`) y que se aclara
+     al pasar el mouse/tocar, en vez de depender de bordes/colores para
+     notarse "activo". Esto aplica SIEMPRE (dentro y fuera de pantalla
+     completa: es el mismo botón en ambos casos, ver nota de la fila más
+     arriba), no solo en zen -- afuera de zen ya no lleva tampoco la chapa
+     `.btn.icon` completa. */
+  #zen-toggle{
+    background:none; border-color:transparent; box-shadow:none;
+    opacity:.65; transition:opacity .15s, border-color .15s, transform .06s;
+  }
+  #zen-toggle:hover{ opacity:1; border-color:transparent; }
+  #zen-toggle:active{ transform:translateY(1px); }
+  /* V145: en zen, el botón mismo se achica más (mismo motivo que el padding
+     de arriba: cada píxel de "chrome" fijo resta directo al presupuesto de
+     alto del tablero en pantallas horizontales cortas) -- fuera de zen sigue
+     con el padding reducido de la regla de arriba (V146), pero sin este
+     achique extra. V146: además, dentro de zen se lo atenúa un poco más
+     (opacity más baja en reposo) -- es el mismo botón cuyo peso visual
+     Arthur pidió reducir, y en pantalla completa es donde más "de más" se
+     siente si se nota. */
   body.zen-mode .zen-toggle-row{ margin-bottom:6px; }
-  body.zen-mode #zen-toggle{ padding:4px 6px; min-width:0; }
+  body.zen-mode #zen-toggle{ padding:4px 6px; min-width:0; opacity:.5; }
+  body.zen-mode #zen-toggle:hover{ opacity:.9; }
   /* Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
      segunda parte del pedido de Arthur -- "aprovechemos el espacio
      disponible a ambos lados del tablero: ahí colocaremos los jugadores,
@@ -3825,10 +3851,51 @@ function zenBoardMaxW(boardScale, effH, useStableH, extraCapPx){
    animación de la barra (nunca hay que recalcular solo porque se
    esconda), pero ahora el tablero usa el máximo real disponible en vez
    del mínimo. */
+/* Ronda "sigue quedando espacio desperdiciado en pantalla completa" (V146,
+   2026-09-28): Arthur probó la V145 en su celular real y reportó, con
+   captura, que el mismo síntoma de siempre (queda espacio vacío al
+   ocultarse la barra de direcciones) seguía ahí en pantalla completa --
+   pese a que `#lvh-probe` (100lvh, V141) existe justo para no depender de
+   `window.innerHeight` en vivo.
+
+   Primer intento acá mismo (descartado, dejo la razón anotada para no
+   repetir el error): agregar un "máximo observado" de `window.innerHeight`
+   que NUNCA se achica salvo que cambie el ancho -- probé con Playwright
+   simulando el ciclo completo (`page.setViewportSize()` a un alto mayor y
+   de vuelta al menor, el equivalente headless de "la barra se esconde y
+   después reaparece") y confirmé que si la barra REAPARECE de verdad
+   (bajando `window.innerHeight` otra vez), un tablero que se negó a
+   achicarse queda más grande que el espacio real disponible -- exactamente
+   el "hay que hacer scroll" que Arthur pidió evitar por completo en la
+   V144. Un "máximo que nunca baja" es incompatible con la exigencia de
+   cero scroll siempre: entre las dos, la de cero scroll no se negocia.
+
+   Diagnóstico real (con ese descarte confirmado): `100lvh`/`100svh`/
+   `100dvh` son soporte relativamente nuevo de CSS (2023+) y, sin `lvh`, la
+   sonda cae a `100vh` (sinónimo de `innerHeight` en vivo) -- eso YA
+   reacciona solo ante cualquier `resize` real (el listener debounced de
+   más abajo se encarga), así que si la barra del navegador realmente se
+   esconde, el tablero YA debería agrandarse solo, sin ningún arreglo
+   nuevo. Que Arthur siga viendo espacio desperdiciado sugiere que, en su
+   navegador, la barra simplemente NUNCA llega a esconderse -- varios
+   navegadores/WebViews de Android solo ocultan la barra en respuesta a un
+   GESTO DE SCROLL, y esta pantalla, a propósito, nunca necesita scroll (es
+   el pedido explícito de la V144) -- sin scroll que hacer, no hay gesto
+   que dispare el auto-ocultado del navegador, y la barra se queda ahí para
+   siempre "de gorra". El arreglo real entonces no es adivinar mejor un
+   alto -- es pedirle DIRECTO al navegador que saque su propia barra, sin
+   depender de que decida hacerlo solo: ver `requestRealFullscreen()`/
+   `exitRealFullscreen()`, llamadas desde `setZenMode()` más abajo. Esta
+   función queda con el `Math.max` simple de siempre (sonda + `innerHeight`
+   en vivo, SIN historial): sigue dando el máximo real apenas la barra se
+   esconda de verdad (por el motivo que sea), y sigue garantizando cero
+   scroll en todo momento porque nunca "miente" sobre el alto disponible
+   ACTUAL. */
 function stableViewportHeight(){
   const probe = document.getElementById("lvh-probe");
   const h = probe && probe.getBoundingClientRect().height;
-  return (h && h > 0) ? h : window.innerHeight;
+  const probeH = (h && h > 0) ? h : window.innerHeight;
+  return Math.max(probeH, window.innerHeight);
 }
 function syncStickyBoardHeight(boardScale){
   /* Ronda "tablero recortado no vuelve a agrandarse" (Versión 110,
@@ -3906,8 +3973,26 @@ function syncStickyBoardHeight(boardScale){
      así queda garantizado que quepan sin scroll también en ese caso. */
   if(zenMode){
     const sideActive = zenSideColumnsWanted();
-    const effHZen = touchLandscapeWide ? stableViewportHeight() : window.innerHeight;
-    if(touchLandscapeWide){
+    /* V146: acá el gate NO puede ser `touchLandscapeWide` (=
+       `isTouchLandscapeWide()`, que exige ADEMÁS orientation:landscape Y
+       min-width:700px) -- Arthur reportó el mismo problema de "espacio
+       desperdiciado al ocultarse la barra" en pantalla completa DOS veces
+       (V139/V141 ya lo habían tocado fuera de zen) y esta vez probó en su
+       celular real y seguía pasando. `zenSideColumnsWanted()` (que él
+       claramente tiene activo, ver su captura con columnas laterales) solo
+       exige min-width:700px, sin condición de orientación -- es decir, hay
+       casos donde `zenSideColumnsWanted()` es true pero
+       `isTouchLandscapeWide()` da false (algún matiz de matchMedia en su
+       navegador/WebView), y entonces esta rama caía al `window.innerHeight`
+       VIVO (el que salta cuando la barra se esconde) en vez del estable.
+       `touchNow` (ya declarado arriba, sin condición de ancho/orientación)
+       es la condición correcta acá: CUALQUIER dispositivo táctil tiene
+       barra de direcciones que puede esconderse, sin importar el ancho o
+       si está en horizontal -- a diferencia de esa función más angosta,
+       pensada originalmente solo para decidir el traslado del panel de
+       info (V140), no para esto. */
+    const effHZen = touchNow ? stableViewportHeight() : window.innerHeight;
+    if(touchNow){
       const stableVminPx = Math.min(window.innerWidth, effHZen) / 100 * 1.4;
       document.documentElement.style.setProperty("--coord-vmin", stableVminPx.toFixed(2) + "px");
     } else {
@@ -3938,7 +4023,7 @@ function syncStickyBoardHeight(boardScale){
       const npBottomH = nameplateBottomEl.getBoundingClientRect().height;
       fixedH += npTopH + npBottomH + 28; // 14px + 14px: el `gap` de `.board-area`, dos veces (arriba y abajo del marco).
     }
-    document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchLandscapeWide, null));
+    document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchNow, null));
     /* V144, bug real encontrado verificando con Playwright (no reportado por
        Arthur): sin esta línea, la PRIMERA medición de `board-frame` después
        de entrar a pantalla completa leía un alto MENOR al real (656px en
@@ -3962,7 +4047,7 @@ function syncStickyBoardHeight(boardScale){
       let overflow = fixedH + boardFrameEl.getBoundingClientRect().height - effHZen;
       for(let i = 0; i < 6 && overflow > 0; i++){
         const newW = Math.max(200, Math.round(bfW - overflow));
-        document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchLandscapeWide, newW));
+        document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchNow, newW));
         if(newW <= 200) break;
         bfW = newW;
         // Mismo motivo que la llamada de más arriba: sin remedir acá,
@@ -4353,6 +4438,46 @@ function syncInfoPlacement(){
 const zenToggleEl = document.getElementById("zen-toggle");
 const zenIconEnterEl = document.getElementById("zen-icon-enter");
 const zenIconExitEl = document.getElementById("zen-icon-exit");
+/* V146: "pantalla completa" (zen mode) hasta ahora era PURAMENTE un modo
+   visual propio (clase CSS `zen-mode`, oculta encabezado/pie, agranda el
+   tablero) -- nunca le pedía nada a la barra del navegador. El diagnóstico
+   de más arriba (junto a `stableViewportHeight()`) es que varios
+   navegadores/WebViews de Android solo ocultan su propia barra de
+   direcciones en respuesta a un gesto de SCROLL -- y esta pantalla, a
+   propósito, nunca lo necesita (ese es justamente el pedido "cero scroll"
+   de la V144), así que el gesto que la escondería nunca llega a pasar.
+   Pedirle al navegador la Fullscreen API real (`requestFullscreen()`) es
+   la única forma de sacar esa barra SIN depender de que el navegador
+   decida hacerlo solo -- funciona bien en Chrome/Android (el caso de
+   Arthur, a juzgar por sus capturas); Safari/iOS históricamente no soporta
+   pedir pantalla completa sobre un elemento cualquiera (solo sobre
+   `<video>`) y ahí `requestFullscreen` simplemente no existe o rechaza la
+   promesa -- por eso todo esto es "mejor esfuerzo": si el navegador no lo
+   soporta o el usuario lo bloqueó, el `catch` no hace nada y el modo zen
+   de siempre (CSS solo) sigue funcionando exactamente igual que antes,
+   sin ningún cambio de comportamiento. Nunca se fuerza la salida de zen si
+   el pedido de fullscreen falla -- son dos cosas independientes: zen es el
+   modo visual (siempre disponible), fullscreen real es un plus que además
+   saca la barra cuando el navegador lo permite. */
+function requestRealFullscreen(){
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if(!req) return;
+  try{
+    const p = req.call(el);
+    if(p && p.catch) p.catch(() => {});
+  }catch(err){ /* mejor esfuerzo: si falla, sigue el modo zen CSS solo */ }
+}
+function exitRealFullscreen(){
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+  if(!isFs) return;
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if(!exit) return;
+  try{
+    const p = exit.call(document);
+    if(p && p.catch) p.catch(() => {});
+  }catch(err){ /* nada que hacer si ni siquiera se puede salir a mano */ }
+}
 function setZenMode(active){
   zenMode = active;
   document.body.classList.toggle("zen-mode", active);
@@ -4361,6 +4486,7 @@ function setZenMode(active){
   zenToggleEl.setAttribute("aria-label", zenToggleEl.title);
   zenIconEnterEl.hidden = active;
   zenIconExitEl.hidden = !active;
+  if(active) requestRealFullscreen(); else exitRealFullscreen();
   // Pasada completa: recalcula `syncInfoPlacement()` (mueve nameplates/
   // cementerios a donde corresponda, o los devuelve a su lugar de siempre)
   // Y el tamaño del tablero con la fórmula de pantalla completa (o la de
@@ -6104,7 +6230,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V145 · 28-sep-2026 · Pantalla completa: tablero más grande (menos margen reservado, columnas laterales más angostas)";
+const BUILD_ID = "V146 · 27-sep-2026 · Pantalla completa: alto estable robusto (barra de direcciones) + botón simplificado";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
