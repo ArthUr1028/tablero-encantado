@@ -335,7 +335,16 @@
      hay nada arriba/abajo que necesite ese aire. */
   body.zen-mode header,
   body.zen-mode footer{ display:none; }
-  body.zen-mode .wrap{ padding-top:10px; padding-bottom:10px; }
+  /* Ronda "el tablero ocupa poco espacio en pantalla completa" (V145,
+     2026-09-28): Arthur mandó captura de su celular en horizontal donde,
+     ya en pantalla completa, el tablero se veía chico con mucho negro
+     alrededor -- pidió explícito que ocupe el máximo espacio posible. En
+     una pantalla horizontal CORTA (celular apaisado, poco alto real) cada
+     píxel de "chrome" fijo (padding de `.wrap`, la fila del botón) le
+     resta directo al presupuesto de alto del tablero -- por eso ambos se
+     achican más en zen que en el resto de la app (6px en vez de 10px de
+     padding acá; el botón mismo se achica más abajo). */
+  body.zen-mode .wrap{ padding-top:6px; padding-bottom:6px; }
   /* Botón fuera del tablero (ver HTML, ya no vive dentro de `.board-frame`):
      fila propia en el flujo normal de la página, alineada a la derecha,
      ANTES de `.stage` -- en TODO momento, no solo en pantalla completa, así
@@ -347,6 +356,11 @@
      Arthur ("saca el botón del tablero"): un botón que ya no vive DENTRO de
      algo necesita su propio lugar afuera. */
   .zen-toggle-row{ display:flex; justify-content:flex-end; margin-bottom:10px; }
+  /* V145: en zen, el botón mismo se achica (mismo motivo que el padding de
+     arriba) -- fuera de zen sigue con el tamaño `.btn.icon` de siempre,
+     nunca tocado por este selector de 2 clases. */
+  body.zen-mode .zen-toggle-row{ margin-bottom:6px; }
+  body.zen-mode #zen-toggle{ padding:4px 6px; min-width:0; }
   /* Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
      segunda parte del pedido de Arthur -- "aprovechemos el espacio
      disponible a ambos lados del tablero: ahí colocaremos los jugadores,
@@ -362,8 +376,14 @@
      arriba/abajo del tablero en su lugar de siempre -- solo que ahora SÍ
      con el ajuste de encaje sin scroll (ver `syncStickyBoardHeight()`). */
   #zen-info-left, #zen-info-right{ display:none; }
+  /* V145: columnas laterales angostadas de 120-220px a 90-170px -- Arthur
+     pidió priorizar el tablero por sobre todo lo demás ("que ocupe el
+     máximo espacio posible"); nombre+reloj+cementerio siguen entrando
+     cómodos en 170px (ya lo hacían en el mismo ancho reducido que usa
+     `#landscape-info` desde la V140), así que ese margen de sobra se le
+     devuelve al tablero. */
   body.zen-mode.zen-side .stage{
-    grid-template-columns:minmax(120px,220px) minmax(0,1fr) minmax(120px,220px);
+    grid-template-columns:minmax(90px,170px) minmax(0,1fr) minmax(90px,170px);
     align-items:center;
   }
   body.zen-mode.zen-side .board-area{ grid-column:2; grid-row:auto; }
@@ -3760,11 +3780,23 @@ function baseBoardMaxW(boardScale){
    achique-y-remedir que ya usa la rama de siempre puede reutilizarse acá
    sin duplicar la fórmula. */
 function zenBoardMaxW(boardScale, effH, useStableH, extraCapPx){
-  const ZEN_PCT = 94;
+  /* V145: 94 -> 98. Arthur reportó el tablero chico con mucho negro
+     alrededor en un celular apaisado CORTO de alto -- el 6% que se
+     reservaba "por las dudas" (comentario original de la V140: "board-frame
+     todavía tiene su propio padding/borde, margen mínimo de seguridad a
+     propósito") resultó ser más margen del que hace falta: el bucle de
+     achique de `syncStickyBoardHeight()` YA garantiza que nunca se pase del
+     alto disponible (achica si hace falta) -- subir el porcentaje de
+     partida no puede romper ese límite, solo evita arrancar más chico de lo
+     necesario cuando SÍ entra. Con el propio padding/borde de `board-frame`
+     ya contado aparte (es contenido, no espacio extra), 98% deja un margen
+     de seguridad mínimo pero real contra redondeo de subpíxel, sin regalar
+     6 puntos enteros porque "por las dudas". */
+  const ZEN_PCT = 98;
   const heightTerm = useStableH
     ? (ZEN_PCT * boardScale / 100 * effH).toFixed(1) + "px"
     : (ZEN_PCT * boardScale).toFixed(1) + "vh";
-  const terms = [ZEN_PCT + "vw", heightTerm, Math.round(900 * boardScale) + "px"];
+  const terms = [ZEN_PCT + "vw", heightTerm, Math.round(950 * boardScale) + "px"];
   if(extraCapPx != null) terms.push(Math.max(200, Math.round(extraCapPx)) + "px");
   return "min(" + terms.join(", ") + ")";
 }
@@ -3881,14 +3913,15 @@ function syncStickyBoardHeight(boardScale){
     } else {
       document.documentElement.style.setProperty("--coord-vmin", "1.4vmin");
     }
-    // 10px arriba + 10px abajo -- el padding vertical reducido de `.wrap`
-    // en `body.zen-mode` (ver CSS) -- más el alto real de la fila del botón
-    // (`.zen-toggle-row`, medido en vez de adivinado: mismo espíritu que el
-    // resto del proyecto, "una fórmula fija no puede saber cuánto mide ya
-    // pintado" -- ver notas de `syncRanksHeight`/Versión 108 más arriba) más
-    // un margen mínimo de seguridad contra redondeo de subpíxel (mismo
-    // `SAFETY` que ya usa la rama de abajo para el mismo motivo).
-    const ZEN_WRAP_PAD = 20, ZEN_TOGGLE_GAP = 10, SAFETY = 10;
+    // 6px arriba + 6px abajo -- el padding vertical de `.wrap` en
+    // `body.zen-mode` (V145: bajó de 10/10 a 6/6, ver CSS) -- más el alto
+    // real de la fila del botón (`.zen-toggle-row`, medido en vez de
+    // adivinado: mismo espíritu que el resto del proyecto, "una fórmula
+    // fija no puede saber cuánto mide ya pintado" -- ver notas de
+    // `syncRanksHeight`/Versión 108 más arriba) más un margen mínimo de
+    // seguridad contra redondeo de subpíxel (mismo `SAFETY` que ya usa la
+    // rama de abajo para el mismo motivo).
+    const ZEN_WRAP_PAD = 12, ZEN_TOGGLE_GAP = 6, SAFETY = 10;
     const zenToggleRowH = zenToggleRowEl ? zenToggleRowEl.getBoundingClientRect().height : 0;
     // ZEN_TOGGLE_GAP: el `margin-bottom` de `.zen-toggle-row` en CSS --
     // `getBoundingClientRect()` no lo incluye (el margen queda FUERA de la
@@ -6071,7 +6104,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V144 · 27-sep-2026 · Pantalla completa: botón fuera del tablero, nombres/relojes/cementerios a los costados, sin scroll";
+const BUILD_ID = "V145 · 28-sep-2026 · Pantalla completa: tablero más grande (menos margen reservado, columnas laterales más angostas)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
