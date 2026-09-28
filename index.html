@@ -322,12 +322,70 @@
   body.zen-mode #landscape-info{ display:none; }
   body.zen-mode .stage{ grid-template-columns:1fr; grid-template-rows:none; }
   body.zen-mode .board-area{ position:static; grid-column:auto; grid-row:auto; }
-  #zen-toggle{
-    position:absolute; top:8px; right:8px; z-index:6;
-    padding:6px; min-width:0; line-height:0;
-    background:rgba(20,17,24,.55); backdrop-filter:blur(2px);
+  /* Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
+     Arthur probó la V143 y reportó que los nombres de los jugadores
+     quedaban fuera de la pantalla (había que hacer scroll) tanto en
+     escritorio como en celular -- el encabezado (título + descripción +
+     línea, ver `header` más arriba) seguía completo y sin achicarse, y
+     nunca se había contado su alto contra el viewport disponible. En
+     pantalla completa no aporta nada (Arthur pidió "sin paneles", y el
+     título tampoco hace falta para jugar concentrado), así que se oculta
+     entero, y el padding vertical de `.wrap` (pensado para dar aire
+     alrededor del encabezado) se reduce a un margen mínimo fijo -- ya no
+     hay nada arriba/abajo que necesite ese aire. */
+  body.zen-mode header,
+  body.zen-mode footer{ display:none; }
+  body.zen-mode .wrap{ padding-top:10px; padding-bottom:10px; }
+  /* Botón fuera del tablero (ver HTML, ya no vive dentro de `.board-frame`):
+     fila propia en el flujo normal de la página, alineada a la derecha,
+     ANTES de `.stage` -- en TODO momento, no solo en pantalla completa, así
+     el propio botón para ENTRAR a pantalla completa se encuentra siempre
+     en el mismo lugar. Un margen inferior chico la separa de `.stage`; en
+     escritorio/vertical normal esto agrega un renglón angosto arriba del
+     tablero (antes el botón ahí flotaba sin ocupar espacio propio, dentro
+     de `.board-frame`) -- diferencia menor y esperable del pedido mismo de
+     Arthur ("saca el botón del tablero"): un botón que ya no vive DENTRO de
+     algo necesita su propio lugar afuera. */
+  .zen-toggle-row{ display:flex; justify-content:flex-end; margin-bottom:10px; }
+  /* Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
+     segunda parte del pedido de Arthur -- "aprovechemos el espacio
+     disponible a ambos lados del tablero: ahí colocaremos los jugadores,
+     los relojes y los cementerios". Un QUINTO estado, más específico que
+     `zen-mode` solo: `zen-side` se agrega ADEMÁS de `zen-mode` (nunca solo)
+     cuando `zenSideColumnsWanted()` (JS) decide que hay ancho de sobra para
+     dos columnas laterales angostas sin apretar el tablero -- por eso todo
+     selector de acá exige AMBAS clases (mayor especificidad que
+     `body.zen-mode` solo, así que estos selectores ganan sin `!important`
+     sin tener que tocar el bloque de arriba). Sin ancho suficiente (celular
+     en vertical, ventana angosta) `zen-side` nunca se agrega, y el modo
+     pantalla completa queda como en la V143 -- una sola columna, nombres
+     arriba/abajo del tablero en su lugar de siempre -- solo que ahora SÍ
+     con el ajuste de encaje sin scroll (ver `syncStickyBoardHeight()`). */
+  #zen-info-left, #zen-info-right{ display:none; }
+  body.zen-mode.zen-side .stage{
+    grid-template-columns:minmax(120px,220px) minmax(0,1fr) minmax(120px,220px);
+    align-items:center;
   }
-  #zen-toggle svg{ display:block; }
+  body.zen-mode.zen-side .board-area{ grid-column:2; grid-row:auto; }
+  body.zen-mode.zen-side #zen-info-left,
+  body.zen-mode.zen-side #zen-info-right{
+    display:flex; flex-direction:column; justify-content:center; gap:16px;
+    grid-row:1;
+  }
+  body.zen-mode.zen-side #zen-info-left{ grid-column:1; }
+  body.zen-mode.zen-side #zen-info-right{ grid-column:3; }
+  /* Mismo tratamiento que ya usa `#landscape-info .graveyard` (V140) --
+     el cementerio deja de ser `position:absolute` colgado de una esquina
+     de `.board-frame` (ya no vive ahí) y pasa a flujo normal, en fila,
+     envolviendo -- misma técnica, mismo motivo, reutilizada tal cual. */
+  body.zen-mode.zen-side #zen-info-left .graveyard,
+  body.zen-mode.zen-side #zen-info-right .graveyard{
+    position:static; top:auto; left:auto; right:auto; bottom:auto;
+    width:100%; max-width:100%;
+    display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-start;
+  }
+  body.zen-mode.zen-side #zen-info-left .nameplate,
+  body.zen-mode.zen-side #zen-info-right .nameplate{ font-size:.8rem; }
 
   /* ---------- Tablero ---------- */
   .board-area{ display:flex; flex-direction:column; align-items:center; gap:14px; }
@@ -1917,24 +1975,42 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
     <div class="rule"></div>
   </header>
 
+  <!-- Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
+       Arthur reportó que el botón (V143) vivía DENTRO de `.board-frame` y
+       tapaba las casillas de la esquina. Primer intento de arreglo:
+       sacarlo a `position:fixed` en la esquina de la VENTANA (como
+       `#chat-widget`) -- descartado al VERIFICAR con Playwright: en
+       celular vertical (donde el tablero ocupa casi todo el ancho) la
+       esquina de la ventana y la esquina del tablero casi coinciden, así
+       que un botón `fixed` ahí seguía solapando el marco -- el mismo
+       problema con otra excusa, no una solución de verdad.
+       Arreglo real: el botón deja de flotar por completo -- pasa a ser una
+       fila propia, en el flujo normal de la página, ANTES de `.stage`
+       (justo donde estaba `<header>`, que en pantalla completa se oculta
+       entero). Al estar en flujo (no `position:absolute`/`fixed`), por
+       construcción NUNCA puede solaparse con nada que venga después --
+       tablero incluido -- sea cual sea el layout o el ancho de pantalla:
+       ya no depende de coincidir o no con una esquina en particular.
+       `justify-content:flex-end` en la fila lo alinea a la derecha, mismo
+       lugar visual de siempre. "hazlo más sencillo": se le quita el fondo
+       semitransparente + blur propio de la V143 (tenía sentido flotando
+       sobre la textura del tablero; acá, sobre el fondo liso de la
+       página, alcanza con la misma chapa `.btn.icon` que usa cualquier
+       otro botón del proyecto) -- y ya no necesita `position`/`z-index`
+       en absoluto. Dos <svg> en vez de uno: se alterna cuál está `hidden`
+       según el modo, mismo patrón que ya usa el proyecto en
+       #account-signed-in/#account-signed-out. -->
+  <div class="zen-toggle-row">
+    <button class="btn icon" id="zen-toggle" type="button" aria-pressed="false" aria-label="Pantalla completa" title="Pantalla completa">
+      <svg id="zen-icon-enter" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      <svg id="zen-icon-exit" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M9 3v4a2 2 0 0 1-2 2H3M15 3v4a2 2 0 0 0 2 2h4M9 21v-4a2 2 0 0 0-2-2H3M15 21v-4a2 2 0 0 1 2-2h4"/></svg>
+    </button>
+  </div>
+
   <div class="stage">
     <div class="board-area">
       <div class="nameplate" id="nameplate-top" aria-hidden="true"></div>
       <div class="board-frame" id="board-frame">
-        <!-- Ronda "pantalla completa" (V143, 2026-09-27): botón propio de
-             la app (no la Fullscreen API real del navegador -- en iPhone/
-             Safari casi no funciona para un elemento normal, y ya hubo un
-             bug real con la API real en pantalla completa, Versión 100).
-             Vive DENTRO de `.board-frame` (ya `position:relative`) para
-             quedar anclado al tablero en cualquier layout -- escritorio,
-             vertical, horizontal -- sin depender de dónde esté el panel
-             lateral. Dos <svg> en vez de uno: se alterna cuál está
-             `hidden` según el modo, mismo patrón que ya usa el proyecto en
-             #account-signed-in/#account-signed-out. -->
-        <button class="btn icon" id="zen-toggle" type="button" aria-pressed="false" aria-label="Pantalla completa" title="Pantalla completa">
-          <svg id="zen-icon-enter" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-          <svg id="zen-icon-exit" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M9 3v4a2 2 0 0 1-2 2H3M15 3v4a2 2 0 0 0 2 2h4M9 21v-4a2 2 0 0 0-2-2H3M15 21v-4a2 2 0 0 1 2-2h4"/></svg>
-        </button>
         <div class="graveyard" id="graveyard-top" aria-hidden="true"></div>
         <div class="board-wrap">
           <div class="ranks" id="ranks" aria-hidden="true"></div>
@@ -1956,6 +2032,19 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
          esa función para el porqué de mover nodos reales en vez de
          reconstruir esta info con otro HTML/JS aparte. -->
     <div class="landscape-info" id="landscape-info"></div>
+
+    <!-- Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27):
+         Arthur pidió que, en pantalla completa, nombres/relojes/cementerios
+         aprovechen el espacio a AMBOS lados del tablero (no arriba/abajo,
+         como quedaba en la V143 -- eso era justo lo que dejaba los nombres
+         fuera de pantalla). Dos contenedores nuevos, vacíos por defecto
+         (ver CSS junto a `.stage`) -- `syncInfoPlacement()` en el JS mueve
+         nameplate-top+graveyard-top a uno y nameplate-bottom+graveyard-bottom
+         al otro, solo con `zenMode` activo Y ancho suficiente (ver
+         `zenSideColumnsWanted()`); en cualquier otro caso quedan vacíos y
+         ocultos, sin afectar nada. -->
+    <div class="zen-info" id="zen-info-left"></div>
+    <div class="zen-info" id="zen-info-right"></div>
 
     <div class="side" id="side-panels">
       <!-- Fase 2 · Cuenta (2026-09-23): primer paso del multijugador —
@@ -3359,6 +3448,9 @@ const graveyardBottomEl = document.getElementById("graveyard-bottom");
 const boardAreaEl = document.querySelector(".board-area");
 const sidePanelsEl = document.getElementById("side-panels");
 const landscapeInfoEl = document.getElementById("landscape-info");
+const zenInfoLeftEl = document.getElementById("zen-info-left");
+const zenInfoRightEl = document.getElementById("zen-info-right");
+const zenToggleRowEl = document.querySelector(".zen-toggle-row");
 
 /* La fila de números (#ranks) debe medir exactamente lo mismo que el
    tablero real. Se intentó resolverlo con CSS puro (grid-template-rows:
@@ -3514,14 +3606,23 @@ function useGraveyardStrip(){
 function syncGraveyardLayout(){
   const rootPx = parseFloat(document.documentElement.style.getPropertyValue("--piece-size")) || 0;
   if(!(rootPx > 0)) return;
-  if(useGraveyardStrip() || landscapeInfoWanted()){
+  /* V144: se agrega `zenMode && zenSideColumnsWanted()` a esta condición --
+     en ese caso `syncInfoPlacement()` (antes `syncLandscapeInfoPlacement()`)
+     movió los cementerios a `#zen-info-left`/`#zen-info-right`, un tercer
+     destino además de "en su lugar" y `#landscape-info`, con el mismo
+     tratamiento de flujo normal (ver `#zen-info-left .graveyard` en el CSS,
+     calcado de `#landscape-info .graveyard`) -- así tampoco entra acá al
+     cálculo de padding/max-height pensado para las esquinas absolutas, que
+     ya no aplica. */
+  if(useGraveyardStrip() || landscapeInfoWanted() || (zenMode && zenSideColumnsWanted())){
     /* Modo tira horizontal (vertical angosto) O V140 táctil+horizontal+
-       ancho: en ambos casos los cementerios ya NO están en las esquinas
-       absolutas de `board-frame` -- el segundo caso porque
-       `syncLandscapeInfoPlacement()` los movió físicamente a
-       `#landscape-info`, donde el CSS (`#landscape-info .graveyard`, ver
-       la nota junto a esa regla) reutiliza el mismo tratamiento visual de
-       flujo normal que ya existía para la tira vertical. No hay corte
+       ancho O V144 pantalla completa con columnas laterales: en los tres
+       casos los cementerios ya NO están en las esquinas
+       absolutas de `board-frame` -- el segundo y tercer caso porque
+       `syncInfoPlacement()` los movió físicamente a `#landscape-info` o a
+       `#zen-info-left`/`#zen-info-right`, donde el CSS reutiliza el mismo
+       tratamiento visual de flujo normal que ya existía para la tira
+       vertical. No hay corte
        lateral que reservar en ninguno de los dos: flex-wrap hace solo el
        trabajo de acomodar filas según el ancho real disponible, sin
        ninguna cuenta en JS. Solo hace falta soltar cualquier padding
@@ -3648,13 +3749,24 @@ function baseBoardMaxW(boardScale){
    convivir con esas otras cosas en pantalla. `effH`/`useStableH` los pasa
    `syncStickyBoardHeight()` ya resueltos (alto estable si el dispositivo
    es táctil+horizontal+ancho, el `vh` vivo de siempre si no), para no
-   repetir acá esa decisión. */
-function zenBoardMaxW(boardScale, effH, useStableH){
+   repetir acá esa decisión.
+   V144: se agrega un cuarto término opcional, `extraCapPx` -- el mismo
+   papel que el `newW + "px"` que el bucle de achique de
+   `syncStickyBoardHeight()` ya insertaba a mano en la rama NO-zen (ver
+   `min(" + newW + "px, ...")` un poco más abajo); antes esta función no lo
+   aceptaba porque la rama zen nunca había necesitado achicar (nunca medía
+   si hacía falta), bug real que Arthur reportó en la V144 ("hay que hacer
+   scroll para ver los nombres"). Con este término, el mismo bucle de
+   achique-y-remedir que ya usa la rama de siempre puede reutilizarse acá
+   sin duplicar la fórmula. */
+function zenBoardMaxW(boardScale, effH, useStableH, extraCapPx){
   const ZEN_PCT = 94;
   const heightTerm = useStableH
     ? (ZEN_PCT * boardScale / 100 * effH).toFixed(1) + "px"
     : (ZEN_PCT * boardScale).toFixed(1) + "vh";
-  return "min(" + ZEN_PCT + "vw, " + heightTerm + ", " + Math.round(900 * boardScale) + "px)";
+  const terms = [ZEN_PCT + "vw", heightTerm, Math.round(900 * boardScale) + "px"];
+  if(extraCapPx != null) terms.push(Math.max(200, Math.round(extraCapPx)) + "px");
+  return "min(" + terms.join(", ") + ")";
 }
 /* Ronda "el tablero debe asumir de una vez el tamaño sin la barra de
    direcciones" (V139, 2026-09-27; CORREGIDA en V141, 2026-09-27): Arthur
@@ -3727,28 +3839,41 @@ function syncStickyBoardHeight(boardScale){
   // que decidirse ACÁ, antes de medir nada más abajo -- así `fixedH` ve
   // el estado de posición ya asentado (nameplates fuera de esta columna
   // cuando corresponde) y no el de la vuelta anterior.
-  syncLandscapeInfoPlacement();
-  /* Ronda "pantalla completa" (V143, 2026-09-27): pedido explícito de
-     Arthur, como cuarto modo de layout además de escritorio/vertical/
-     horizontal -- se resuelve ACÁ, antes que nada, y con un `return`
-     propio, para no tener que enhebrar `zenMode` dentro de la lógica de
-     `stickyActive`/achique de abajo (pensada para el layout de DOS
-     columnas, que en pantalla completa ni existe: el panel lateral está
-     oculto por CSS). En pantalla completa el layout es de una sola
-     columna con scroll normal -- el mismo tipo de caso simple que ya usa
-     el celular angosto/vertical (sin bucle de achique: los nameplates
-     ocupan su alto natural arriba/abajo del tablero y la página entera
-     hace scroll si no entra todo, comportamiento ya aceptado en esos
-     modos) -- solo que con un porcentaje de tamaño mucho mayor, porque acá
-     no hay NADA más con que compartir el ancho (el panel no está movido,
-     como en touchLandscapeWide: está completamente oculto).
-     Aun así, en un dispositivo táctil+horizontal+ancho (`touchLandscapeWide`
-     sigue siendo un hecho real del dispositivo, sin importar `zenMode`)
-     se sigue usando el alto EstABLE (V139/V141, sonda `#lvh-probe`) para
-     que pantalla completa en el celular real no reintroduzca el mismo
-     salto de tamaño al ocultarse la barra de direcciones -- sería absurdo
-     resolver eso para el modo normal y volver a romperlo acá. */
+  syncInfoPlacement();
+  /* Ronda "pantalla completa" (V143, 2026-09-27; CORREGIDA en V144,
+     2026-09-27): pedido explícito de Arthur, como cuarto modo de layout
+     además de escritorio/vertical/horizontal -- se resuelve ACÁ, antes que
+     nada, y con un `return` propio, para no tener que enhebrar `zenMode`
+     dentro de la lógica de `stickyActive`/achique de abajo (pensada para el
+     layout de DOS columnas de siempre, que en pantalla completa ni existe).
+
+     La V143 asumía que, sin panel lateral, "una sola columna con scroll
+     normal" alcanzaba -- Arthur probó en su celular Y en escritorio y
+     reportó que los nombres quedaban fuera de la pantalla, con que hacer
+     scroll para verlos, justo lo que se había pedido evitar ("sin
+     necesidad de hacer scroll... que todo quede dentro de la pantalla
+     visible"). Dos causas reales, ninguna cubierta por la V143:
+     (1) el encabezado (título+descripción, ver `header` en el CSS) seguía
+     completo y nunca se contó su alto contra el viewport -- ahora se oculta
+     entero en `body.zen-mode` (CSS) y no hace falta contarlo acá porque ya
+     no ocupa nada;
+     (2) esta función NUNCA verificaba que lo que quedara (nameplates +
+     tablero) entrara de verdad en el alto disponible -- a diferencia de la
+     rama de abajo (`stickyActive`), que sí mide y achica en un bucle, acá
+     solo se ponía la fórmula base y se volvía, sin comprobar nada.
+
+     Arreglo (V144): "aprovechemos el espacio a ambos lados del tablero"
+     -- cuando hay ancho de sobra (`zenSideColumnsWanted()`, ya decidido
+     dentro de `syncInfoPlacement()` de la línea anterior, que también
+     mueve los nodos reales a `#zen-info-left`/`#zen-info-right` en ese
+     caso), nameplates y cementerios dejan de ocupar alto arriba/abajo del
+     tablero -- `fixedH` es entonces solo el margen mínimo de `.wrap`,
+     nunca su alto. Sin ancho de sobra (celular vertical, ventana angosta)
+     siguen arriba/abajo como en la V143, pero ahora SÍ se miden y se
+     entra al mismo tipo de bucle de achique que ya usa la rama de abajo,
+     así queda garantizado que quepan sin scroll también en ese caso. */
   if(zenMode){
+    const sideActive = zenSideColumnsWanted();
     const effHZen = touchLandscapeWide ? stableViewportHeight() : window.innerHeight;
     if(touchLandscapeWide){
       const stableVminPx = Math.min(window.innerWidth, effHZen) / 100 * 1.4;
@@ -3756,7 +3881,65 @@ function syncStickyBoardHeight(boardScale){
     } else {
       document.documentElement.style.setProperty("--coord-vmin", "1.4vmin");
     }
-    document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchLandscapeWide));
+    // 10px arriba + 10px abajo -- el padding vertical reducido de `.wrap`
+    // en `body.zen-mode` (ver CSS) -- más el alto real de la fila del botón
+    // (`.zen-toggle-row`, medido en vez de adivinado: mismo espíritu que el
+    // resto del proyecto, "una fórmula fija no puede saber cuánto mide ya
+    // pintado" -- ver notas de `syncRanksHeight`/Versión 108 más arriba) más
+    // un margen mínimo de seguridad contra redondeo de subpíxel (mismo
+    // `SAFETY` que ya usa la rama de abajo para el mismo motivo).
+    const ZEN_WRAP_PAD = 20, ZEN_TOGGLE_GAP = 10, SAFETY = 10;
+    const zenToggleRowH = zenToggleRowEl ? zenToggleRowEl.getBoundingClientRect().height : 0;
+    // ZEN_TOGGLE_GAP: el `margin-bottom` de `.zen-toggle-row` en CSS --
+    // `getBoundingClientRect()` no lo incluye (el margen queda FUERA de la
+    // caja), así que se suma a mano, mismo valor que el CSS para que nunca
+    // puedan desincronizarse (si se cambia uno, hay que cambiar el otro).
+    let fixedH = ZEN_WRAP_PAD + zenToggleRowH + ZEN_TOGGLE_GAP + SAFETY;
+    if(!sideActive && nameplateTopEl && nameplateBottomEl){
+      // Sin columnas laterales, nameplateTop/Bottom siguen en su lugar de
+      // siempre (arriba/abajo de `.board-frame`, dentro de `.board-area`) --
+      // su alto no depende del ancho de `.board-frame` (`.board-area` no se
+      // achica con él, ver nota de la rama `stickyActive` más abajo), así
+      // que se mide UNA sola vez acá, no en cada vuelta del bucle.
+      const npTopH = nameplateTopEl.getBoundingClientRect().height;
+      const npBottomH = nameplateBottomEl.getBoundingClientRect().height;
+      fixedH += npTopH + npBottomH + 28; // 14px + 14px: el `gap` de `.board-area`, dos veces (arriba y abajo del marco).
+    }
+    document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchLandscapeWide, null));
+    /* V144, bug real encontrado verificando con Playwright (no reportado por
+       Arthur): sin esta línea, la PRIMERA medición de `board-frame` después
+       de entrar a pantalla completa leía un alto MENOR al real (656px en
+       vez de 752px en una de las pruebas) -- el mismo bug ya documentado en
+       la Versión 138 (ver nota junto a `syncRanksHeight()` en la rama
+       `stickyActive` de abajo): `.board-wrap` sigue con su fila-1 fijada en
+       PX por la última vez que corrió `syncRanksHeight()`, calculada contra
+       el tablero VIEJO (más chico, de antes de entrar en pantalla completa)
+       -- esa fila no se agranda sola con el tablero nuevo (es un valor fijo
+       en JS, no la palabra clave "auto" de Grid). El resultado: el bucle de
+       abajo media un `overflow` falso (<=0, "ya entra") con una medida
+       subestimada, nunca achicaba cuando SÍ hacía falta, y recién el
+       `ResizeObserver` de `#board` (asíncrono, en el frame siguiente) volvía
+       a llamar a `syncRanksHeight()` por su cuenta y el tablero terminaba
+       creciendo por su lado, otra vez sin que el bucle de acá lo supiera --
+       exactamente cómo `scrollH` terminaba pasado el alto real de la
+       ventana pese a que este bucle "no encontraba" ningún desborde. */
+    syncRanksHeight();
+    if(boardFrameEl){
+      let bfW = boardFrameEl.getBoundingClientRect().width;
+      let overflow = fixedH + boardFrameEl.getBoundingClientRect().height - effHZen;
+      for(let i = 0; i < 6 && overflow > 0; i++){
+        const newW = Math.max(200, Math.round(bfW - overflow));
+        document.documentElement.style.setProperty("--board-max-w", zenBoardMaxW(boardScale, effHZen, touchLandscapeWide, newW));
+        if(newW <= 200) break;
+        bfW = newW;
+        // Mismo motivo que la llamada de más arriba: sin remedir acá,
+        // `board-frame` mediría siempre el mismo alto viejo en cada vuelta
+        // (ver la nota extensa junto a este mismo llamado en la rama
+        // `stickyActive`, Versión 136) y el bucle nunca convergería.
+        syncRanksHeight();
+        overflow = fixedH + boardFrameEl.getBoundingClientRect().height - effHZen;
+      }
+    }
     return;
   }
   const stickyActive =
@@ -4026,7 +4209,14 @@ const nameplateBottomEl = document.getElementById("nameplate-bottom");
    (rotar el celular de un lado a otro, redimensionar una ventana táctil). */
 const landscapeRelocatable = [nameplateTopEl, graveyardTopEl, nameplateBottomEl, graveyardBottomEl];
 const landscapeAnchors = landscapeRelocatable.map(el => ({ el, parent: el.parentNode, next: el.nextSibling }));
-let landscapeInfoActive = false;
+/* V144: antes un booleano (`landscapeInfoActive`) alcanzaba porque solo
+   había dos estados posibles ("en su lugar" o "en #landscape-info"). Con
+   el destino nuevo de la V144 (`#zen-info-left`/`#zen-info-right`, ver
+   más abajo) ya son tres, así que pasa a ser un string -- "home" (en su
+   lugar de siempre), "landscape" (`#landscape-info`, V140) o "zen"
+   (columnas laterales de pantalla completa, V144) -- para poder comparar
+   con `===` igual que antes, sin un enum aparte. */
+let infoPlacement = "home";
 // Ronda "pantalla completa" (V143): declarado ACÁ (arriba de toda función
 // que lo lee) para no depender del orden de las funciones más abajo -- solo
 // importa que esta línea corra antes de la primera vez que algo llame a
@@ -4050,43 +4240,78 @@ function isTouchLandscapeWide(){
    eso la reubicación de nameplates/cementerios a `#landscape-info` (V140)
    tiene que APAGARSE en ese modo aunque el dispositivo siga siendo
    técnicamente táctil+horizontal+ancho: en pantalla completa esos
-   elementos vuelven a su lugar de siempre alrededor del tablero (el mismo
-   mecanismo de restauración por ancla de `syncLandscapeInfoPlacement()`,
-   sin tocarlo) en vez de a una columna lateral que ya no existe. */
+   elementos van a `#zen-info-left`/`#zen-info-right` en su lugar (V144,
+   ver `zenSideColumnsWanted()`), o vuelven a su lugar de siempre si ni
+   siquiera eso hay espacio para hacer. */
 function landscapeInfoWanted(){
   return isTouchLandscapeWide() && !zenMode;
 }
-function syncLandscapeInfoPlacement(){
+/* Ronda "pantalla completa, retroalimentación" (V144, 2026-09-27): Arthur
+   pidió aprovechar "el espacio disponible a ambos lados del tablero" para
+   nombres/relojes/cementerios -- pero solo tiene sentido cuando ESE
+   espacio existe de verdad. 700px es el mismo umbral que ya usa
+   `isTouchLandscapeWide()` para la misma decisión de fondo ("¿hay ancho de
+   sobra para una columna angosta a cada lado sin apretar el tablero?"),
+   pero sin exigir táctil+horizontal: en pantalla completa esto también
+   aplica en escritorio (ventana ancha) con mouse, caso que
+   `isTouchLandscapeWide()` no cubre a propósito (esa función es SOLO para
+   el modo horizontal táctil de la V140, no para esto). */
+function zenSideColumnsWanted(){
+  return window.matchMedia("(min-width:700px)").matches;
+}
+function syncInfoPlacement(){
   if(!landscapeInfoEl) return;
-  const wantActive = landscapeInfoWanted();
-  if(wantActive === landscapeInfoActive) return;
-  if(wantActive){
+  const wanted = zenMode
+    ? (zenSideColumnsWanted() ? "zen" : "home")
+    : (landscapeInfoWanted() ? "landscape" : "home");
+  // El propio contenedor lateral de pantalla completa depende de esta
+  // decisión (ver CSS `body.zen-mode.zen-side`) -- se refleja en el <body>
+  // ACÁ, en el mismo lugar que decide todo lo demás, para que nunca puedan
+  // desincronizarse entre sí (un solo lugar que decide "¿hay columnas
+  // laterales o no?", tanto para el CSS como para dónde vive cada nodo).
+  document.body.classList.toggle("zen-side", wanted === "zen");
+  if(wanted === infoPlacement) return;
+  if(wanted === "landscape"){
     landscapeRelocatable.forEach(el => landscapeInfoEl.appendChild(el));
+  } else if(wanted === "zen"){
+    // "a ambos lados": el jugador/reloj/cementerio de ARRIBA a un lado, el
+    // de ABAJO al otro -- reparto simétrico, ninguno de los dos lados se
+    // queda vacío mientras el otro carga con los cuatro nodos.
+    zenInfoLeftEl.appendChild(nameplateTopEl);
+    zenInfoLeftEl.appendChild(graveyardTopEl);
+    zenInfoRightEl.appendChild(nameplateBottomEl);
+    zenInfoRightEl.appendChild(graveyardBottomEl);
   } else {
     // Se restaura en el mismo orden en que se capturaron las anclas, así
     // cada `insertBefore` todavía encuentra a su hermano siguiente en el
     // lugar correcto (si se restaurara en orden inverso, mover el último
     // elemento de la lista primero podría desacomodar el `nextSibling`
     // capturado para uno anterior, si ambos compartieran el mismo padre).
+    // Válido sin importar desde cuál de los otros dos estados se venga --
+    // el ancla es la posición ORIGINAL de cada nodo, capturada una sola vez
+    // al cargar la página, nunca la del estado anterior.
     landscapeAnchors.forEach(({ el, parent, next }) => {
       if(next && next.parentNode === parent) parent.insertBefore(el, next);
       else parent.appendChild(el);
     });
   }
-  landscapeInfoActive = wantActive;
+  infoPlacement = wanted;
 }
 /* Ronda "pantalla completa" (V143, 2026-09-27): pedido explícito de Arthur
    ("mostrar el tablero, nombres, relojes y cementerios al máximo tamaño
    posible, sin paneles"), con tres decisiones que él mismo tomó antes de
    escribir esto: (1) el botón vive como ícono flotante junto al tablero,
    no dentro de un panel (así sigue alcanzable con los paneles colapsados
-   o ya en pantalla completa); (2) NO usa la Fullscreen API real del
-   navegador, ni siquiera en escritorio -- un solo modo, igual en
-   cualquier dispositivo, más simple y sin la limitación real de iOS
-   Safari con elementos que no son <video>; (3) NO se recuerda entre
-   visitas -- arranca siempre en modo normal, a diferencia del colapso de
-   paneles (V142), porque es un modo transitorio de "ahora quiero
-   concentrarme", no una preferencia de configuración permanente.
+   o ya en pantalla completa) -- reubicado en la V144 a `position:fixed` en
+   la esquina de la VENTANA (ver HTML/CSS), ya no anclado al tablero, tras
+   que Arthur reportara que obstruía las casillas de la esquina; (2) NO usa
+   la Fullscreen API real del navegador, ni siquiera en escritorio -- un
+   solo modo, igual en cualquier dispositivo, más simple y sin la
+   limitación real de iOS Safari con elementos que no son <video>; (3) NO
+   se recuerda entre visitas -- arranca siempre en modo normal, a
+   diferencia del colapso de paneles (V142), porque es un modo transitorio
+   de "ahora quiero concentrarme", no una preferencia de configuración
+   permanente.
    El chat de la partida en vivo (`#chat-widget`) no necesita NINGÚN
    cambio acá: ya es `position:fixed` fuera de `#side-panels` y ya se
    muestra solo con una partida en vivo en curso (ver `liveGame` en el
@@ -4103,9 +4328,9 @@ function setZenMode(active){
   zenToggleEl.setAttribute("aria-label", zenToggleEl.title);
   zenIconEnterEl.hidden = active;
   zenIconExitEl.hidden = !active;
-  // Pasada completa: recalcula `syncLandscapeInfoPlacement()` (devuelve
-  // nameplates/cementerios a su lugar de siempre si estaban reubicados) Y
-  // el tamaño del tablero con la fórmula de pantalla completa (o la de
+  // Pasada completa: recalcula `syncInfoPlacement()` (mueve nameplates/
+  // cementerios a donde corresponda, o los devuelve a su lugar de siempre)
+  // Y el tamaño del tablero con la fórmula de pantalla completa (o la de
   // siempre, al salir) -- una sola llamada cubre ambos.
   syncBoardMetrics();
 }
@@ -5846,7 +6071,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V143 · 27-sep-2026 · Pantalla completa: tablero, nombres, relojes y cementerios al máximo, sin paneles";
+const BUILD_ID = "V144 · 27-sep-2026 · Pantalla completa: botón fuera del tablero, nombres/relojes/cementerios a los costados, sin scroll";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
