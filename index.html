@@ -2186,6 +2186,9 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <h3 style="margin:14px 0 6px; font-size:.95rem">Partidas en curso</h3>
           <div id="club-active-games"></div>
 
+          <h3 style="margin:14px 0 6px; font-size:.95rem">Vitrina de trofeos</h3>
+          <div id="club-trophies"></div>
+
           <h3 style="margin:14px 0 6px; font-size:.95rem">Torneos</h3>
           <div class="btns" style="margin-bottom:6px">
             <button class="btn" id="club-tournament-new">Crear torneo</button>
@@ -5597,7 +5600,7 @@ async function refreshClub(){
   clubMemberAreaEl.hidden = !isMember;
   if(!isMember) return;
 
-  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments()]);
+  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments(), loadClubTrophies()]);
   subscribeClubChannel();
   autoReconnectLive();
 }
@@ -5914,6 +5917,80 @@ function computeStandings(parts, matches){
   return out;
 }
 
+/* ---- Vitrina de trofeos (logros de todos los miembros) ----
+   Lee `achievements` (solo lectura para miembros; las escribe el servidor).
+   Si la tabla aún no existe, muestra un aviso en vez de romper el panel.
+   Los emoji son marcadores hasta tener el arte SVG. */
+const clubTrophiesEl = document.getElementById("club-trophies");
+let clubTrophiesSeq = 0;
+const ACH_INFO = {
+  corona_oro:      { icon: "\u{1F451}", name: "Corona dorada",    tip: "Campe\u00f3n de torneo" },
+  corona_plata:    { icon: "\u{1F948}", name: "Corona de plata",  tip: "Subcampe\u00f3n de torneo" },
+  primera_sangre:  { icon: "\u{1FA78}", name: "Primera sangre",   tip: "Primera victoria contra un miembro" },
+  revancha:        { icon: "\u{1F501}", name: "Revancha",         tip: "Ganarle a quien te venci\u00f3 la vez anterior" },
+  remontada:       { icon: "\u{1F4C8}", name: "Remontada",        tip: "Ganar tras ir 5+ puntos abajo" },
+  caballo_asesino: { icon: "\u{1F434}", name: "Caballo asesino",  tip: "Dar mate con un caballo" },
+  derrocar_al_rey: { icon: "\u{1F5E1}\uFE0F", name: "Derrocar al rey", tip: "Vencer al campe\u00f3n del \u00faltimo torneo" },
+  vuelta_al_club:  { icon: "\u{1F91D}", name: "Vuelta al club",   tip: "Ganarle a 2 miembros distintos" }
+};
+async function loadClubTrophies(){
+  if(!clubTrophiesEl) return;
+  const mySeq = ++clubTrophiesSeq;
+  const [achRes, memRes] = await Promise.all([
+    sb.from("achievements").select("user_id, code, tournament_id, meta, awarded_at").order("awarded_at", { ascending: false }),
+    sb.from("club_members").select("profile_id, profiles(id, username, display_name)")
+  ]);
+  if(mySeq !== clubTrophiesSeq) return;
+  if(achRes.error){
+    clubTrophiesEl.innerHTML = '<p class="free-hint">La vitrina a\u00fan no est\u00e1 disponible.</p>';
+    return;
+  }
+  const names = {};
+  (memRes.data || []).forEach(r => { if(r.profiles) names[r.profiles.id] = r.profiles.display_name || r.profiles.username; });
+  const byUser = {};
+  (achRes.data || []).forEach(a => { (byUser[a.user_id] = byUser[a.user_id] || []).push(a); });
+  clubTrophiesEl.innerHTML = "";
+  const ids = Object.keys(names);
+  if(!ids.length){ clubTrophiesEl.innerHTML = '<p class="free-hint">Sin miembros a\u00fan.</p>'; return; }
+  // Quien tiene m\u00e1s logros primero; a igualdad, alfab\u00e9tico.
+  ids.sort((a, b) => ((byUser[b] || []).length - (byUser[a] || []).length) || names[a].localeCompare(names[b]));
+  if(!(achRes.data || []).length){
+    const hint = document.createElement("p");
+    hint.className = "free-hint";
+    hint.textContent = "A\u00fan no hay trofeos. Se ganan jugando entre miembros (10 jugadas o m\u00e1s).";
+    clubTrophiesEl.appendChild(hint);
+  }
+  ids.forEach(id => {
+    const list = byUser[id] || [];
+    const box = document.createElement("div");
+    box.style.cssText = "margin:6px 0; padding:8px 10px; border:1px solid var(--line, #444); border-radius:6px";
+    const head = document.createElement("div");
+    head.style.cssText = "font-weight:600; margin-bottom:4px";
+    head.textContent = names[id] + (id === accountProfile.id ? " (t\u00fa)" : "") + " \u00b7 " + list.length;
+    box.appendChild(head);
+    if(!list.length){
+      const none = document.createElement("div");
+      none.className = "free-hint";
+      none.textContent = "Vitrina vac\u00eda";
+      box.appendChild(none);
+    }
+    list.forEach(a => {
+      const info = ACH_INFO[a.code] || { icon: "\u{1F3C5}", name: a.code, tip: "" };
+      const d = new Date(a.awarded_at).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+      let detail = d;
+      if((a.code === "corona_oro" || a.code === "corona_plata") && a.meta && a.meta.torneo){
+        detail = a.meta.torneo + " \u00b7 " + a.meta.participantes + " jugadores \u00b7 " + d;
+      }
+      const row = document.createElement("div");
+      row.style.cssText = "margin:2px 0; font-size:.9rem";
+      row.title = info.tip;
+      row.textContent = info.icon + " " + info.name + " \u2014 " + detail;
+      box.appendChild(row);
+    });
+    clubTrophiesEl.appendChild(box);
+  });
+}
+
 async function loadClubTournaments(){
   const mySeq = ++clubTournamentsSeq;
   const { data, error } = await sb.from("tournaments").select("*")
@@ -6143,7 +6220,7 @@ document.getElementById("club-tournament-create").onclick = async () => {
 setInterval(() => {
   if(accountProfile && clubPanelEl && !clubPanelEl.hidden && !clubMemberAreaEl.hidden &&
      document.visibilityState === "visible" &&
-     !clubTournamentDetailEl.contains(document.activeElement)) loadClubTournaments();
+     !clubTournamentDetailEl.contains(document.activeElement)){ loadClubTournaments(); loadClubTrophies(); }
 }, 12000);
 
 document.getElementById("club-join-btn").onclick = async () => {
