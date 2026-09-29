@@ -1181,6 +1181,89 @@
   .palette button[aria-pressed="true"]{ border-color:var(--ember); box-shadow:0 0 0 1px var(--ember) inset; }
   .free-hint{ font-size:.82rem; color:var(--text-faint); margin-top:8px; font-style:italic; }
 
+  /* ---------- Vitrina del Club (museo): cristal, biseles y fundidos ----------
+     Mismo fundido que .global-toast (.6s ease). Se anima opacity/visibility en
+     vez de usar [hidden], porque display:none no admite transición. */
+  .mus-ov{
+    position:fixed; inset:0; z-index:1000;
+    display:flex; align-items:center; justify-content:center;
+    padding:clamp(8px,2.5vw,28px);
+    background:radial-gradient(ellipse at 50% 20%, rgba(217,138,61,.16), rgba(6,5,9,.86) 62%);
+    -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .6s ease, visibility 0s linear .6s;
+  }
+  .mus-ov.show{ opacity:1; visibility:visible; pointer-events:auto; transition:opacity .6s ease, visibility 0s; }
+  .mus-box{
+    position:relative; width:100%; max-width:920px; max-height:92vh;
+    display:flex; flex-direction:column; overflow:hidden;
+    border-radius:26px;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.28));
+    border:1px solid rgba(255,255,255,.2);
+    box-shadow:0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.35), inset 0 -18px 40px rgba(0,0,0,.28);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+    transform:translateY(10px) scale(.985); transition:transform .6s ease;
+  }
+  .mus-ov.show .mus-box{ transform:none; }
+  .mus-head{ padding:16px clamp(16px,4vw,30px) 10px; text-align:center; flex:0 0 auto; }
+  .mus-head h2{
+    font-family:"Cinzel", serif; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+    font-size:clamp(1.05rem,3vw,1.4rem); margin:0 0 .25em; color:var(--marble);
+    text-shadow:0 2px 0 rgba(0,0,0,.45), 0 0 22px rgba(217,138,61,.3);
+  }
+  .mus-sub{ margin:0; font-size:.84rem; font-style:italic; color:var(--text-dim); }
+  .mus-close{ position:absolute; top:12px; right:14px; border-radius:50%; }
+  .mus-body{ overflow:auto; padding:6px clamp(12px,3.5vw,26px) 22px; }
+  .mus-case{
+    margin:14px 0; padding:14px clamp(12px,3vw,20px) 16px; border-radius:22px;
+    background:linear-gradient(160deg, rgba(255,255,255,.11), rgba(255,255,255,.03) 55%, rgba(0,0,0,.16));
+    border:1px solid rgba(255,255,255,.17);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 0 -14px 26px rgba(0,0,0,.2), 0 10px 26px rgba(0,0,0,.3);
+    opacity:0; transform:translateY(8px); animation:musIn .6s ease forwards;
+  }
+  @keyframes musIn{ to{ opacity:1; transform:none; } }
+  @keyframes musFade{ to{ opacity:1; } }  /* solo opacidad: no pisa el transform del :hover */
+  .mus-plate{
+    display:inline-block; padding:4px 16px; border-radius:999px; margin-bottom:10px;
+    font-family:"Cinzel", serif; letter-spacing:.1em; font-size:.85rem; color:#2a1c0c; font-weight:700;
+    background:linear-gradient(180deg, #f3d9a0, #c88f3f 55%, #e8c27c);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.6), inset 0 -2px 3px rgba(90,50,10,.35), 0 2px 6px rgba(0,0,0,.35);
+  }
+  .mus-plate small{ font-family:inherit; opacity:.65; margin-left:6px; }
+  .mus-shelf{ display:flex; flex-wrap:wrap; gap:14px 12px; align-items:flex-start; }
+  .mus-item{ display:flex; flex-direction:column; align-items:center; width:84px; }
+  .mus-med{
+    width:60px; height:60px; border-radius:50%; cursor:pointer; padding:0;
+    display:flex; align-items:center; justify-content:center; font-size:1.6rem; line-height:1;
+    color:inherit; border:1px solid rgba(255,255,255,.35);
+    background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.5), rgba(255,255,255,.1) 45%, rgba(0,0,0,.25));
+    box-shadow:inset 0 2px 3px rgba(255,255,255,.55), inset 0 -5px 9px rgba(0,0,0,.35), 0 5px 12px rgba(0,0,0,.4);
+    opacity:0; animation:musFade .6s ease forwards; transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .mus-med:hover, .mus-med:focus-visible{ transform:translateY(-3px) scale(1.06); outline:none; box-shadow:inset 0 2px 3px rgba(255,255,255,.6), inset 0 -5px 9px rgba(0,0,0,.35), 0 9px 18px rgba(0,0,0,.45), 0 0 16px rgba(217,138,61,.5); }
+  .mus-med[aria-pressed="true"]{ box-shadow:inset 0 2px 3px rgba(255,255,255,.6), inset 0 -5px 9px rgba(0,0,0,.35), 0 0 0 2px rgba(217,138,61,.85), 0 0 18px rgba(217,138,61,.55); }
+  .mus-med.crown{
+    width:72px; height:72px; font-size:2rem; border-color:rgba(255,226,150,.7);
+    background:radial-gradient(circle at 32% 24%, rgba(255,246,205,.85), rgba(224,170,70,.45) 48%, rgba(90,52,10,.5));
+  }
+  .mus-med.silver{ border-color:rgba(225,232,240,.75); background:radial-gradient(circle at 32% 24%, rgba(255,255,255,.85), rgba(170,182,196,.42) 48%, rgba(40,48,60,.5)); }
+  .mus-lbl{ margin-top:6px; font-size:.72rem; text-align:center; color:var(--text-dim); line-height:1.2; }
+  .mus-detail{
+    flex:1 0 100%; margin-top:2px; padding:11px 14px; border-radius:14px;
+    background:linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.05));
+    border:1px solid rgba(255,255,255,.2); box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 6px 16px rgba(0,0,0,.3);
+    font-size:.9rem; opacity:0; transform:translateY(-4px); pointer-events:none; max-height:0; overflow:hidden; padding-top:0; padding-bottom:0; border-width:0;
+    transition:opacity .6s ease, transform .6s ease, max-height .6s ease, padding .6s ease;
+  }
+  .mus-detail.show{ opacity:1; transform:none; pointer-events:auto; max-height:220px; padding-top:11px; padding-bottom:11px; border-width:1px; }
+  .mus-detail b{ font-family:"Cinzel", serif; letter-spacing:.06em; }
+  .mus-detail p{ margin:.3em 0 0; color:var(--text-dim); }
+  .mus-empty{ font-size:.86rem; font-style:italic; color:var(--text-dim); margin:2px 2px 0; }
+  @media (prefers-reduced-motion:reduce){
+    .mus-ov, .mus-ov.show, .mus-box, .mus-detail, .mus-detail.show{ transition:none; }
+    .mus-case, .mus-med{ animation:none; opacity:1; transform:none; }
+  }
+
   /* ---------- Salón de la Fama (V124: línea del tiempo + fichas) ---------- */
   .hof-teaser{ font-size:.86rem; color:var(--text-dim); font-style:italic; margin:0 0 10px; }
   .hof-ov{
@@ -2187,7 +2270,9 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <div id="club-active-games"></div>
 
           <h3 style="margin:14px 0 6px; font-size:.95rem">Vitrina de trofeos</h3>
-          <div id="club-trophies"></div>
+          <div class="btns" style="margin-bottom:6px">
+            <button class="btn" id="club-museum-open">Entrar a la vitrina</button>
+          </div>
 
           <h3 style="margin:14px 0 6px; font-size:.95rem">Torneos</h3>
           <div class="btns" style="margin-bottom:6px">
@@ -2511,6 +2596,17 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
       <button class="btn icon hof-close" id="hof-close" title="Cerrar" aria-label="Cerrar Salón de la Fama">&#x2715;</button>
     </div>
     <div class="hof-body" id="hof-body"></div>
+  </div>
+</div>
+
+<div class="mus-ov" id="mus-ov" aria-hidden="true">
+  <div class="mus-box" role="dialog" aria-modal="true" aria-labelledby="mus-title">
+    <div class="mus-head">
+      <h2 id="mus-title">Vitrina del Club</h2>
+      <p class="mus-sub">Toca un trofeo para ver contra qui&eacute;n se gan&oacute;.</p>
+      <button class="btn icon mus-close" id="mus-close" title="Cerrar" aria-label="Cerrar la vitrina">&#x2715;</button>
+    </div>
+    <div class="mus-body" id="mus-body"></div>
   </div>
 </div>
 
@@ -4496,7 +4592,7 @@ zenToggleExitEl.addEventListener("click", () => setZenMode(false));
 document.addEventListener("keydown", (e) => {
   if(!zenMode) return;
   if(["TEXTAREA","SELECT","INPUT"].includes(e.target.tagName)) return;
-  if(!document.getElementById("hof-ov").hidden) return; // el Salón de la Fama ya maneja su propio Escape
+  if(!document.getElementById("hof-ov").hidden || document.getElementById("mus-ov").classList.contains("show")) return; // el Salón de la Fama ya maneja su propio Escape
   if(e.key === "Escape") setZenMode(false);
 });
 const whiteNameEl = document.getElementById("white-name");
@@ -5600,7 +5696,7 @@ async function refreshClub(){
   clubMemberAreaEl.hidden = !isMember;
   if(!isMember) return;
 
-  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments(), loadClubTrophies()]);
+  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments()]);
   subscribeClubChannel();
   autoReconnectLive();
 }
@@ -5917,77 +6013,157 @@ function computeStandings(parts, matches){
   return out;
 }
 
-/* ---- Vitrina de trofeos (logros de todos los miembros) ----
+/* ---- Vitrina del Club (museo) ----
    Lee `achievements` (solo lectura para miembros; las escribe el servidor).
-   Si la tabla aún no existe, muestra un aviso en vez de romper el panel.
+   Cada insignia de partida remite a su partida: contra quién y cuándo, y un
+   botón que la carga en el tablero para estudiarla. Si la partida no es
+   legible para este usuario (RLS) o la tabla no existe, se degrada sin error.
    Los emoji son marcadores hasta tener el arte SVG. */
-const clubTrophiesEl = document.getElementById("club-trophies");
-let clubTrophiesSeq = 0;
+const museumOv = document.getElementById("mus-ov");
+const museumBody = document.getElementById("mus-body");
+let museumSeq = 0;
 const ACH_INFO = {
-  corona_oro:      { icon: "\u{1F451}", name: "Corona dorada",    tip: "Campe\u00f3n de torneo" },
-  corona_plata:    { icon: "\u{1F948}", name: "Corona de plata",  tip: "Subcampe\u00f3n de torneo" },
-  primera_sangre:  { icon: "\u{1FA78}", name: "Primera sangre",   tip: "Primera victoria contra un miembro" },
-  revancha:        { icon: "\u{1F501}", name: "Revancha",         tip: "Ganarle a quien te venci\u00f3 la vez anterior" },
-  remontada:       { icon: "\u{1F4C8}", name: "Remontada",        tip: "Ganar tras ir 5+ puntos abajo" },
-  caballo_asesino: { icon: "\u{1F434}", name: "Caballo asesino",  tip: "Dar mate con un caballo" },
-  derrocar_al_rey: { icon: "\u{1F5E1}\uFE0F", name: "Derrocar al rey", tip: "Vencer al campe\u00f3n del \u00faltimo torneo" },
-  vuelta_al_club:  { icon: "\u{1F91D}", name: "Vuelta al club",   tip: "Ganarle a 2 miembros distintos" }
+  corona_oro:      { icon: "\u{1F451}", name: "Corona dorada",   rule: "Campe\u00f3n de un torneo", crown: "gold" },
+  corona_plata:    { icon: "\u{1F451}", name: "Corona de plata", rule: "Subcampe\u00f3n de un torneo", crown: "silver" },
+  primera_sangre:  { icon: "\u{1FA78}", name: "Primera sangre",  rule: "Primera victoria contra un miembro" },
+  revancha:        { icon: "\u{1F501}", name: "Revancha",        rule: "Ganarle a quien te venci\u00f3 la vez anterior" },
+  remontada:       { icon: "\u{1F4C8}", name: "Remontada",       rule: "Ganar tras ir 5 o m\u00e1s puntos abajo" },
+  caballo_asesino: { icon: "\u{1F434}", name: "Caballo asesino", rule: "Dar mate con un caballo" },
+  derrocar_al_rey: { icon: "\u{1F5E1}\uFE0F", name: "Derrocar al rey", rule: "Vencer al campe\u00f3n del \u00faltimo torneo" },
+  vuelta_al_club:  { icon: "\u{1F91D}", name: "Vuelta al club",  rule: "Ganarle a dos miembros distintos" }
 };
-async function loadClubTrophies(){
-  if(!clubTrophiesEl) return;
-  const mySeq = ++clubTrophiesSeq;
+const MUS_VARIANT = { clasico: "Cl\u00e1sico", capablanca: "Capablanca", maharaja: "Maharaj\u00e1", amazonas: "Amazonas" };
+function musDate(iso){
+  return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+}
+function musEl(tag, cls, text){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(text !== undefined) e.textContent = text;
+  return e;
+}
+function openMuseum(){
+  museumOv.setAttribute("aria-hidden", "false");
+  museumOv.classList.add("show");
+  loadMuseum();
+}
+function closeMuseum(){
+  museumOv.classList.remove("show");
+  museumOv.setAttribute("aria-hidden", "true");
+}
+document.getElementById("club-museum-open").onclick = openMuseum;
+document.getElementById("mus-close").onclick = closeMuseum;
+museumOv.addEventListener("click", e => { if(e.target === museumOv) closeMuseum(); });
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && museumOv.classList.contains("show")) closeMuseum();
+});
+
+async function museumLoadGame(g, names, btn){
+  if(liveGame){ showGlobalToast("Sal de la partida en vivo (panel Club) para cargar otra."); return; }
+  btn.disabled = true;
+  const { data, error } = await sb.from("game_moves").select("ply, san").eq("game_id", g.id).order("ply", { ascending: true });
+  btn.disabled = false;
+  if(error || !data || !data.length){ showGlobalToast("No se pudo cargar esa partida."); return; }
+  stopAuto();
+  if(vsMachine) setVsMachine(false);
+  if(currentMode !== "play") setMode("play");
+  applySanList(VARIANT_START[g.variant], data.map(m => m.san),
+    { white: names[g.white_id] || "Blancas", black: names[g.black_id] || "Negras", result: g.result || "", resultNote: "" });
+  game.cursor = 0; selected = null; persist(); render();
+  closeMuseum();
+  showGlobalToast("Partida cargada \u2014 avanza con \u2192 para estudiarla.");
+}
+
+function museumDetail(a, info, gamesById, names, box){
+  box.innerHTML = "";
+  box.appendChild(musEl("b", "", info.name));
+  box.appendChild(musEl("p", "", info.rule));
+  if(info.crown){
+    const meta = a.meta || {};
+    box.appendChild(musEl("p", "", (meta.torneo ? "Torneo \u00ab" + meta.torneo + "\u00bb" : "Torneo") +
+      (meta.participantes ? " \u00b7 " + meta.participantes + " jugadores" : "") + " \u00b7 " + musDate(a.awarded_at)));
+    return;
+  }
+  const g = gamesById[a.game_id];
+  if(!g){
+    box.appendChild(musEl("p", "", "Conseguida el " + musDate(a.awarded_at) + "."));
+    return;
+  }
+  const oppId = g.white_id === a.user_id ? g.black_id : g.white_id;
+  box.appendChild(musEl("p", "", "Ganada a " + (names[oppId] || "un miembro") + " \u00b7 " +
+    musDate(g.created_at) + " \u00b7 " + (MUS_VARIANT[g.variant] || g.variant)));
+  const btn = musEl("button", "btn mini", "Cargar partida");
+  btn.type = "button";
+  btn.style.marginTop = "8px";
+  btn.onclick = () => museumLoadGame(g, names, btn);
+  box.appendChild(btn);
+}
+
+async function loadMuseum(){
+  const mySeq = ++museumSeq;
+  museumBody.innerHTML = "";
+  museumBody.appendChild(musEl("p", "mus-empty", "Abriendo la vitrina\u2026"));
   const [achRes, memRes] = await Promise.all([
-    sb.from("achievements").select("user_id, code, tournament_id, meta, awarded_at").order("awarded_at", { ascending: false }),
+    sb.from("achievements").select("user_id, code, game_id, tournament_id, meta, awarded_at").order("awarded_at", { ascending: false }),
     sb.from("club_members").select("profile_id, profiles(id, username, display_name)")
   ]);
-  if(mySeq !== clubTrophiesSeq) return;
+  if(mySeq !== museumSeq) return;
+  museumBody.innerHTML = "";
   if(achRes.error){
-    clubTrophiesEl.innerHTML = '<p class="free-hint">La vitrina a\u00fan no est\u00e1 disponible.</p>';
+    museumBody.appendChild(musEl("p", "mus-empty", "La vitrina a\u00fan no est\u00e1 disponible."));
     return;
   }
   const names = {};
   (memRes.data || []).forEach(r => { if(r.profiles) names[r.profiles.id] = r.profiles.display_name || r.profiles.username; });
-  const byUser = {};
-  (achRes.data || []).forEach(a => { (byUser[a.user_id] = byUser[a.user_id] || []).push(a); });
-  clubTrophiesEl.innerHTML = "";
-  const ids = Object.keys(names);
-  if(!ids.length){ clubTrophiesEl.innerHTML = '<p class="free-hint">Sin miembros a\u00fan.</p>'; return; }
-  // Quien tiene m\u00e1s logros primero; a igualdad, alfab\u00e9tico.
-  ids.sort((a, b) => ((byUser[b] || []).length - (byUser[a] || []).length) || names[a].localeCompare(names[b]));
-  if(!(achRes.data || []).length){
-    const hint = document.createElement("p");
-    hint.className = "free-hint";
-    hint.textContent = "A\u00fan no hay trofeos. Se ganan jugando entre miembros (10 jugadas o m\u00e1s).";
-    clubTrophiesEl.appendChild(hint);
+  const ach = achRes.data || [];
+  const gameIds = [...new Set(ach.filter(a => a.game_id).map(a => a.game_id))];
+  const gamesById = {};
+  if(gameIds.length){
+    const { data } = await sb.from("games").select("id, white_id, black_id, result, variant, created_at").in("id", gameIds);
+    if(mySeq !== museumSeq) return;
+    (data || []).forEach(g => { gamesById[g.id] = g; });
   }
-  ids.forEach(id => {
-    const list = byUser[id] || [];
-    const box = document.createElement("div");
-    box.style.cssText = "margin:6px 0; padding:8px 10px; border:1px solid var(--line, #444); border-radius:6px";
-    const head = document.createElement("div");
-    head.style.cssText = "font-weight:600; margin-bottom:4px";
-    head.textContent = names[id] + (id === accountProfile.id ? " (t\u00fa)" : "") + " \u00b7 " + list.length;
-    box.appendChild(head);
-    if(!list.length){
-      const none = document.createElement("div");
-      none.className = "free-hint";
-      none.textContent = "Vitrina vac\u00eda";
-      box.appendChild(none);
-    }
-    list.forEach(a => {
-      const info = ACH_INFO[a.code] || { icon: "\u{1F3C5}", name: a.code, tip: "" };
-      const d = new Date(a.awarded_at).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
-      let detail = d;
-      if((a.code === "corona_oro" || a.code === "corona_plata") && a.meta && a.meta.torneo){
-        detail = a.meta.torneo + " \u00b7 " + a.meta.participantes + " jugadores \u00b7 " + d;
-      }
-      const row = document.createElement("div");
-      row.style.cssText = "margin:2px 0; font-size:.9rem";
-      row.title = info.tip;
-      row.textContent = info.icon + " " + info.name + " \u2014 " + detail;
-      box.appendChild(row);
+  const byUser = {};
+  ach.forEach(a => { (byUser[a.user_id] = byUser[a.user_id] || []).push(a); });
+  const ids = Object.keys(names).sort((x, y) =>
+    ((byUser[y] || []).length - (byUser[x] || []).length) || names[x].localeCompare(names[y]));
+  if(!ids.length){ museumBody.appendChild(musEl("p", "mus-empty", "Sin miembros a\u00fan.")); return; }
+
+  ids.forEach((id, ci) => {
+    const list = (byUser[id] || []).slice().sort((p, q) =>
+      (ACH_INFO[q.code] && ACH_INFO[q.code].crown ? 1 : 0) - (ACH_INFO[p.code] && ACH_INFO[p.code].crown ? 1 : 0));
+    const cs = musEl("section", "mus-case");
+    cs.style.animationDelay = (ci * 0.12) + "s";
+    const plate = musEl("div", "mus-plate", names[id] + (id === accountProfile.id ? " (t\u00fa)" : ""));
+    plate.appendChild(musEl("small", "", String(list.length)));
+    cs.appendChild(plate);
+    const shelf = musEl("div", "mus-shelf");
+    const detail = musEl("div", "mus-detail");
+    let open = null;
+    if(!list.length) cs.appendChild(musEl("p", "mus-empty", "Vitrina vac\u00eda por ahora."));
+    list.forEach((a, i) => {
+      const info = ACH_INFO[a.code] || { icon: "\u{1F3C5}", name: a.code, rule: "" };
+      const item = musEl("div", "mus-item");
+      const med = musEl("button", "mus-med" + (info.crown ? " crown" + (info.crown === "silver" ? " silver" : "") : ""), info.icon);
+      med.type = "button";
+      med.setAttribute("aria-pressed", "false");
+      med.setAttribute("aria-label", info.name);
+      med.style.animationDelay = (ci * 0.12 + 0.15 + i * 0.07) + "s";
+      med.onclick = () => {
+        if(open === med){
+          detail.classList.remove("show"); med.setAttribute("aria-pressed", "false"); open = null; return;
+        }
+        if(open) open.setAttribute("aria-pressed", "false");
+        open = med; med.setAttribute("aria-pressed", "true");
+        museumDetail(a, info, gamesById, names, detail);
+        detail.classList.add("show");
+      };
+      item.appendChild(med);
+      item.appendChild(musEl("div", "mus-lbl", info.name));
+      shelf.appendChild(item);
     });
-    clubTrophiesEl.appendChild(box);
+    if(list.length){ shelf.appendChild(detail); cs.appendChild(shelf); }
+    museumBody.appendChild(cs);
   });
 }
 
@@ -6220,7 +6396,7 @@ document.getElementById("club-tournament-create").onclick = async () => {
 setInterval(() => {
   if(accountProfile && clubPanelEl && !clubPanelEl.hidden && !clubMemberAreaEl.hidden &&
      document.visibilityState === "visible" &&
-     !clubTournamentDetailEl.contains(document.activeElement)){ loadClubTournaments(); loadClubTrophies(); }
+     !clubTournamentDetailEl.contains(document.activeElement)) loadClubTournaments();
 }, 12000);
 
 document.getElementById("club-join-btn").onclick = async () => {
@@ -8349,7 +8525,7 @@ function stepBack(){ if(L().cursor>0){ L().cursor--; selected=null; persist(); r
 function stepForward(){ if(!atLive()){ L().cursor++; animFrom = L().moves[L().cursor-1].from; persist(); render(); } }
 document.addEventListener("keydown", e => {
   if(["TEXTAREA","SELECT","INPUT"].includes(e.target.tagName)) return;
-  if(!document.getElementById("hof-ov").hidden) return;
+  if(!document.getElementById("hof-ov").hidden || document.getElementById("mus-ov").classList.contains("show")) return;
   if(e.key === "ArrowLeft"){ stepBack(); }
   else if(e.key === "ArrowRight"){ stepForward(); }
   else if(e.key === "f" || e.key === "F"){ flipped = !flipped; persist(); render(); }
