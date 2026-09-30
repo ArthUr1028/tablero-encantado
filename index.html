@@ -5566,6 +5566,7 @@ async function loadAccountProfile(userId){
   }
   refreshAccountLibrary();
   refreshClub();
+  checkNewAchievements();
 }
 function clearAccountProfile(){
   accountProfile = null;
@@ -6044,6 +6045,65 @@ const ACH_INFO = {
   vuelta_al_club:  { icon: "\u{1F91D}", name: "Vuelta al club",  rule: "Ganarle a dos miembros distintos" }
 };
 const MUS_VARIANT = { clasico: "Cl\u00e1sico", capablanca: "Capablanca", maharaja: "Maharaj\u00e1", amazonas: "Amazonas" };
+
+/* ---- Aviso de insignia nueva (bloque 2, 2026-09-30) ----
+   Las insignias las escribe el servidor (trigger) un instante despues de que
+   la partida termina, asi que no llegan con el resultado: se consultan.
+   Se guarda en este dispositivo la fecha del ultimo logro ya visto; lo que
+   sea posterior se anuncia con showGlobalToast, en cola (una partida puede
+   dar varias insignias a la vez y un toast pisaria al anterior). La primera
+   vez en un dispositivo se siembra en silencio, para no anunciar como nuevos
+   trofeos viejos. Solo se consultan los logros del propio usuario. */
+const ACH_SEEN_PREFIX = "tablero.ach.visto.";
+const ACH_EPOCH = "1970-01-01T00:00:00.000Z";
+let achChecking = false, achLastCheck = 0, achQueue = [], achDraining = false;
+function achSeenGet(uid){ try{ return localStorage.getItem(ACH_SEEN_PREFIX + uid); }catch(e){ return null; } }
+function achSeenSet(uid, v){ try{ localStorage.setItem(ACH_SEEN_PREFIX + uid, v); }catch(e){} }
+function achDrain(){
+  if(achDraining) return;
+  achDraining = true;
+  const next = () => {
+    const code = achQueue.shift();
+    if(code === undefined){ achDraining = false; return; }
+    const info = (typeof ACH_INFO !== "undefined" && ACH_INFO[code]) || null;
+    showGlobalToast("¡Insignia nueva! " + (info ? info.icon + " " + info.name : code) + " — mírala en la vitrina del Club.");
+    setTimeout(next, 4200);
+  };
+  next();
+}
+async function checkNewAchievements(){
+  if(!accountProfile || achChecking) return;
+  achChecking = true;
+  try{
+    const uid = accountProfile.id;
+    const seen = achSeenGet(uid);
+    let q = sb.from("achievements").select("code, awarded_at").eq("user_id", uid).order("awarded_at", { ascending: true });
+    if(seen) q = q.gt("awarded_at", seen);
+    const { data, error } = await q;
+    if(error || !data) return;
+    if(!seen){
+      // primera vez en este dispositivo: sembrar sin avisar
+      achSeenSet(uid, data.length ? data[data.length - 1].awarded_at : ACH_EPOCH);
+      return;
+    }
+    if(!data.length) return;
+    achSeenSet(uid, data[data.length - 1].awarded_at);
+    data.forEach(a => achQueue.push(a.code));
+    achDrain();
+  }catch(e){ /* sin aviso: la vitrina sigue mostrando todo */ }
+  finally{ achChecking = false; achLastCheck = Date.now(); }
+}
+// Tras terminar una partida: dos intentos (el trigger tarda un instante y el
+// aviso de mate/resultado dura ~5 s; asi no se pisan).
+function scheduleAchievementCheck(){
+  if(!accountProfile) return;
+  setTimeout(checkNewAchievements, 2500);
+  setTimeout(checkNewAchievements, 8000);
+}
+// Al volver a la pestana/app (p. ej. en el celular), sin abusar de la red.
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible" && Date.now() - achLastCheck > 30000) checkNewAchievements();
+});
 function musDate(iso){
   return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
 }
@@ -6541,6 +6601,7 @@ function applyGameRow(row){
   if(row.result && !game.result){
     game.result = row.result;
     renderStatus(liveState(), outcome(liveState()));
+    scheduleAchievementCheck();
     if(row.status === "abandonada" && row.winner_id === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
     } else if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
@@ -7019,7 +7080,7 @@ async function pushLiveMove(){
   const { error: gameErr } = await sb.from("games").update(patch).eq("id", liveGame.id);
   if(gameErr){ clubNote("Tu jugada se guardó, pero no se pudo actualizar el estado de la partida: " + gameErr.message, true); }
 
-  if(result){ game.result = result; renderStatus(liveState(), outcome(liveState())); }
+  if(result){ game.result = result; renderStatus(liveState(), outcome(liveState())); scheduleAchievementCheck(); }
   updateLiveBanner();
   syncLiveClockRunning();
   announceCheckOrMate(oc, liveGame.myColor);
