@@ -660,6 +660,17 @@
      tanto el desvanecimiento del chat (ver #chat-flash/#chat-panel) que
      pidió llevarlo también acá — misma duración y curva (.6s ease) que
      #chat-flash, en vez de la más corta (.25s) que tenía antes. */
+  /* Reto de claudIA (bloque 3): paneles de ayuda fuera de vista y tablero
+     cubierto durante la pausa. */
+  body.reto-on #panel-openings, body.reto-on #panel-library, body.reto-on #panel-hof,
+  body.reto-on #panel-oracle, body.reto-on #panel-free{ display:none !important; }
+  .reto-cover{
+    grid-column:2; grid-row:1; z-index:6; align-self:stretch;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    background:var(--ground-2, #151119); border:1px solid var(--frame-hi, #4c4350);
+    color:var(--text); font-size:1.05rem; padding:12px;
+  }
+  .reto-cover[hidden]{ display:none; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
@@ -2425,6 +2436,13 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <button class="btn" id="match-start">Iniciar partida</button>
           <button class="btn" id="match-pause" disabled>Pausa</button>
         </div>
+        <!-- Reto de claudIA (bloque 3, 2026-09-30): un clic y claudIA sortea
+             modalidad y color; nivel segun modalidad (ver RETO_TABLE). -->
+        <div class="btns" id="reto-box" style="margin-top:10px">
+          <button class="btn" id="reto-start">Reto de claudIA</button>
+          <button class="btn" id="reto-abandon" hidden>Abandonar reto</button>
+        </div>
+        <p class="free-hint" id="reto-note" style="margin-top:8px"></p>
       </section>
 
       <section class="panel">
@@ -4767,6 +4785,8 @@ function displayOrder(nCols){
 }
 
 function render(){
+  // Reto de claudIA: solo se juega la posicion actual (sin volver atras ni ramas).
+  if(retoActive && (branch || game.cursor !== game.states.length - 1)){ branch = null; game.cursor = game.states.length - 1; }
   const pos = liveState();
   const nCols = pos.board[0].length;
   const { rows, cols } = displayOrder(nCols);
@@ -4958,7 +4978,7 @@ function render(){
   // Ronda "sin deshacer en multijugador" (2026-09-25): deshacer solo existe
   // en Solitario/entrenamiento; en partida en vivo queda bloqueado.
   const undoBtn = document.getElementById("btn-undo");
-  undoBtn.disabled = !!liveGame || !(atLive() && L().states.length > 1);
+  undoBtn.disabled = !!liveGame || !!retoActive || !(atLive() && L().states.length > 1);
   undoBtn.title = liveGame ? "No disponible en partidas multijugador" : "";
   document.getElementById("nav-prev").disabled = L().cursor === 0;
   document.getElementById("nav-start").disabled = L().cursor === 0;
@@ -4966,6 +4986,7 @@ function render(){
   document.getElementById("nav-end").disabled = atLive();
   syncClockRunning();
   syncLiveClockRunning();
+  retoAfterRender();
   maybeMachineMove();
 }
 
@@ -5072,6 +5093,7 @@ function tryMove(from, to){
   // pulsarlo, ni mientras esté en Pausa. Modo Libre queda afuera (ya
   // retornó arriba): ahí no hay partida que iniciar.
   if(!matchStarted || matchPaused) return;
+  if(retoActive && (!atLive() || branch)) return;
   // Fase 2 · paso 4: en partida en vivo, ni navegar a una jugada anterior
   // ni mover fuera de tu turno (ver también canPick(), que ya bloquea
   // TOMAR una pieza que no es tuya — esto es la segunda guarda, por si
@@ -5095,7 +5117,7 @@ function commitMove(mv){
   // (pos.turn, antes de que la jugada cambie el turno) — sea humano o
   // claudIA, ya que ambas pasan por commitMove(). Puesto acá y no en
   // clockTick() porque el incremento es por jugada, no por tiempo transcurrido.
-  if(clockEnabled && matchStarted) clockMs[pos.turn] += clockIncSec * 1000;
+  if(clockEnabled && matchStarted && !(retoActive && pos.turn !== retoActive.color)) clockMs[pos.turn] += clockIncSec * 1000;
 
   // Fase 4: parado en un punto anterior de la línea PRINCIPAL (no dentro de
   // una rama) y se juega algo distinto de lo que ya estaba jugado ahí — en
@@ -5359,7 +5381,7 @@ function updateModalitySelectorsUI(){
   // Fase 2 · paso 4: una partida en vivo tampoco admite tocar variante,
   // rival, Máquina ni reloj — se suma a la condición ya existente de "Modo
   // Libre" en vez de tener su propia lista aparte.
-  const inPlay = currentMode === "play" && !liveGame;
+  const inPlay = currentMode === "play" && !liveGame && !retoActive;
   const ids = [
     "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas",
     "rival-humano", "rival-maquina", "machine-side-w", "machine-side-b", "machine-level",
@@ -5369,6 +5391,10 @@ function updateModalitySelectorsUI(){
   for(const id of ids){
     const el = document.getElementById(id);
     if(el) el.disabled = !inPlay;
+  }
+  for(const id of ["mode-play", "mode-free"]){
+    const el = document.getElementById(id);
+    if(el) el.disabled = !!retoActive;
   }
 }
 function updatePanelVisibility(variant){
@@ -6042,7 +6068,9 @@ const ACH_INFO = {
   remontada:       { icon: "\u{1F4C8}", name: "Remontada",       rule: "Ganar tras ir 5 o m\u00e1s puntos abajo" },
   caballo_asesino: { icon: "\u{1F434}", name: "Caballo asesino", rule: "Dar mate con un caballo" },
   derrocar_al_rey: { icon: "\u{1F5E1}\uFE0F", name: "Derrocar al rey", rule: "Vencer al campe\u00f3n del \u00faltimo torneo" },
-  vuelta_al_club:  { icon: "\u{1F91D}", name: "Vuelta al club",  rule: "Ganarle a dos miembros distintos" }
+  vuelta_al_club:  { icon: "\u{1F91D}", name: "Vuelta al club",  rule: "Ganarle a dos miembros distintos" },
+  reto_claudia_club:   { icon: "\u{1F916}", name: "Reto claudIA · Club",   rule: "Vencer a claudIA en el reto (Maharaj\u00e1 o Amazonas)" },
+  reto_claudia_fuerte: { icon: "\u{1F9BE}", name: "Reto claudIA · Fuerte", rule: "Vencer a claudIA en el reto (Cl\u00e1sico o Capablanca)" }
 };
 const MUS_VARIANT = { clasico: "Cl\u00e1sico", capablanca: "Capablanca", maharaja: "Maharaj\u00e1", amazonas: "Amazonas" };
 
@@ -6073,6 +6101,7 @@ function achDrain(){
 }
 async function checkNewAchievements(){
   if(!accountProfile || achChecking) return;
+  retoClaimPending();
   achChecking = true;
   try{
     const uid = accountProfile.id;
@@ -6104,6 +6133,191 @@ function scheduleAchievementCheck(){
 document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible" && Date.now() - achLastCheck > 30000) checkNewAchievements();
 });
+
+/* ---- Reto de claudIA (bloque 3, 2026-09-30) ----
+   Un clic: claudIA sortea modalidad y color. Nivel segun modalidad
+   (RETO_TABLE): Maharaja y Amazonas = Club; Clasico y Capablanca = Fuerte.
+   En Maharaja el humano siempre lleva las negras (Cipayas).
+   Reglas: reloj 30 min + 10 s (el de claudIA no corre); sin deshacer, sin
+   volver atras, sin Oraculo/Grimorio/Biblioteca/Salon; pausa libre con el
+   tablero cubierto; salirse o abandonar cuenta como derrota (no cuesta nada);
+   solo mate o rendicion de claudIA es victoria (tablas no). El reto vive en
+   este dispositivo (se reanuda tras un cierre, en pausa) y la insignia la
+   escribe el servidor con claim_reto_claudia() — el servidor confia en el
+   cliente (limite aceptado en un club de confianza). Si al ganar no hay red,
+   el reclamo queda guardado y se reintenta despues. Las preferencias reales de
+   Maquina/Reloj nunca se sobrescriben: se restauran al terminar. */
+var retoActive = null;
+const RETO_KEY = "tablero-encantado.reto.v1";
+const RETO_CLAIM_KEY = "tablero-encantado.reto.reclamo.v1";
+const RETO_MIN = 30, RETO_INC = 10;
+const RETO_TABLE = {
+  clasico:    { level: 15, label: "Clásico" },
+  capablanca: { level: 15, label: "Capablanca" },
+  maharaja:   { level: 10, label: "Maharajá" },
+  amazonas:   { level: 10, label: "Amazonas" }
+};
+function retoApplyRuntime(r){
+  vsMachine = true; machineHumanColor = r.color; machineLevel = r.level;
+  clockEnabled = true; clockPresetKey = "custom"; clockBaseMin = RETO_MIN; clockIncSec = RETO_INC;
+  document.getElementById("clock-off").setAttribute("aria-pressed", "false");
+  document.getElementById("clock-on").setAttribute("aria-pressed", "true");
+  document.getElementById("clock-config").hidden = true;
+}
+function retoSave(){
+  if(!retoActive || retoActive.ended) return;
+  try{
+    localStorage.setItem(RETO_KEY, JSON.stringify({
+      variant: retoActive.variant, level: retoActive.level, color: retoActive.color,
+      clock: { w: clockMs.w, b: clockMs.b }
+    }));
+  }catch(e){}
+}
+async function retoStart(){
+  if(retoActive || currentMode !== "play" || liveGame) return;
+  if(!accountProfile){ showGlobalToast("Inicia sesión para retar a claudIA."); return; }
+  const { data, error } = await sb.from("club_members").select("profile_id").eq("profile_id", accountProfile.id).limit(1);
+  if(error || !data || !data.length){ showGlobalToast("El reto de claudIA es solo para miembros del club."); return; }
+  if(retoActive) return;
+  const keys = Object.keys(RETO_TABLE);
+  const variant = keys[Math.floor(Math.random() * keys.length)];
+  const color = variant === "maharaja" ? "b" : (Math.random() < 0.5 ? "w" : "b");
+  const r = { variant, level: RETO_TABLE[variant].level, color, ended: false };
+  retoActive = r;
+  switchVariant(variant);          // newGame(): posicion inicial y reloj reiniciado
+  retoApplyRuntime(r);
+  resetClock();                    // con el reloj del reto (30 + 10)
+  matchStarted = true; matchPaused = false;
+  flipped = color === "b";
+  applyAutoNames();
+  persist(); render();
+  retoSave();
+  showGlobalToast("claudIA eligió " + RETO_TABLE[variant].label + ": tú llevas " + (color === "w" ? "blancas" : "negras") + ". ¡Suerte!");
+}
+function retoRestore(){
+  let r = null;
+  try{ r = JSON.parse(localStorage.getItem(RETO_KEY) || "null"); }catch(e){}
+  if(!r) return;
+  if(!RETO_TABLE[r.variant] || currentMode !== "play" || game.startFEN !== VARIANT_START[r.variant]){
+    try{ localStorage.removeItem(RETO_KEY); }catch(e){}
+    return;
+  }
+  retoActive = { variant: r.variant, level: r.level, color: r.color, ended: false };
+  retoApplyRuntime(retoActive);
+  if(r.clock && Number.isFinite(r.clock.w) && Number.isFinite(r.clock.b)) clockMs = { w: r.clock.w, b: r.clock.b };
+  matchStarted = true; matchPaused = true;   // el tiempo con la pagina cerrada no corre
+  setTimeout(() => showGlobalToast("Reto reanudado: pulsa Reanudar cuando estés listo."), 800);
+}
+async function retoClaim(claim){
+  try{
+    const { data, error } = await sb.rpc("claim_reto_claudia", { p_variant: claim.variant, p_plies: claim.plies, p_color: claim.color });
+    if(error) return null;
+    try{ localStorage.removeItem(RETO_CLAIM_KEY); }catch(e){}
+    return data;
+  }catch(e){ return null; }
+}
+async function retoClaimPending(){
+  if(!accountProfile) return;
+  let claim = null;
+  try{ claim = JSON.parse(localStorage.getItem(RETO_CLAIM_KEY) || "null"); }catch(e){}
+  if(!claim || claim.uid !== accountProfile.id) return;
+  const res = await retoClaim(claim);
+  if(res && res !== "sin_efecto" && res !== "ya_tenida") scheduleAchievementCheck();
+}
+function retoFinish(kind){
+  const r = retoActive;
+  if(!r || r.ended) return;
+  r.ended = true;
+  retoActive = null;
+  try{ localStorage.removeItem(RETO_KEY); }catch(e){}
+  restoreMachinePrefs();     // vuelven tus preferencias reales (nunca se pisaron en disco)
+  restoreClockPrefs();
+  applyAutoNames();
+  if(kind === "won"){
+    const claim = { uid: accountProfile ? accountProfile.id : null, variant: r.variant, plies: game.ucis.length, color: r.color };
+    showGlobalToast("¡Ganaste el reto contra claudIA! Registrando tu insignia…");
+    if(claim.uid){
+      try{ localStorage.setItem(RETO_CLAIM_KEY, JSON.stringify(claim)); }catch(e){}
+      retoClaim(claim).then(res => {
+        if(res === "sin_efecto") showGlobalToast("El reto no cuenta: la partida duró menos de 10 jugadas.");
+        else if(res === "ya_tenida") showGlobalToast("¡Ganaste otra vez! Esta insignia ya la tenías.");
+        else if(res) { checkNewAchievements(); scheduleAchievementCheck(); }
+        else showGlobalToast("Ganaste, pero no pude registrar la insignia (sin conexión). Se reintentará sola.");
+      });
+    }
+  } else if(kind === "draw"){
+    showGlobalToast("Tablas: el reto no cuenta. Puedes lanzar otro cuando quieras.");
+  } else if(kind === "abandon"){
+    showGlobalToast("Reto abandonado: cuenta como derrota. Puedes lanzar otro.");
+  } else {
+    showGlobalToast("Perdiste el reto. Puedes lanzar otro cuando quieras.");
+  }
+  render();
+}
+function retoCheckEnd(){
+  const r = retoActive;
+  if(!r || r.ended) return;
+  const last = game.states[game.states.length - 1];
+  const oc = outcome(last);
+  let kind = null;
+  if(game.result){
+    if(game.result === "1/2-1/2") kind = "draw";
+    else kind = ((game.result === "1-0" && r.color === "w") || (game.result === "0-1" && r.color === "b")) ? "won" : "lost";
+  } else if(oc === "checkmate"){
+    kind = last.turn === r.color ? "lost" : "won";
+  } else if(END_OC.includes(oc)){
+    kind = "draw";
+  }
+  if(kind) retoFinish(kind);
+}
+function retoAbandon(){
+  if(!retoActive || retoActive.ended) return;
+  if(!confirm("¿Abandonar el reto? Cuenta como derrota.")) return;
+  if(!game.result){
+    game.result = retoActive.color === "w" ? "0-1" : "1-0";
+    game.resultNote = "Reto abandonado";
+    persist();
+  }
+  retoFinish("abandon");
+}
+function retoUpdateUI(){
+  const startBtn = document.getElementById("reto-start");
+  const abBtn = document.getElementById("reto-abandon");
+  const note = document.getElementById("reto-note");
+  if(!startBtn) return;
+  document.body.classList.toggle("reto-on", !!retoActive);
+  startBtn.hidden = !!retoActive;
+  abBtn.hidden = !retoActive;
+  startBtn.disabled = !accountProfile || currentMode !== "play" || !!liveGame;
+  if(retoActive){
+    note.textContent = "Reto en curso: " + RETO_TABLE[retoActive.variant].label + " · tú llevas " +
+      (retoActive.color === "w" ? "blancas" : "negras") + " · reloj 30 min + 10 s. Sin deshacer ni ayudas; salirte cuenta como derrota.";
+  } else {
+    note.textContent = accountProfile
+      ? "claudIA sortea modalidad y color. Sin deshacer, sin ayudas y sin volver atrás; salirte cuenta como derrota."
+      : "Inicia sesión y únete al club para retar a claudIA.";
+  }
+  let cover = document.getElementById("reto-cover");
+  if(!cover){
+    cover = document.createElement("div");
+    cover.id = "reto-cover";
+    cover.className = "reto-cover";
+    cover.hidden = true;
+    cover.textContent = "Reto en pausa — pulsa Reanudar para seguir.";
+    const wrap = document.querySelector(".board-wrap");
+    if(wrap) wrap.appendChild(cover);
+  }
+  cover.hidden = !(retoActive && matchPaused && !game.result);
+}
+function retoAfterRender(){
+  retoCheckEnd();
+  retoUpdateUI();
+  retoSave();
+}
+document.getElementById("reto-start").onclick = () => { retoStart(); };
+document.getElementById("reto-abandon").onclick = retoAbandon;
+setInterval(retoSave, 5000);
+window.addEventListener("pagehide", retoSave);
 function musDate(iso){
   return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
 }
@@ -7334,7 +7548,9 @@ function clockTick(){
   const now = Date.now();
   const delta = now - clockLastTick;
   clockLastTick = now;
-  const turn = liveState().turn;
+  const turn = retoActive ? game.states[game.states.length - 1].turn : liveState().turn;
+  // Reto: el reloj de claudIA no corre (su tiempo no cuenta), solo el tuyo.
+  if(retoActive && turn !== retoActive.color){ updateClockDisplay(); return; }
   clockMs[turn] = Math.max(0, clockMs[turn] - delta);
   updateClockDisplay();
   if(clockMs[turn] <= 0){
@@ -7349,7 +7565,7 @@ function clockTick(){
 }
 function clockShouldRun(){
   if(!clockEnabled || !matchStarted || matchPaused) return false;
-  if(currentMode !== "play" || branch || !atLive()) return false;
+  if(currentMode !== "play" || (!retoActive && (branch || !atLive()))) return false;
   if(game.result) return false;
   const oc = outcome(liveState());
   return !END_OC.includes(oc);
@@ -7687,7 +7903,7 @@ function finishMachineMove(bestUci){
 }
 
 document.getElementById("btn-undo").onclick = () => {
-  if(liveGame) return; // multijugador: nunca se deshace (ver render())
+  if(liveGame || retoActive) return; // multijugador y reto: nunca se deshace (ver render())
   const line = L();
   if(!atLive() || line.states.length < 2) return;
   line.states.pop(); line.sans.pop(); line.ucis.pop(); line.moves.pop();
@@ -9015,6 +9231,7 @@ initCollapsiblePanels();
 restoreClockPrefs();
 restore();
 restoreMachinePrefs();
+retoRestore();
 applyAutoNames();
 document.getElementById("mode-play").setAttribute("aria-pressed", currentMode === "play");
 document.getElementById("mode-free").setAttribute("aria-pressed", currentMode === "free");
