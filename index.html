@@ -671,6 +671,24 @@
     color:var(--text); font-size:1.05rem; padding:12px;
   }
   .reto-cover[hidden]{ display:none; }
+  /* V147 · Pausa en partidas en vivo: la cubierta reutiliza el lugar y el
+     aspecto de .reto-cover (misma celda del tablero) y solo agrega su
+     contenido en columna; la píldora es el aviso para el RIVAL, que sigue
+     viendo el tablero. Los paneles de ayuda se ocultan solo para quien
+     pausó, igual que en el reto de claudIA (body.reto-on). */
+  body.live-paused-me #panel-openings, body.live-paused-me #panel-library, body.live-paused-me #panel-hof,
+  body.live-paused-me #panel-oracle, body.live-paused-me #panel-free{ display:none !important; }
+  .pause-cover{ flex-direction:column; gap:10px; }
+  .pause-cover .pause-title{ font-family:"Cinzel", serif; letter-spacing:.06em; font-size:1.15rem; }
+  .pause-cover .pause-count{ font-family:"IBM Plex Mono", monospace; font-size:2.2rem; color:var(--ember-soft); }
+  .pause-cover .pause-note{ font-size:.85rem; color:var(--text-dim); max-width:28em; }
+  .pause-pill{
+    grid-column:2; grid-row:1; z-index:5; align-self:start; justify-self:center;
+    margin-top:8px; padding:6px 12px; border-radius:999px; pointer-events:none;
+    background:rgba(12,10,15,.82); border:1px solid var(--ember); color:var(--text);
+    font-size:.9rem; white-space:nowrap; max-width:92%; overflow:hidden; text-overflow:ellipsis;
+  }
+  .pause-pill[hidden]{ display:none; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
@@ -2472,6 +2490,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           </div>
           <div class="btns">
             <button class="btn" id="live-game-draw">Ofrecer tablas</button>
+            <button class="btn" id="live-game-pause" hidden>Pausa</button>
             <button class="btn" id="live-game-resign">Rendirse</button>
             <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
           </div>
@@ -5098,7 +5117,7 @@ function tryMove(from, to){
   // ni mover fuera de tu turno (ver también canPick(), que ya bloquea
   // TOMAR una pieza que no es tuya — esto es la segunda guarda, por si
   // algo llega a intentar mover sin pasar por canPick primero).
-  if(liveGame && (!atLive() || game.result || liveState().turn !== liveGame.myColor)) return;
+  if(liveGame && (!atLive() || game.result || liveGame.pausedBy || liveState().turn !== liveGame.myColor)) return;
   const pos = liveState();
   const candidates = legalMoves(pos).filter(m => sameSq(m.from, from) && sameSq(m.to, to));
   if(!candidates.length) return;
@@ -5227,7 +5246,7 @@ function canPick(r,c){
   // piezas del propio color, incluso durante el turno del rival (sin esto,
   // cualquiera de los dos podría "mover" las piezas del otro en su propia
   // pantalla mientras no es su turno — un bug real que se evitó a propósito).
-  if(liveGame && (!atLive() || p[0] !== liveGame.myColor || game.result)) return false;
+  if(liveGame && (!atLive() || p[0] !== liveGame.myColor || game.result || liveGame.pausedBy)) return false;
   // Fase 3: en turno de la Máquina no se puede tomar ninguna pieza, ni
   // siquiera las propias — evita adelantarse mientras el motor piensa.
   if(vsMachine && liveState().turn !== machineHumanColor) return false;
@@ -6736,6 +6755,7 @@ let liveChannel = null;
 let clubChannel = null;
 
 function updateLiveBanner(){
+  updatePauseUI();
   const banner = document.getElementById("live-game-banner");
   const note = document.getElementById("live-game-note");
   // En partida en vivo el resultado lo fija el servidor (mate, tablas,
@@ -6759,7 +6779,7 @@ function updateLiveBanner(){
   const misTurno = liveState().turn === liveGame.myColor;
   note.textContent = "Jugando en vivo contra " + liveGame.opponentName + " · " + VARIANT_LABEL[liveGame.variant] +
     " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") + " · " + BUILD_ID.split(" · ")[0] +
-    (game.result ? " · partida terminada (" + game.result + ")" : (misTurno ? " · tu turno" : " · turno del rival"));
+    (game.result ? " · partida terminada (" + game.result + ")" : (livePauseActive() ? " · en pausa" : (misTurno ? " · tu turno" : " · turno del rival")));
 }
 
 /* ---- Ronda "reconexión y tablas" (2026-09-25) ----
@@ -6776,7 +6796,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V146 · 27-sep-2026 · Pantalla completa: se revirtió la Fullscreen API real (causaba scroll), dos botones separados (ampliar/reducir)";
+const BUILD_ID = "V147 · 30-sep-2026 · Pausa en partidas en vivo (club y torneo): tablero oculto solo para quien pausa, 5 min, una por jugador";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -6810,6 +6830,26 @@ function applyGameRow(row){
   // Una lectura iniciada antes de que nuestra oferta se confirmara puede
   // traer null; en los primeros 4 s no se le hace caso.
   if(prevOffer === accountProfile.id && !row.draw_offered_by && !row.result && Date.now() - (liveGame.offerAt || 0) <= 4000) return;
+  // Pausa (V147). Si acabo de pausar/reanudar yo (RPC ya aplicado desde su
+  // respuesta), una fila vieja que llegue en los siguientes 4 s y contradiga
+  // ese estado se ignora entera — mismo criterio que la guarda de tablas de
+  // arriba — para que la cubierta no parpadee ni el reloj salte hacia atrás.
+  if(row.paused_by !== undefined){
+    const prevPausedBy = liveGame.pausedBy || null;
+    const newPausedBy = row.paused_by || null;
+    if(Date.now() < (liveGame.pauseLockUntil || 0) && newPausedBy !== prevPausedBy && !row.result) return;
+    liveGame.pausedBy = newPausedBy;
+    liveGame.pausedAt = row.paused_at ? new Date(row.paused_at).getTime() : null;
+    if(row.white_pauses_used != null) liveGame.pausesUsed.w = row.white_pauses_used;
+    if(row.black_pauses_used != null) liveGame.pausesUsed.b = row.black_pauses_used;
+    if(!row.result){
+      if(!prevPausedBy && newPausedBy && newPausedBy !== accountProfile.id){
+        showGlobalToast(liveGame.opponentName + " pausó la partida. Tiene 5 minutos para reanudar.");
+      } else if(prevPausedBy && !newPausedBy && prevPausedBy !== accountProfile.id){
+        showGlobalToast(liveGame.opponentName + " reanudó la partida.");
+      }
+    }
+  }
   liveGame.drawOfferedBy = row.draw_offered_by || null;
   // Reloj en vivo: este es el único punto por el que pasan TODAS las fuentes
   // de una fila `games` fresca (Realtime, resync cada 5s, volver a la
@@ -6827,6 +6867,12 @@ function applyGameRow(row){
       showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
     } else if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " aceptó las tablas.");
+    } else if(row.status === "finalizada" && row.paused_by && row.result !== "1/2-1/2"){
+      // V147: la pausa se agotó sin reanudar. `paused_by` se conserva al
+      // finalizar justamente para poder distinguir esto de una bandera caída.
+      showGlobalToast(row.paused_by === accountProfile.id
+        ? "Se agotó tu pausa sin reanudar: perdiste la partida."
+        : liveGame.opponentName + " no reanudó a tiempo. ¡Ganaste la partida!");
     } else if(row.status === "finalizada" && liveHasClock() && row.current_fen && row.result !== "1/2-1/2" &&
               !END_OC.includes(outcome(parseFEN(row.current_fen)))){
       // V121: `row.result !== "1/2-1/2"` — la bandera caída siempre da un
@@ -7185,7 +7231,12 @@ async function enterLiveGameInner(row){
     timeIncSec: (fullRow && fullRow.time_control_increment_seconds) || 0,
     whiteTimeMs: (fullRow && fullRow.white_time_left_ms) ?? null,
     blackTimeMs: (fullRow && fullRow.black_time_left_ms) ?? null,
-    turnStartedAt: (fullRow && fullRow.turn_started_at) ? new Date(fullRow.turn_started_at).getTime() : Date.now()
+    turnStartedAt: (fullRow && fullRow.turn_started_at) ? new Date(fullRow.turn_started_at).getTime() : Date.now(),
+    // Pausa (V147, migración 12_pausa.sql). Todo null/0 si la migración no corrió.
+    pausedBy: (fullRow && fullRow.paused_by) || null,
+    pausedAt: (fullRow && fullRow.paused_at) ? new Date(fullRow.paused_at).getTime() : null,
+    pausesUsed: { w: (fullRow && fullRow.white_pauses_used) || 0, b: (fullRow && fullRow.black_pauses_used) || 0 },
+    pauseLockUntil: 0, pauseWarnedFor: null
   };
   saveLiveKey(row.id);
   startChat();
@@ -7727,7 +7778,7 @@ function liveRemainingMs(color){
   const base = color === "w" ? liveGame.whiteTimeMs : liveGame.blackTimeMs;
   // Con la partida terminada, o si no es el turno de ese color, su reloj no
   // corre: se muestra el último valor conocido, sin restarle nada.
-  if(game.result || liveState().turn !== color) return base;
+  if(game.result || liveGame.pausedBy || liveState().turn !== color) return base;
   return base - (Date.now() - liveGame.turnStartedAt);
 }
 function startLiveClockTicking(){
@@ -7741,7 +7792,9 @@ let timeoutClaimInFlight = false;
 function liveClockTick(){
   if(!liveHasClock() || !liveGame) return;
   updateLiveClockDisplay();
+  livePauseTick();
   if(game.result || timeoutClaimInFlight) return;
+  if(liveGame.pausedBy) return; // en pausa el reloj no corre: nada que reclamar
   const turn = liveState().turn;
   if(liveRemainingMs(turn) > 0) return;
   timeoutClaimInFlight = true;
@@ -7757,7 +7810,7 @@ function liveClockTick(){
 function updateLiveClockDisplay(){
   if(!liveHasClock()) return;
   const turn = liveState().turn;
-  const running = !game.result;
+  const running = !game.result && !(liveGame && liveGame.pausedBy);
   for(const color of ["w","b"]){
     const el = document.querySelector('.clock-badge[data-color="' + color + '"]');
     if(!el) continue;
@@ -7776,6 +7829,153 @@ function syncLiveClockRunning(){
   if(game.result) stopLiveClockTicking(); else startLiveClockTicking();
   updateLiveClockDisplay();
 }
+
+/* ---- Pausa en partidas en vivo (V147, 2026-09-30) ----
+   Reglas acordadas con Arthur: solo en partidas CON reloj (club y torneo), solo en tu
+   turno (es tu reloj el que corre), una pausa por jugador y por partida, máximo
+   5 minutos. Si quien pausó no reanuda a tiempo, pierde (cuenta como abandono).
+   La cubierta oculta el tablero SOLO para quien pausó; el rival lo sigue viendo y
+   recibe un aviso flotante + una píldora con la cuenta atrás. A los 4 minutos le
+   avisa al que pausó que queda 1.
+
+   Todo el estado vive en la fila `games` (migración 12_pausa.sql: paused_by,
+   paused_at, white/black_pauses_used) y se cambia SOLO con tres funciones del
+   servidor (pause_game / resume_game / claim_pause_abandon) que validan las reglas y
+   devuelven la fila ya actualizada; el cliente la aplica con applyGameRow(), el mismo
+   camino que Realtime. El vencimiento lo reclama el primer cliente que lo note
+   (cualquiera de los dos) y el servidor comprueba que de verdad pasaron los 5 min.
+   `var` y no `let` a propósito: updateLiveBanner() puede correr antes de llegar a
+   estas líneas durante la carga, y un `let` aún sin inicializar lanzaría error. */
+var LIVE_PAUSE_MS = 5 * 60 * 1000;
+var LIVE_PAUSE_WARN_LEFT_MS = 60 * 1000;
+var pauseBusy = false, pauseClaimInFlight = false, pauseClaimRetryAt = 0;
+
+function livePauseActive(){
+  return !!(liveGame && liveGame.pausedBy && !game.result);
+}
+function ensurePauseUI(){
+  const wrap = document.querySelector(".board-wrap");
+  if(!wrap) return null;
+  let cover = document.getElementById("pause-cover");
+  if(!cover){
+    cover = document.createElement("div");
+    cover.id = "pause-cover";
+    cover.className = "reto-cover pause-cover";
+    cover.hidden = true;
+    const title = document.createElement("div");
+    title.className = "pause-title";
+    title.textContent = "⏸ Partida en pausa";
+    const count = document.createElement("div");
+    count.className = "pause-count";
+    count.id = "pause-count";
+    const note = document.createElement("div");
+    note.className = "pause-note";
+    note.textContent = "Tu reloj está detenido. Si no reanudas antes de que llegue a cero, pierdes la partida.";
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.id = "pause-resume";
+    btn.textContent = "Reanudar";
+    btn.onclick = livePauseToggle;
+    cover.appendChild(title); cover.appendChild(count); cover.appendChild(note); cover.appendChild(btn);
+    wrap.appendChild(cover);
+    const pill = document.createElement("div");
+    pill.id = "pause-pill";
+    pill.className = "pause-pill";
+    pill.hidden = true;
+    wrap.appendChild(pill);
+  }
+  return cover;
+}
+function renderPauseCountdown(){
+  if(!livePauseActive() || !liveGame.pausedAt) return;
+  const txt = formatClock(Math.max(0, LIVE_PAUSE_MS - (Date.now() - liveGame.pausedAt)));
+  if(liveGame.pausedBy === accountProfile.id){
+    const c = document.getElementById("pause-count");
+    if(c) c.textContent = txt;
+  } else {
+    const pill = document.getElementById("pause-pill");
+    if(pill) pill.textContent = "⏸ " + liveGame.opponentName + " pausó la partida · " + txt;
+  }
+}
+function updatePauseUI(){
+  const active = livePauseActive();
+  const mine = active && accountProfile && liveGame.pausedBy === accountProfile.id;
+  const theirs = active && !mine;
+  document.body.classList.toggle("live-paused-me", !!mine);
+  const cover = ensurePauseUI();
+  if(cover) cover.hidden = !mine;
+  const pill = document.getElementById("pause-pill");
+  if(pill) pill.hidden = !theirs;
+  const btn = document.getElementById("live-game-pause");
+  if(btn){
+    const show = !!(liveGame && liveHasClock());
+    btn.hidden = !show;
+    if(show){
+      btn.textContent = mine ? "Reanudar" : "Pausa";
+      let why = "";
+      if(game.result) why = "La partida terminó";
+      else if(theirs) why = liveGame.opponentName + " está en pausa";
+      else if(!mine){
+        if(liveGame.pausesUsed[liveGame.myColor] >= 1) why = "Ya usaste tu pausa de esta partida";
+        else if(liveState().turn !== liveGame.myColor) why = "Solo puedes pausar en tu turno";
+        else if(!atLive()) why = "Vuelve a la última jugada para pausar";
+      }
+      btn.disabled = !!why || pauseBusy;
+      btn.title = why || (mine ? "Reanudar la partida" : "Pausa de hasta 5 minutos (una por partida)");
+    }
+  }
+  if(active) renderPauseCountdown();
+}
+// Llamado desde liveClockTick() (cada 200 ms mientras haya reloj en vivo).
+function livePauseTick(){
+  if(!livePauseActive() || !liveGame.pausedAt) return;
+  renderPauseCountdown();
+  const left = LIVE_PAUSE_MS - (Date.now() - liveGame.pausedAt);
+  if(liveGame.pausedBy === accountProfile.id && left > 0 && left <= LIVE_PAUSE_WARN_LEFT_MS &&
+     liveGame.pauseWarnedFor !== liveGame.pausedAt){
+    liveGame.pauseWarnedFor = liveGame.pausedAt;
+    showGlobalToast("Te queda 1 minuto para reanudar o perderás la partida.");
+  }
+  if(left <= 0 && !pauseClaimInFlight && Date.now() >= pauseClaimRetryAt){
+    pauseClaimInFlight = true;
+    const gid = liveGame.id;
+    sb.rpc("claim_pause_abandon", { p_game_id: gid }).then(({ data, error }) => {
+      pauseClaimInFlight = false;
+      // Error = lo normal si el reloj de este aparato va algo adelantado al del
+      // servidor (todavía no se cumplen los 5 min) o si el otro ya lo reclamó.
+      if(error){ pauseClaimRetryAt = Date.now() + 3000; return; }
+      if(data && liveGame && liveGame.id === gid) applyGameRow(data);
+    });
+  }
+}
+function pauseErrorText(err){
+  const m = (err && err.message) || "Error desconocido";
+  if(/pause_game|resume_game|claim_pause_abandon|paused_by|schema cache|does not exist/i.test(m)){
+    return "No se pudo usar la pausa: falta correr la migración 12_pausa.sql en Supabase. (" + m + ")";
+  }
+  return m;
+}
+async function livePauseToggle(){
+  if(!liveGame || !accountProfile || pauseBusy || game.result) return;
+  const gid = liveGame.id;
+  const mine = liveGame.pausedBy === accountProfile.id;
+  if(!mine && !confirm("Tienes UNA sola pausa por partida, de hasta 5 minutos. Tu tablero se ocultará y, si no reanudas a tiempo, pierdes la partida. ¿Pausar ahora?")) return;
+  pauseBusy = true; updatePauseUI();
+  const { data, error } = await sb.rpc(mine ? "resume_game" : "pause_game", { p_game_id: gid });
+  pauseBusy = false;
+  if(!liveGame || liveGame.id !== gid) return;
+  if(error || !data){
+    const msg = pauseErrorText(error);
+    clubNote(msg, true); showGlobalToast(msg);
+    updatePauseUI();
+    return;
+  }
+  liveGame.pauseLockUntil = 0; // la respuesta del servidor es la verdad: nunca se descarta por la guarda de filas viejas
+  applyGameRow(data);
+  liveGame.pauseLockUntil = Date.now() + 4000;
+  updateLiveBanner();
+}
+document.getElementById("live-game-pause").onclick = livePauseToggle;
 
 function machineMovetimeFor(level){
   if(level <= 0) return 300;
