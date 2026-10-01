@@ -717,6 +717,29 @@
   .zen-live-menu .zm-offer[hidden]{ display:none; }
   .zen-live-menu .zm-offer p{ margin:0; font-size:.85rem; text-align:center; }
   .zen-live-menu .zm-offer-btns{ display:flex; gap:6px; }
+  /* V150 · Partidas asíncronas: insignia con el número de partidas donde es tu turno,
+     en el encabezado del panel Club (va en ::after y NO en el texto del <h2>: el
+     texto del encabezado es la clave con la que se recuerda si el panel estaba
+     plegado), filas con turno resaltado y una pastilla flotante para abrir la
+     partida de un toque. */
+  #panel-club h2[data-badge]::after{
+    content:attr(data-badge); margin-left:8px; padding:0 8px; border-radius:999px;
+    background:var(--ember); color:#1a1620; font-size:.7rem; vertical-align:middle;
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .club-turn-row{ border-left:3px solid var(--ember); padding-left:8px; }
+  #turn-chip{
+    position:fixed; right:12px; bottom:12px; z-index:850; display:flex; align-items:center;
+    border:1px solid var(--ember); border-radius:999px; background:var(--frame, #22252b);
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+  }
+  #turn-chip[hidden]{ display:none; }
+  #turn-chip button{ background:none; border:0; color:var(--text); cursor:pointer; padding:8px 12px; font:inherit; font-size:.9rem; }
+  #turn-chip .tc-close{ padding:8px 12px 8px 2px; opacity:.6; }
+  body.zen-mode #turn-chip{ display:none; }
+  /* El bloque de minutos/incremento personalizado lleva `display:flex` en línea, que le ganaba al atributo
+     `hidden`: los campos Min/Incr. se veían siempre, también con "Sin reloj" o "Asíncrona". */
+  #club-compose-time-custom[hidden]{ display:none !important; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
@@ -2315,10 +2338,23 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
               <option value="15+10">15+10</option>
               <option value="30+0">30+0</option>
               <option value="custom">Personalizado…</option>
+              <option value="async">Asíncrona (plazo por jugada)…</option>
             </select>
             <div id="club-compose-time-custom" hidden style="margin-top:6px; display:flex; gap:10px; align-items:center">
               <label style="font-size:.85rem">Min <input type="number" id="club-compose-time-min" min="1" max="180" value="15" style="width:56px"></label>
               <label style="font-size:.85rem">Incr. (s) <input type="number" id="club-compose-time-inc" min="0" max="60" value="10" style="width:56px"></label>
+            </div>
+            <div id="club-compose-async" hidden style="margin-top:6px">
+              <label style="font-size:.85rem">Plazo por jugada
+                <select id="club-compose-days" aria-label="Plazo por jugada en días">
+                  <option value="1">1 día</option>
+                  <option value="2" selected>2 días</option>
+                  <option value="3">3 días</option>
+                  <option value="5">5 días</option>
+                  <option value="7">7 días</option>
+                </select>
+              </label>
+              <p class="free-hint" style="margin:6px 0 0">Sin reloj. Juegan cuando puedan: si alguien no mueve dentro del plazo, su rival puede reclamar la victoria.</p>
             </div>
             <div class="btns" style="margin-top:10px">
               <button class="btn" id="club-compose-send">Enviar reto</button>
@@ -2519,6 +2555,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <div class="btns">
             <button class="btn" id="live-game-draw">Ofrecer tablas</button>
             <button class="btn" id="live-game-pause" hidden>Pausa</button>
+            <button class="btn" id="live-game-claim" hidden>Reclamar victoria (plazo vencido)</button>
             <button class="btn" id="live-game-resign">Rendirse</button>
             <button class="btn" id="live-game-exit">Salir de la partida en vivo</button>
           </div>
@@ -3400,7 +3437,12 @@ function deriveCastle(b){
   };
 }
 
+/* V150: mientras se está en una partida en vivo, la partida LOCAL (Solitario, estudio...) se
+   deja intacta en el disco: persist() no la pisa. Así, al salir de una partida asíncrona, el
+   tablero vuelve a lo que había antes. `var` porque persist() puede correr antes de llegar acá. */
+var persistFrozen = false;
 function persist(){
+  if(persistFrozen) return;
   try{
     localStorage.setItem(STORE, JSON.stringify({
       startFEN: game.startFEN, ucis: game.ucis,
@@ -5653,7 +5695,7 @@ function clearAccountProfile(){
   const panelClub = document.getElementById("panel-club");
   if(panelClub) panelClub.hidden = true;
   if(typeof unsubscribeClubChannel === "function") unsubscribeClubChannel();
-  if(typeof exitLiveGame === "function") exitLiveGame();
+  if(typeof exitLiveGame === "function") exitLiveGame({ restore: true });
 }
 async function saveAccountDisplayName(name){
   if(!name) return;
@@ -5857,6 +5899,14 @@ async function handleMyChallengeAccepted(payload){
     loadClubActiveGames();
     return;
   }
+  if(row.async_days){
+    // V150: una asíncrona no te arrastra al tablero (podrías estar en medio de otra cosa): solo se avisa.
+    const { data: pa } = await sb.from("profiles").select("username, display_name").eq("id", row.invited_id).maybeSingle();
+    const whoA = pa ? (pa.display_name || pa.username) : "Tu rival";
+    showGlobalToast("¡" + whoA + " aceptó tu reto asíncrono! Ya aparece en «Partidas en curso».");
+    loadClubActiveGames();
+    return;
+  }
   const { data: g, error } = await sb.from("games")
     .select("id, variant, status, white_id, black_id").eq("id", row.game_id).maybeSingle();
   if(error || !g){ loadClubActiveGames(); return; }
@@ -5878,6 +5928,16 @@ function handleClubGameUpdate(payload){
   if(clubTournamentOpenId) loadTournamentDetail(clubTournamentOpenId);
   const row = payload.new;
   if(!row || !accountProfile) return;
+  // V150: plazo vencido en una partida asíncrona que NO está abierta en el tablero.
+  if(row.status === "finalizada" && row.async_days && row.result !== "1/2-1/2" && row.current_fen && (!liveGame || liveGame.id !== row.id)){
+    let byRules = false;
+    try{ byRules = END_OC.includes(outcome(parseFEN(row.current_fen))); }catch(e){}
+    if(!byRules){
+      showGlobalToast(row.winner_id === accountProfile.id
+        ? "¡Ganaste una partida asíncrona: tu rival no movió a tiempo!"
+        : "Perdiste una partida asíncrona: se venció tu plazo para mover.");
+    }
+  }
   if(row.status === "abandonada" && row.winner_id === accountProfile.id && (!liveGame || liveGame.id !== row.id)){
     showGlobalToast("Tu rival se rindió en una de tus partidas. ¡Ganaste!");
   }
@@ -5938,15 +5998,21 @@ document.getElementById("club-compose-send").onclick = async () => {
   const color = clubComposeColorEl.value;
   const [timeInitial, timeIncrement] = clubComposeTimeValues();
   clubNote("Enviando reto…");
-  const { error } = await sb.rpc("send_challenge", {
-    p_invited_id: clubComposeTarget.id,
-    p_variant: variant,
-    p_creator_color: color,
-    p_time_initial: timeInitial,
-    p_time_increment: timeIncrement
-  });
-  if(error){ clubNote("No se pudo enviar el reto: " + error.message, true); return; }
-  clubNote("Reto enviado a " + clubComposeTarget.name + ".");
+  // V150: "Asíncrona" usa su propia función del servidor (13_asincronas.sql), que envía el reto
+  // sin reloj y le anota el plazo por jugada.
+  const isAsync = clubComposeTimeEl.value === "async";
+  const days = +document.getElementById("club-compose-days").value || 2;
+  const { error } = isAsync
+    ? await sb.rpc("send_async_challenge", { p_invited_id: clubComposeTarget.id, p_variant: variant, p_creator_color: color, p_days: days })
+    : await sb.rpc("send_challenge", {
+        p_invited_id: clubComposeTarget.id,
+        p_variant: variant,
+        p_creator_color: color,
+        p_time_initial: timeInitial,
+        p_time_increment: timeIncrement
+      });
+  if(error){ clubNote("No se pudo enviar el reto: " + asyncErrorText(error), true); return; }
+  clubNote("Reto" + (isAsync ? " asíncrono (" + days + (days === 1 ? " día" : " días") + " por jugada)" : "") + " enviado a " + clubComposeTarget.name + ".");
   clubComposeEl.hidden = true;
   clubComposeTarget = null;
   loadClubChallenges();
@@ -5954,10 +6020,10 @@ document.getElementById("club-compose-send").onclick = async () => {
 
 async function loadClubChallenges(){
   const mySeq = ++clubChallengesSeq;
-  const { data: incoming, error: inErr } = await sb.from("game_challenges")
-    .select("id, variant, status, created_at, tournament_match_id, profiles!game_challenges_created_by_fkey(username, display_name)")
+  const { data: incoming, error: inErr } = await withAsyncCols(ok => sb.from("game_challenges")
+    .select("id, variant, status, created_at, tournament_match_id" + (ok ? ", async_days" : "") + ", profiles!game_challenges_created_by_fkey(username, display_name)")
     .eq("invited_id", accountProfile.id).eq("status", "pendiente")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
   if(mySeq !== clubChallengesSeq) return;
   if(inErr){ clubNote("No se pudieron cargar los retos recibidos: " + inErr.message, true); }
   clubChallengesInEl.innerHTML = "";
@@ -5968,16 +6034,16 @@ async function loadClubChallenges(){
       const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
       // V122: una partida de torneo no se rechaza (la base de datos también
       // lo impide) — solo se acepta cuando puedas jugar, dentro del plazo.
-      const btns = [clubBtn("Aceptar", () => respondClubChallenge(ch.id, true))];
-      if(!ch.tournament_match_id) btns.push(clubBtn("Rechazar", () => respondClubChallenge(ch.id, false)));
-      clubChallengesInEl.appendChild(clubRow((ch.tournament_match_id ? "Torneo · " : "") + who + " · " + VARIANT_LABEL[ch.variant], btns));
+      const btns = [clubBtn("Aceptar", () => respondClubChallenge(ch.id, true, ch.async_days))];
+      if(!ch.tournament_match_id) btns.push(clubBtn("Rechazar", () => respondClubChallenge(ch.id, false, ch.async_days)));
+      clubChallengesInEl.appendChild(clubRow((ch.tournament_match_id ? "Torneo · " : "") + who + " · " + VARIANT_LABEL[ch.variant] + asyncTag(ch.async_days), btns));
     });
   }
 
-  const { data: outgoing, error: outErr } = await sb.from("game_challenges")
-    .select("id, variant, status, created_at, profiles!game_challenges_invited_id_fkey(username, display_name)")
+  const { data: outgoing, error: outErr } = await withAsyncCols(ok => sb.from("game_challenges")
+    .select("id, variant, status, created_at" + (ok ? ", async_days" : "") + ", profiles!game_challenges_invited_id_fkey(username, display_name)")
     .eq("created_by", accountProfile.id).eq("status", "pendiente")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
   if(mySeq !== clubChallengesSeq) return;
   if(outErr){ clubNote("No se pudieron cargar tus retos enviados: " + outErr.message, true); }
   clubChallengesOutEl.innerHTML = "";
@@ -5986,7 +6052,7 @@ async function loadClubChallenges(){
   } else {
     outgoing.forEach(ch => {
       const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
-      clubChallengesOutEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant] + " (esperando respuesta)", [
+      clubChallengesOutEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant] + asyncTag(ch.async_days) + " (esperando respuesta)", [
         clubBtn("Cancelar", () => cancelClubChallenge(ch.id))
       ]));
     });
@@ -5999,12 +6065,20 @@ async function loadClubChallenges(){
 // "Jugar" a mano (eso era además lo que lo tenía mirando esa lista justo
 // cuando podía refrescarse dos veces seguidas y parecer duplicada). Quien
 // acepta entra derecho al tablero en vivo.
-async function respondClubChallenge(id, accept){
+async function respondClubChallenge(id, accept, asyncDays){
   clubNote(accept ? "Aceptando reto…" : "Rechazando reto…");
-  const { data: gameId, error } = await sb.rpc("respond_challenge", { p_challenge_id: id, p_accept: accept });
-  if(error){ clubNote("No se pudo responder: " + error.message, true); return; }
+  // V150: un reto asíncrono se responde con su función propia (copia el plazo a la partida).
+  const { data: gameId, error } = await sb.rpc(asyncDays ? "respond_async_challenge" : "respond_challenge", { p_challenge_id: id, p_accept: accept });
+  if(error){ clubNote("No se pudo responder: " + asyncErrorText(error), true); return; }
   loadClubChallenges();
   if(!accept){ clubNote("Reto rechazado."); return; }
+  if(asyncDays){
+    // Una asíncrona NO abre el tablero sola: juegas cuando quieras, desde el aviso o el panel Club.
+    clubNote("¡Partida asíncrona creada! Aparece abajo, en «Partidas en curso».");
+    showGlobalToast("¡Partida asíncrona creada! Ábrela cuando quieras desde el panel Club.");
+    loadClubActiveGames();
+    return;
+  }
   if(!gameId){ clubNote("¡Partida creada! Ya aparece abajo, en «Partidas en curso»."); loadClubActiveGames(); return; }
   const { data: row, error: gErr } = await sb.from("games")
     .select("id, variant, status, white_id, black_id").eq("id", gameId).maybeSingle();
@@ -6791,6 +6865,7 @@ let clubChannel = null;
 function updateLiveBanner(){
   updatePauseUI();
   updateLiveFocus();
+  try{ renderTurnIndicators(); }catch(e){} // V150
   const banner = document.getElementById("live-game-banner");
   const note = document.getElementById("live-game-note");
   // En partida en vivo el resultado lo fija el servidor (mate, tablas,
@@ -6815,6 +6890,7 @@ function updateLiveBanner(){
   note.textContent = "Jugando en vivo contra " + liveGame.opponentName + " · " + VARIANT_LABEL[liveGame.variant] +
     " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") + " · " + BUILD_ID.split(" · ")[0] +
     (game.result ? " · partida terminada (" + game.result + ")" : (livePauseActive() ? " · en pausa" : (misTurno ? " · tu turno" : " · turno del rival")));
+  try{ updateAsyncBanner(); }catch(e){} // V150
   try{ updateZenLiveMenu(); }catch(e){} // V149: después de updateDrawUI(), cuyo estado espeja
 }
 
@@ -6832,7 +6908,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V149 · 30-sep-2026 · Pantalla completa: menú de la partida en vivo (Pausa, Tablas, Rendirse, Salir) y tablas entrantes";
+const BUILD_ID = "V150 · 30-sep-2026 · Partidas asíncronas: plazo por jugada, aviso de turno (lista, insignia, título, pastilla) y tu partida local intacta";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -6895,6 +6971,7 @@ function applyGameRow(row){
   if(row.white_time_left_ms != null) liveGame.whiteTimeMs = row.white_time_left_ms;
   if(row.black_time_left_ms != null) liveGame.blackTimeMs = row.black_time_left_ms;
   if(row.turn_started_at) liveGame.turnStartedAt = new Date(row.turn_started_at).getTime();
+  if(row.async_days !== undefined) liveGame.asyncDays = row.async_days || null; // V150
   if(row.result && !game.result){
     game.result = row.result;
     renderStatus(liveState(), outcome(liveState()));
@@ -6903,6 +6980,13 @@ function applyGameRow(row){
       showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
     } else if(row.result === "1/2-1/2" && row.status === "finalizada" && prevOffer === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " aceptó las tablas.");
+    } else if(row.status === "finalizada" && row.async_days && !liveHasClock() && row.current_fen && row.result !== "1/2-1/2" &&
+              !END_OC.includes(outcome(parseFEN(row.current_fen)))){
+      // V150: sin reloj, con plazo por jugada, y por las reglas el tablero NO está terminado: el
+      // resultado solo pudo llegar por plazo vencido (claim_async_forfeit).
+      showGlobalToast(row.winner_id === accountProfile.id
+        ? "¡Ganaste! Tu rival no movió dentro del plazo."
+        : "Perdiste: se venció tu plazo para mover.");
     } else if(row.status === "finalizada" && row.paused_by && row.result !== "1/2-1/2"){
       // V147: la pausa se agotó sin reanudar. `paused_by` se conserva al
       // finalizar justamente para poder distinguir esto de una bandera caída.
@@ -7215,7 +7299,7 @@ async function enterLiveGame(row){
 }
 async function enterLiveGameInner(row){
   if(!accountProfile) return;
-  if(liveGame) exitLiveGame();
+  if(liveGame) exitLiveGame({ keepFrozen: true });
   clubNote("Cargando partida en vivo…");
 
   const myColor = row.white_id === accountProfile.id ? "w" : "b";
@@ -7247,6 +7331,7 @@ async function enterLiveGameInner(row){
   const myName = accountProfile.display_name || accountProfile.username;
   const whiteName = myColor === "w" ? myName : oppName;
   const blackName = myColor === "b" ? myName : oppName;
+  persistFrozen = true; // V150: a partir de acá la partida local queda guardada tal cual (ver persist())
   applySanList(VARIANT_START[row.variant], (moves || []).map(m => m.san),
     { white: whiteName, black: blackName, result: row.result || "", resultNote: "" });
   // Fase 2 · paso 4 — bug real encontrado por Arthur: newGame() (llamado
@@ -7272,9 +7357,12 @@ async function enterLiveGameInner(row){
     pausedBy: (fullRow && fullRow.paused_by) || null,
     pausedAt: (fullRow && fullRow.paused_at) ? new Date(fullRow.paused_at).getTime() : null,
     pausesUsed: { w: (fullRow && fullRow.white_pauses_used) || 0, b: (fullRow && fullRow.black_pauses_used) || 0 },
-    pauseLockUntil: 0, pauseWarnedFor: null
+    pauseLockUntil: 0, pauseWarnedFor: null,
+    asyncDays: (fullRow && fullRow.async_days) || null   // V150: plazo por jugada (partida asíncrona)
   };
-  saveLiveKey(row.id);
+  // V150: una asíncrona NO se recuerda para reconectar sola: al abrir la app vuelves a tu
+  // tablero de siempre; la partida se abre a propósito desde el aviso o desde el Club.
+  if(liveGame.asyncDays) clearLiveKey(); else saveLiveKey(row.id);
   startChat();
   let liveSubscribedOnce = false;
   liveChannel = sb.channel("game-" + row.id)
@@ -7294,18 +7382,53 @@ async function enterLiveGameInner(row){
   clubNote("");
 }
 
-function exitLiveGame(){
+// V150: opts.restore = vuelve a la partida local de antes; opts.keepFrozen = se está cambiando de
+// una partida en vivo a otra (la local sigue guardada); sin opciones = el tablero se queda como
+// está y pasa a ser la partida local (comportamiento de siempre, p. ej. para estudiar una terminada).
+function exitLiveGame(opts){
   if(!liveGame) return;
   if(liveChannel){ sb.removeChannel(liveChannel); liveChannel = null; }
   stopChat();
   stopLiveClockTicking();
   liveGame = null;
   clearLiveKey();
+  if(opts && opts.restore) restoreLocalGame();
+  else if(!(opts && opts.keepFrozen)){ persistFrozen = false; persist(); }
   updateLiveBanner();
 }
+function restoreLocalGame(){
+  persistFrozen = false;
+  stopAuto();
+  restoreClockPrefs();
+  restore();
+  restoreMachinePrefs();
+  applyAutoNames();
+  document.getElementById("mode-play").setAttribute("aria-pressed", String(currentMode === "play"));
+  document.getElementById("mode-free").setAttribute("aria-pressed", String(currentMode === "free"));
+  document.getElementById("panel-free").hidden = currentMode !== "free";
+  document.getElementById("panel-openings").hidden = currentMode !== "play";
+  document.getElementById("panel-library").hidden = currentMode !== "play";
+  renderPalette();
+  selected = null;
+  render();
+}
+function localStoreHasMoves(){
+  try{ const sv = JSON.parse(localStorage.getItem(STORE) || "null"); return !!(sv && sv.ucis && sv.ucis.length); }
+  catch(e){ return false; }
+}
 document.getElementById("live-game-exit").onclick = () => {
-  exitLiveGame();
-  clubNote("Saliste de la partida en vivo. El tablero queda como estaba, pero ya no envía jugadas a nadie.");
+  // V150: partida en curso -> se vuelve a la partida local de antes. Partida terminada -> se puede
+  // quedar en el tablero para estudiarla (como siempre); si había una partida local con jugadas,
+  // se pregunta, porque quedarse la reemplaza.
+  const finished = !!game.result;
+  let keepBoard = finished;
+  if(finished && localStoreHasMoves()){
+    keepBoard = confirm("La partida terminó. ¿Quedarte con ella en el tablero para estudiarla?\n\nAceptar: sí (tu partida local anterior se reemplaza).\nCancelar: volver a tu partida anterior.");
+  }
+  exitLiveGame({ restore: !keepBoard });
+  clubNote(keepBoard
+    ? "Saliste de la partida en vivo. El tablero queda como estaba, pero ya no envía jugadas a nadie."
+    : "Saliste de la partida en vivo. Volviste a tu partida anterior." + (finished ? "" : " La partida sigue abierta en el Club."));
 };
 
 function reloadLiveGame(){
@@ -7394,6 +7517,7 @@ async function pushLiveMove(){
   announceCheckOrMate(oc, liveGame.myColor);
   const dtxt = drawToastText(oc);
   if(dtxt) showGlobalToast(dtxt);
+  else if(liveGame.asyncDays && !result) showGlobalToast("Jugada enviada. Cuando tu rival mueva, verás «Es tu turno» al abrir la app."); // V150
 }
 
 // Ronda "avisos en todas las modalidades" (2026-09-26): al pedido original
@@ -7478,50 +7602,54 @@ async function loadClubActiveGames(){
   const mySeq = ++clubActiveGamesSeq;
   const el = document.getElementById("club-active-games");
   if(!el || !accountProfile) return;
+  // V150: select("*") (como resyncLiveGame) para traer también async_days y el turno sin depender
+  // de que la migración 13 ya esté corrida: si falta, simplemente no vienen esas columnas.
   const { data, error } = await sb.from("games")
-    .select("id, variant, status, white_id, black_id")
+    .select("*")
     .eq("status", "en_curso")
     .or("white_id.eq." + accountProfile.id + ",black_id.eq." + accountProfile.id);
   if(mySeq !== clubActiveGamesSeq) return;
   if(error){ clubNote("No se pudieron cargar tus partidas en curso: " + error.message, true); return; }
   const rows = data || [];
   if(rows.length === 0){
-    // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): esta rama también
-    // necesita la guarda — sin ella, una llamada VIEJA que por azar termina
-    // DESPUÉS de una más nueva podía borrar una lista ya correcta y
-    // reemplazarla por "No tienes partidas en curso" con datos obsoletos.
+    // Misma guarda que antes: una llamada VIEJA que termina DESPUÉS de una más nueva no debe
+    // reemplazar una lista correcta por "No tienes partidas en curso" con datos obsoletos.
     if(mySeq !== clubActiveGamesSeq) return;
+    clubTurnSync([], {});
     el.innerHTML = '<p class="free-hint">No tienes partidas en curso.</p>';
     return;
   }
-  // Ojo: NO se limpia el.innerHTML acá todavía — recién después de este
-  // segundo await, junto con el resto del pintado, para no dejar una
-  // ventana vacía en la que otra llamada más nueva pueda colarse en medio.
+  // Ojo: NO se limpia el.innerHTML todavía — recién después de este segundo await, junto con el
+  // resto del pintado, para no dejar una ventana vacía en la que otra llamada más nueva se cuele.
   const oppIds = [...new Set(rows.map(r => r.white_id === accountProfile.id ? r.black_id : r.white_id))];
   const { data: opps } = await sb.from("profiles").select("id, username, display_name").in("id", oppIds);
   if(mySeq !== clubActiveGamesSeq) return;
   const oppById = {};
-  (opps || []).forEach(p => { oppById[p.id] = p.display_name || p.username; });
-  el.innerHTML = "";
-  rows.forEach(row => {
-    const oppId = row.white_id === accountProfile.id ? row.black_id : row.white_id;
-    const oppName = oppById[oppId] || "rival";
-    const label = oppName + " · " + VARIANT_LABEL[row.variant] +
-      (liveGame && liveGame.id === row.id ? " (jugando ahora)" : "");
-    el.appendChild(clubRow(label, [
-      // Fase 2 · paso 4 (ronda "avisar al retador", 2026-09-24): desde que
-      // aceptar/ser aceptado abre el tablero solo, este botón ya no es el
-      // paso para ARRANCAR una partida — es el respaldo para RETOMARLA
-      // (recargaste la página, se perdió la conexión, volviste más tarde).
-      // La etiqueta lo dice para no confundir a Arthur con un paso que ya
-      // no existe.
-      // Ronda "un solo Rendirse" (2026-09-25): Arthur señaló que el mismo
-      // botón vivía en dos sitios. Rendirse ahora está SOLO en el panel La
-      // Partida (partida cargada en el tablero); aquí la lista solo sirve
-      // para (re)entrar a una partida, y la que ya está cargada no lleva botones.
-      ...(liveGame && liveGame.id === row.id ? [] : [clubBtn("Reconectar", () => enterLiveGame(row))])
-    ]));
+  (opps || []).forEach(pr => { oppById[pr.id] = pr.display_name || pr.username; });
+  const me = accountProfile.id;
+  const items = rows.map(r => {
+    const oppId = r.white_id === me ? r.black_id : r.white_id;
+    return { r, oppName: oppById[oppId] || "rival", myTurn: rowTurnPlayerId(r) === me, dl: asyncDeadlineMs(r) };
   });
+  items.sort((x, y) => (y.myTurn ? 1 : 0) - (x.myTurn ? 1 : 0));   // primero donde te toca
+  el.innerHTML = "";
+  items.forEach(({ r, oppName, myTurn, dl }) => {
+    const open = !!(liveGame && liveGame.id === r.id);
+    const isAsync = !!r.async_days;
+    const overdue = dl != null && dl < Date.now();
+    let line2 = myTurn ? "¡Es tu turno!" : "Turno de " + oppName;
+    if(isAsync && dl != null) line2 += overdue ? (myTurn ? " · tu plazo venció" : " · plazo vencido") : " · vence en " + fmtLeft(dl - Date.now());
+    const btns = [];
+    // La partida que ya está cargada en el tablero no lleva botón de entrar. Para las demás:
+    // asíncrona = "Jugar mi turno"/"Abrir"; en vivo = "Reconectar" (retomarla tras recargar o perder red).
+    if(!open) btns.push(clubBtn(isAsync ? (myTurn ? "Jugar mi turno" : "Abrir") : "Reconectar", () => enterLiveGame(r)));
+    if(isAsync && !myTurn && overdue) btns.push(clubBtn("Reclamar victoria", () => claimAsyncForfeit(r.id)));
+    const row = clubRow(oppName + " · " + VARIANT_LABEL[r.variant] + (isAsync ? " · asíncrona" : "") + (open ? " (jugando ahora)" : "") + "\n" + line2, btns);
+    row.firstChild.style.whiteSpace = "pre-line";
+    if(myTurn) row.classList.add("club-turn-row");
+    el.appendChild(row);
+  });
+  clubTurnSync(rows, oppById);
 }
 
 // Fase 2 · paso 4 (ronda de limpieza, 2026-09-24): Arthur probó varias veces
@@ -8112,7 +8240,7 @@ function ensureZenLiveMenu(){
   resign.onclick = via("live-game-resign");
   exit.onclick = () => {
     if(liveGame && !game.result &&
-       !confirm("¿Salir de la partida en vivo? La partida SIGUE ABIERTA y tu reloj sigue corriendo. Puedes volver desde Club → Reconectar.")) return;
+       !confirm("¿Salir de la partida en vivo? La partida SIGUE ABIERTA" + (liveHasClock() ? " y tu reloj sigue corriendo" : "") + ". Puedes volver desde el panel Club.")) return;
     via("live-game-exit")();
   };
   btn.onclick = () => { if(zenMenuOpen) closeZenMenu(); else openZenMenu(); };
@@ -8171,6 +8299,168 @@ function updateZenLiveMenu(){
   // El texto de "Salir" avisa lo que de verdad pasa: con la partida en curso, queda abierta.
   P.exit.textContent = game.result ? "Salir de la partida" : "Salir (la partida sigue abierta)";
 }
+
+/* ---- Partidas asíncronas (V150, 2026-09-30) ----
+   Una partida asíncrona es una partida en vivo SIN reloj y con un plazo por jugada (1-14 días,
+   migración 13_asincronas.sql). Lo que la hace cómoda es todo lo de alrededor:
+   (1) NO te arrastra al tablero (aceptar o ser aceptado solo avisa) y, al abrirla, tu partida local
+       queda guardada (persistFrozen) y la recuperas al salir;
+   (2) saber que es tu turno sin estar dentro: lista con el turno resaltado, número en el encabezado
+       del Club, "(N)" en el título de la pestaña, aviso flotante y una pastilla que la abre de un toque;
+   (3) el plazo: quien no mueve a tiempo puede perder; su rival la reclama (claim_async_forfeit).
+   Los avisos se calculan en clubTurnSync(), que cuelga de loadClubActiveGames(): el mismo punto
+   por el que ya pasan todos los eventos Realtime del Club, más un refresco cada 60 s por si algún
+   evento se pierde y otro al volver a ver la pestaña. Solo funciona con la app abierta (push: aparte).
+   `var` en todo por la misma razón que los bloques anteriores. */
+var asyncColsOk = true;                       // se apaga solo si la migración 13 aún no corrió
+function asyncMissing(err){ return !!(err && /async_days/.test(err.message || "")); }
+async function withAsyncCols(build){
+  let r = await build(asyncColsOk);
+  if(r.error && asyncMissing(r.error)){ asyncColsOk = false; r = await build(false); }
+  return r;
+}
+function asyncTag(days){
+  return days ? " · asíncrona (" + days + (days === 1 ? " día" : " días") + " por jugada)" : "";
+}
+function asyncErrorText(err){
+  const m = (err && err.message) || "Error desconocido";
+  if(/send_async_challenge|respond_async_challenge|claim_async_forfeit|async_days|schema cache|does not exist/i.test(m)){
+    return "falta correr la migración 13_asincronas.sql en Supabase. (" + m + ")";
+  }
+  return m;
+}
+// De quién es el turno en una fila de `games` (FEN si hay; si no, por paridad de jugadas).
+function rowTurnPlayerId(r){
+  const t = (r.current_fen || "").split(" ")[1];
+  const color = (t === "w" || t === "b") ? t : (((r.ply_count || 0) % 2 === 0) ? "w" : "b");
+  return color === "w" ? r.white_id : r.black_id;
+}
+// Instante (ms) en que vence el plazo de la jugada pendiente, o null si no es asíncrona.
+function asyncDeadlineMs(r){
+  if(!r.async_days || !r.turn_started_at) return null;
+  return new Date(r.turn_started_at).getTime() + r.async_days * 86400000;
+}
+function fmtLeft(ms){
+  const m = Math.max(0, Math.floor(ms / 60000));
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mi = m % 60;
+  if(d) return d + " d " + h + " h";
+  if(h) return h + " h " + mi + " min";
+  return mi + " min";
+}
+
+var turnBaseTitle = document.title;
+var turnState = { rows: [], names: {}, first: true };
+var turnSeen = {};            // id de partida -> nº de jugadas de la última posición ya avisada
+var turnChipDismissSig = "";  // firma de las partidas pendientes cuando se cerró la pastilla
+function myTurnRows(){
+  if(!accountProfile) return [];
+  const openId = liveGame ? liveGame.id : null;
+  return turnState.rows.filter(r => r.id !== openId && rowTurnPlayerId(r) === accountProfile.id);
+}
+function turnOppName(r){
+  const oppId = r.white_id === accountProfile.id ? r.black_id : r.white_id;
+  return turnState.names[oppId] || "tu rival";
+}
+function ensureTurnChip(){
+  let chip = document.getElementById("turn-chip");
+  if(chip) return chip;
+  chip = document.createElement("div");
+  chip.id = "turn-chip"; chip.hidden = true;
+  const main = document.createElement("button");
+  main.type = "button"; main.id = "turn-chip-main";
+  const close = document.createElement("button");
+  close.type = "button"; close.className = "tc-close"; close.id = "turn-chip-close";
+  close.textContent = "✕"; close.setAttribute("aria-label", "Ocultar aviso de turno");
+  chip.appendChild(main); chip.appendChild(close);
+  document.body.appendChild(chip);
+  main.onclick = () => {
+    const mine = myTurnRows();
+    if(mine.length === 1){ enterLiveGame(mine[0]); return; }
+    if(clubPanelEl.classList.contains("collapsed")){ const h = clubPanelEl.querySelector("h2"); if(h) h.click(); }
+    clubPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  close.onclick = () => {
+    turnChipDismissSig = myTurnRows().map(r => r.id + ":" + (r.ply_count || 0)).join(",");
+    renderTurnIndicators();
+  };
+  return chip;
+}
+function renderTurnIndicators(){
+  const h2 = clubPanelEl ? clubPanelEl.querySelector("h2") : null;
+  if(!accountProfile){
+    if(h2) h2.removeAttribute("data-badge");
+    document.title = turnBaseTitle;
+    const c0 = document.getElementById("turn-chip"); if(c0) c0.hidden = true;
+    return;
+  }
+  const mine = myTurnRows(), n = mine.length;
+  if(h2){ if(n) h2.setAttribute("data-badge", String(n)); else h2.removeAttribute("data-badge"); }
+  document.title = (n ? "(" + n + ") " : "") + turnBaseTitle;
+  const chip = ensureTurnChip();
+  const sig = mine.map(r => r.id + ":" + (r.ply_count || 0)).join(",");
+  const hide = n === 0 || sig === turnChipDismissSig || zenMode || !!retoActive;
+  chip.hidden = hide;
+  if(!hide){
+    document.getElementById("turn-chip-main").textContent =
+      n === 1 ? "♞ Es tu turno · " + turnOppName(mine[0]) : "♞ Es tu turno en " + n + " partidas";
+  }
+}
+function turnToastText(list){
+  if(list.length === 1){
+    const r = list[0];
+    return "Partida " + (r.async_days ? "asíncrona " : "") + "con " + turnOppName(r) + ". ¡Es tu turno!";
+  }
+  return "¡Es tu turno en " + list.length + " partidas!";
+}
+// Se llama desde loadClubActiveGames() con TODAS tus partidas en curso. Avisa cuando una posición
+// nueva te deja con el turno (o, la primera vez tras iniciar sesión, si ya lo tenías).
+function clubTurnSync(rows, names){
+  turnState.rows = rows || [];
+  turnState.names = names || {};
+  if(!accountProfile) return;
+  const k = readLiveKey();
+  const reconnectId = (k && k.uid === accountProfile.id) ? k.gameId : null;   // esa se abre sola: no se avisa
+  const candidates = myTurnRows().filter(r => r.id !== reconnectId);
+  const fresh = turnState.first ? candidates : candidates.filter(r => turnSeen[r.id] !== (r.ply_count || 0));
+  turnState.first = false;
+  turnState.rows.forEach(r => { turnSeen[r.id] = r.ply_count || 0; });
+  if(fresh.length) showGlobalToast(turnToastText(fresh));
+  renderTurnIndicators();
+}
+async function claimAsyncForfeit(gid){
+  if(!accountProfile || !gid) return;
+  if(!confirm("El plazo de tu rival venció. ¿Reclamar la partida? Ganas por plazo vencido y no se puede deshacer.")) return;
+  const { data, error } = await sb.rpc("claim_async_forfeit", { p_game_id: gid });
+  if(error){ const msg = "No se pudo reclamar: " + asyncErrorText(error); clubNote(msg, true); showGlobalToast(msg); return; }
+  if(liveGame && liveGame.id === gid && data) applyGameRow(data);
+  else showGlobalToast("¡Ganaste la partida por plazo vencido!");
+  loadClubActiveGames();
+}
+// En la partida abierta: muestra el plazo en el banner y el botón de reclamar si ya venció.
+function updateAsyncBanner(){
+  const claimBtn = document.getElementById("live-game-claim");
+  if(!claimBtn) return;
+  if(!liveGame || !liveGame.asyncDays){ claimBtn.hidden = true; return; }
+  const left = (liveGame.turnStartedAt + liveGame.asyncDays * 86400000) - Date.now();
+  const myMove = liveState().turn === liveGame.myColor;
+  const note = document.getElementById("live-game-note");
+  if(note){
+    note.textContent += game.result ? " · asíncrona"
+      : " · plazo por jugada: " + liveGame.asyncDays + " d (" + (left > 0 ? "vence en " + fmtLeft(left) : "vencido") + ")";
+  }
+  claimBtn.hidden = !!(game.result || myMove || left > 0);
+}
+document.getElementById("live-game-claim").onclick = () => { if(liveGame) claimAsyncForfeit(liveGame.id); };
+clubComposeTimeEl.addEventListener("change", () => {
+  document.getElementById("club-compose-async").hidden = clubComposeTimeEl.value !== "async";
+});
+// Refrescos de respaldo: cada 60 s y al volver a ver la pestaña (el plazo y los turnos cambian con el tiempo).
+setInterval(() => {
+  if(accountProfile && document.visibilityState === "visible" && clubMemberAreaEl && !clubMemberAreaEl.hidden) loadClubActiveGames();
+}, 60000);
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible" && accountProfile && clubMemberAreaEl && !clubMemberAreaEl.hidden) loadClubActiveGames();
+});
 
 function machineMovetimeFor(level){
   if(level <= 0) return 300;
