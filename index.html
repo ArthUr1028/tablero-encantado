@@ -689,6 +689,10 @@
     font-size:.9rem; white-space:nowrap; max-width:92%; overflow:hidden; text-overflow:ellipsis;
   }
   .pause-pill[hidden]{ display:none; }
+  /* V148 · Juego limpio en partidas en vivo (club y torneo): mientras la partida
+     está en curso, el Oráculo (motor) y el Grimorio (líneas de apertura) no se ven.
+     Al terminar la partida (resultado puesto) vuelven, para estudiarla. */
+  body.live-focus #panel-oracle, body.live-focus #panel-openings, body.live-focus #panel-free{ display:none !important; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
@@ -5344,6 +5348,7 @@ movesEl.addEventListener("click", e => {
 /* ============================ Controles ============================ */
 function setMode(mode){
   if(mode === currentMode) return;
+  if(liveGame) return; // V148: en una partida en vivo no se cambia a Modo Libre
   stopAuto();
   const pos = cloneState(liveState());
   const keepMeta = { white: game.white, black: game.black, result: game.result, resultNote: game.resultNote };
@@ -5413,7 +5418,7 @@ function updateModalitySelectorsUI(){
   }
   for(const id of ["mode-play", "mode-free"]){
     const el = document.getElementById(id);
-    if(el) el.disabled = !!retoActive;
+    if(el) el.disabled = !!retoActive || !!liveGame;
   }
 }
 function updatePanelVisibility(variant){
@@ -5446,11 +5451,12 @@ function updateVariantUI(variant){
   // contra la Máquina (comparten worker con el Oráculo), y por completo en
   // Modo Maharajá — decisión explícita de Arthur, sin motor de análisis en
   // esta variante por ahora.
-  const oracleOff = vsMachine || variant === "maharaja";
+  const liveBlock = liveFocusActive();
+  const oracleOff = vsMachine || variant === "maharaja" || liveBlock;
   if(oracleOff){
     oracleAskBtn.disabled = true;
     if(!oracleForcedNote){ oracleResultEl.innerHTML = ""; clearArrow(); }
-    oracleNote(variant === "maharaja" ? "El Oráculo no está disponible en Modo Maharajá." : "El Oráculo está desactivado mientras juegas contra la Máquina.");
+    oracleNote(liveBlock ? "El Oráculo está desactivado durante las partidas en vivo." : (variant === "maharaja" ? "El Oráculo no está disponible en Modo Maharajá." : "El Oráculo está desactivado mientras juegas contra la Máquina."));
     oracleForcedNote = true;
   } else if(oracleForcedNote){
     oracleAskBtn.disabled = false;
@@ -6756,6 +6762,7 @@ let clubChannel = null;
 
 function updateLiveBanner(){
   updatePauseUI();
+  updateLiveFocus();
   const banner = document.getElementById("live-game-banner");
   const note = document.getElementById("live-game-note");
   // En partida en vivo el resultado lo fija el servidor (mate, tablas,
@@ -6796,7 +6803,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V147 · 30-sep-2026 · Pausa en partidas en vivo (club y torneo): tablero oculto solo para quien pausa, 5 min, una por jugador";
+const BUILD_ID = "V148 · 30-sep-2026 · Juego limpio en vivo: Oráculo, Grimorio y Modo Libre bloqueados mientras la partida está en curso";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -7977,6 +7984,37 @@ async function livePauseToggle(){
 }
 document.getElementById("live-game-pause").onclick = livePauseToggle;
 
+/* ---- Juego limpio en partidas en vivo (V148, 2026-09-30) ----
+   Pedido de Arthur tras probar la pausa: Oráculo y Grimorio no se pueden usar en
+   partidas de club ni de torneo mientras la partida sigue en curso. Se aplica en tres
+   capas, porque ocultar el panel solo no basta: (1) CSS body.live-focus oculta los
+   paneles; (2) los manejadores (askOracle, Reproducir, Reiniciar línea) se niegan a
+   actuar; (3) al ENTRAR en este estado se borra cualquier respuesta/flecha del Oráculo
+   que ya estuviera en pantalla (si el tablero estaba en la misma posición, la flecha de
+   "mejor jugada" habría sobrevivido a la entrada). Con resultado puesto la partida
+   termina y todo vuelve a estar disponible. `var` y no `let`: updateLiveBanner() corre
+   durante la carga, antes de llegar acá (mismo motivo que el bloque de la pausa). */
+var liveFocusPrev = false;
+function liveFocusActive(){
+  return !!(liveGame && !game.result);
+}
+function purgeOracleForLive(){
+  oracleForFEN = null;
+  if(sfBusy){
+    oracleDiscard = true;                      // si había un análisis en curso, su respuesta se descarta
+    try{ sfWorker && sfWorker.postMessage("stop"); }catch(e){}
+  }
+  clearArrow();
+  oracleResultEl.innerHTML = "";
+  oracleNote("");
+}
+function updateLiveFocus(){
+  const on = liveFocusActive();
+  document.body.classList.toggle("live-focus", on);
+  if(on && !liveFocusPrev){ try{ purgeOracleForLive(); }catch(e){} }
+  liveFocusPrev = on;
+}
+
 function machineMovetimeFor(level){
   if(level <= 0) return 300;
   if(level <= 5) return 500;
@@ -8291,11 +8329,12 @@ function practiceOpening(i){
   maybeMachineMove();
 }
 opPracticeBtn.onclick = () => practiceOpening(+opSelect.value);
-document.getElementById("op-reset").onclick = () => { branch = null; game.cursor = 0; selected=null; persist(); render(); };
+document.getElementById("op-reset").onclick = () => { if(liveFocusActive()) return; branch = null; game.cursor = 0; selected=null; persist(); render(); };
 
 const opPlayBtn = document.getElementById("op-play");
 function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer = null; opPlayBtn.innerHTML = "▶ Reproducir"; } }
 opPlayBtn.onclick = () => {
+  if(liveFocusActive()) return;
   if(autoTimer){ stopAuto(); return; }
   if(atLive()) return;
   opPlayBtn.innerHTML = "⏸ Pausar";
@@ -8535,6 +8574,7 @@ function handleFsfLine(line){
 }
 
 function askOracle(){
+  if(liveFocusActive()) return; // V148: nunca durante una partida en vivo en curso
   if(sfBusy || fsfBusy || vsMachine) return; // el botón ya está deshabilitado en Modo Máquina; esto es un segundo seguro
   const pos = liveState();
   if(variantOf(pos.board) === "maharaja") return; // el botón ya está deshabilitado en Modo Maharajá; segundo seguro
