@@ -6865,7 +6865,7 @@ let clubChannel = null;
 function updateLiveBanner(){
   updatePauseUI();
   updateLiveFocus();
-  try{ renderTurnIndicators(); }catch(e){} // V150
+  try{ syncTurnRowFromLive(); renderTurnIndicators(); }catch(e){} // V150 / V151
   const banner = document.getElementById("live-game-banner");
   const note = document.getElementById("live-game-note");
   // En partida en vivo el resultado lo fija el servidor (mate, tablas,
@@ -6908,7 +6908,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V150 · 30-sep-2026 · Partidas asíncronas: plazo por jugada, aviso de turno (lista, insignia, título, pastilla) y tu partida local intacta";
+const BUILD_ID = "V151 · 30-sep-2026 · Asíncronas: el aviso de turno solo le llega a quien le toca mover (ya no se calcula con datos viejos al salir de la partida)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -8355,7 +8355,24 @@ var turnChipDismissSig = "";  // firma de las partidas pendientes cuando se cerr
 function myTurnRows(){
   if(!accountProfile) return [];
   const openId = liveGame ? liveGame.id : null;
-  return turnState.rows.filter(r => r.id !== openId && rowTurnPlayerId(r) === accountProfile.id);
+  return turnState.rows.filter(r => r.id !== openId && r.status === "en_curso" && rowTurnPlayerId(r) === accountProfile.id);
+}
+// V151: la lista de turnos vive en una copia de las filas de `games` que solo se renueva al llegar un evento
+// de Realtime o cada 60 s. Mientras una partida está abierta, el tablero SÍ sabe en cada instante de quién es
+// el turno: se vuelca en esa copia para que, al salir, el aviso no se calcule con datos viejos. Sin esto, quien
+// movía y cerraba veía «Es tu turno» (de su partida recién jugada), quien recibía la jugada de su rival y salía
+// sin responder no veía nada, y una partida terminada seguía "esperándote". También marca como ya vista la
+// posición que se vio en vivo, para no avisarla otra vez después.
+function syncTurnRowFromLive(){
+  if(!liveGame) return;
+  const plies = game.sans.length;
+  turnSeen[liveGame.id] = plies;
+  const r = turnState.rows.find(x => x.id === liveGame.id);
+  if(!r) return;
+  r.ply_count = plies;
+  try{ r.current_fen = toFEN(game.states[game.states.length - 1]); }catch(e){}
+  if(liveGame.turnStartedAt) r.turn_started_at = new Date(liveGame.turnStartedAt).toISOString();
+  if(game.result) r.status = "finalizada";
 }
 function turnOppName(r){
   const oppId = r.white_id === accountProfile.id ? r.black_id : r.white_id;
