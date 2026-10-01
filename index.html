@@ -693,6 +693,30 @@
      está en curso, el Oráculo (motor) y el Grimorio (líneas de apertura) no se ven.
      Al terminar la partida (resultado puesto) vuelven, para estudiarla. */
   body.live-focus #panel-oracle, body.live-focus #panel-openings, body.live-focus #panel-free{ display:none !important; }
+  /* V149 · Menú de la partida en vivo en pantalla completa: en zen los paneles no
+     existen, así que Tablas / Rendirse / Pausa / Salir viven en un menú que se abre
+     desde un botón de 3 puntos, junto al de salir de pantalla completa. El menú es
+     `position:fixed` (no ocupa espacio: el tablero no se achica) y el botón tiene
+     el mismo tamaño que los otros dos (la fila no cambia de alto). */
+  #zen-live-menu-btn{ position:relative; }
+  #zen-live-menu-btn.has-offer{ opacity:1 !important; color:var(--ember-soft); }
+  #zen-live-menu-btn.has-offer::after{
+    content:""; position:absolute; top:2px; right:2px; width:8px; height:8px;
+    border-radius:50%; background:var(--ember);
+  }
+  .zen-live-menu{
+    position:fixed; z-index:9000; box-sizing:border-box; min-width:210px; max-width:min(92vw, 300px);
+    overflow:auto; padding:10px; display:flex; flex-direction:column; gap:8px;
+    background:var(--frame, #22252b); border:1px solid var(--frame-hi, #4c4350);
+    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.45); color:var(--text);
+  }
+  .zen-live-menu[hidden]{ display:none; }
+  .zen-live-menu .btn{ width:100%; justify-content:center; text-align:center; }
+  .zen-live-menu .zm-title{ font-size:.8rem; color:var(--text-dim); text-align:center; }
+  .zen-live-menu .zm-offer{ border:1px solid var(--ember); border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px; }
+  .zen-live-menu .zm-offer[hidden]{ display:none; }
+  .zen-live-menu .zm-offer p{ margin:0; font-size:.85rem; text-align:center; }
+  .zen-live-menu .zm-offer-btns{ display:flex; gap:6px; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
@@ -4636,6 +4660,7 @@ function setZenMode(active){
   // Y el tamaño del tablero con la fórmula de pantalla completa (o la de
   // siempre, al salir) -- una sola llamada cubre ambos.
   syncBoardMetrics();
+  try{ updateZenLiveMenu(); }catch(e){} // V149
 }
 zenToggleEnterEl.addEventListener("click", () => setZenMode(true));
 zenToggleExitEl.addEventListener("click", () => setZenMode(false));
@@ -4643,7 +4668,10 @@ document.addEventListener("keydown", (e) => {
   if(!zenMode) return;
   if(["TEXTAREA","SELECT","INPUT"].includes(e.target.tagName)) return;
   if(!document.getElementById("hof-ov").hidden || document.getElementById("mus-ov").classList.contains("show")) return; // el Salón de la Fama ya maneja su propio Escape
-  if(e.key === "Escape") setZenMode(false);
+  if(e.key === "Escape"){
+    if(typeof zenMenuOpen !== "undefined" && zenMenuOpen){ closeZenMenu(); return; } // V149
+    setZenMode(false);
+  }
 });
 const whiteNameEl = document.getElementById("white-name");
 const blackNameEl = document.getElementById("black-name");
@@ -6780,13 +6808,14 @@ function updateLiveBanner(){
     ci.disabled = over; cs.disabled = over;
     ci.placeholder = over ? "Partida terminada" : "Mensaje…";
   }
-  if(!liveGame){ banner.hidden = true; return; }
+  if(!liveGame){ banner.hidden = true; try{ updateZenLiveMenu(); }catch(e){} return; }
   banner.hidden = false;
   updateDrawUI();
   const misTurno = liveState().turn === liveGame.myColor;
   note.textContent = "Jugando en vivo contra " + liveGame.opponentName + " · " + VARIANT_LABEL[liveGame.variant] +
     " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") + " · " + BUILD_ID.split(" · ")[0] +
     (game.result ? " · partida terminada (" + game.result + ")" : (livePauseActive() ? " · en pausa" : (misTurno ? " · tu turno" : " · turno del rival")));
+  try{ updateZenLiveMenu(); }catch(e){} // V149: después de updateDrawUI(), cuyo estado espeja
 }
 
 /* ---- Ronda "reconexión y tablas" (2026-09-25) ----
@@ -6803,7 +6832,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V148 · 30-sep-2026 · Juego limpio en vivo: Oráculo, Grimorio y Modo Libre bloqueados mientras la partida está en curso";
+const BUILD_ID = "V149 · 30-sep-2026 · Pantalla completa: menú de la partida en vivo (Pausa, Tablas, Rendirse, Salir) y tablas entrantes";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -6907,7 +6936,7 @@ function applyGameRow(row){
             Date.now() - (liveGame.offerAt || 0) > 4000){
     showGlobalToast(liveGame.opponentName + " rechazó las tablas.");
   } else if(liveGame.drawOfferedBy && liveGame.drawOfferedBy !== accountProfile.id && !prevOffer && !game.result){
-    showGlobalToast(liveGame.opponentName + " te ofrece tablas (mira el panel La Partida).");
+    showGlobalToast(liveGame.opponentName + " te ofrece tablas (" + (zenMode ? "abre el menú ⋯ arriba a la derecha" : "mira el panel La Partida") + ").");
   }
   updateLiveBanner();
   syncLiveClockRunning();
@@ -8013,6 +8042,134 @@ function updateLiveFocus(){
   document.body.classList.toggle("live-focus", on);
   if(on && !liveFocusPrev){ try{ purgeOracleForLive(); }catch(e){} }
   liveFocusPrev = on;
+}
+
+/* ---- Menú de la partida en vivo en pantalla completa (V149, 2026-09-30) ----
+   Pedido de Arthur: en pantalla completa faltaban Rendirse, Pausa, Ofrecer tablas y
+   Salir de la partida en vivo (viven en el panel La Partida, que en zen no se ve).
+   Un solo botón de 3 puntos junto al de salir de pantalla completa abre un menú con
+   las cuatro acciones. NO duplica lógica: cada opción espeja el estado (texto,
+   deshabilitado, oculto) del botón original del panel y, al pulsarla, le hace .click() —
+   así reglas, confirmaciones y mensajes siguen en un solo lugar (Pausa pide su
+   confirmación, Rendirse la suya; Salir la pide acá porque el original no la tiene).
+   Además muestra la oferta de tablas ENTRANTE con Aceptar/Rechazar: en zen el panel
+   donde aparecía no existe, y sin esto quedaría solo el aviso flotante. `var` por la
+   misma razón que los bloques anteriores. */
+var zenMenuEl = null, zenMenuBtnEl = null, zenMenuOpen = false, zenMenuParts = null;
+function ensureZenLiveMenu(){
+  if(zenMenuEl) return zenMenuEl;
+  const row = document.querySelector(".zen-toggle-row");
+  if(!row) return null;
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.id = "zen-live-menu-btn";
+  btn.className = "btn icon zen-toggle-btn";
+  btn.hidden = true;
+  btn.setAttribute("aria-haspopup", "true"); btn.setAttribute("aria-expanded", "false");
+  btn.setAttribute("aria-label", "Acciones de la partida en vivo"); btn.title = "Acciones de la partida en vivo";
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("width", "18"); svg.setAttribute("height", "18");
+  svg.setAttribute("fill", "currentColor"); svg.setAttribute("aria-hidden", "true");
+  [5, 12, 19].forEach(cx => {
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", String(cx)); c.setAttribute("cy", "12"); c.setAttribute("r", "2");
+    svg.appendChild(c);
+  });
+  btn.appendChild(svg);
+  row.insertBefore(btn, row.firstChild);
+  zenMenuBtnEl = btn;
+
+  const menu = document.createElement("div");
+  menu.id = "zen-live-menu"; menu.className = "zen-live-menu"; menu.hidden = true;
+  menu.setAttribute("role", "menu");
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text) e.textContent = text; return e; };
+  const title = mk("div", "zm-title");
+  const offer = mk("div", "zm-offer"); offer.hidden = true;
+  const offerNote = mk("p");
+  const offerBtns = mk("div", "zm-offer-btns");
+  const accept = mk("button", "btn", "Aceptar"); accept.type = "button";
+  const decline = mk("button", "btn", "Rechazar"); decline.type = "button";
+  offerBtns.appendChild(accept); offerBtns.appendChild(decline);
+  offer.appendChild(offerNote); offer.appendChild(offerBtns);
+  const pause = mk("button", "btn", "Pausa"); pause.type = "button";
+  const draw = mk("button", "btn", "Ofrecer tablas"); draw.type = "button";
+  const resign = mk("button", "btn", "Rendirse"); resign.type = "button";
+  const exit = mk("button", "btn", "Salir de la partida en vivo"); exit.type = "button";
+  [title, offer, pause, draw, resign, exit].forEach(e => menu.appendChild(e));
+  document.body.appendChild(menu);
+  zenMenuEl = menu;
+  zenMenuParts = { title, offer, offerNote, accept, decline, pause, draw, resign, exit };
+
+  const via = origId => () => {
+    const o = document.getElementById(origId);
+    closeZenMenu();
+    if(o && !o.disabled) o.click();
+  };
+  accept.onclick = via("live-draw-accept");
+  decline.onclick = via("live-draw-decline");
+  pause.onclick = via("live-game-pause");
+  draw.onclick = via("live-game-draw");
+  resign.onclick = via("live-game-resign");
+  exit.onclick = () => {
+    if(liveGame && !game.result &&
+       !confirm("¿Salir de la partida en vivo? La partida SIGUE ABIERTA y tu reloj sigue corriendo. Puedes volver desde Club → Reconectar.")) return;
+    via("live-game-exit")();
+  };
+  btn.onclick = () => { if(zenMenuOpen) closeZenMenu(); else openZenMenu(); };
+  document.addEventListener("pointerdown", e => {
+    if(!zenMenuOpen) return;
+    if(zenMenuEl.contains(e.target) || zenMenuBtnEl.contains(e.target)) return;
+    closeZenMenu();
+  });
+  window.addEventListener("resize", () => { if(zenMenuOpen) positionZenMenu(); });
+  return menu;
+}
+function positionZenMenu(){
+  if(!zenMenuEl || !zenMenuBtnEl) return;
+  const r = zenMenuBtnEl.getBoundingClientRect();
+  zenMenuEl.style.top = Math.round(r.bottom + 6) + "px";
+  zenMenuEl.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + "px";
+  zenMenuEl.style.maxHeight = Math.max(120, Math.round(window.innerHeight - r.bottom - 14)) + "px";
+}
+function openZenMenu(){
+  if(!ensureZenLiveMenu() || !liveGame || !zenMode) return;
+  updateZenLiveMenu();
+  positionZenMenu();
+  zenMenuEl.hidden = false; zenMenuOpen = true;
+  zenMenuBtnEl.setAttribute("aria-expanded", "true");
+}
+function closeZenMenu(){
+  zenMenuOpen = false;
+  if(zenMenuEl) zenMenuEl.hidden = true;
+  if(zenMenuBtnEl) zenMenuBtnEl.setAttribute("aria-expanded", "false");
+}
+function updateZenLiveMenu(){
+  if(!ensureZenLiveMenu()) return;
+  const show = !!(zenMode && liveGame);
+  zenMenuBtnEl.hidden = !show;
+  if(!show){ closeZenMenu(); zenMenuBtnEl.classList.remove("has-offer"); return; }
+  const P = zenMenuParts, byId = id => document.getElementById(id);
+  P.title.textContent = "Partida en vivo · " + liveGame.opponentName + (game.result ? " · terminada" : "");
+  const mirror = (item, orig) => {
+    if(!orig){ item.hidden = true; return; }
+    item.hidden = !!orig.hidden;
+    item.textContent = orig.textContent;
+    item.disabled = !!orig.disabled;
+    item.title = orig.title || "";
+  };
+  mirror(P.pause, byId("live-game-pause"));
+  mirror(P.draw, byId("live-game-draw"));
+  mirror(P.resign, byId("live-game-resign"));
+  const inc = byId("live-draw-incoming");
+  const incoming = !!(inc && !inc.hidden);
+  P.offer.hidden = !incoming;
+  if(incoming){
+    const n = byId("live-draw-incoming-note");
+    P.offerNote.textContent = n ? n.textContent : "Te ofrecen tablas.";
+  }
+  zenMenuBtnEl.classList.toggle("has-offer", incoming);
+  // El texto de "Salir" avisa lo que de verdad pasa: con la partida en curso, queda abierta.
+  P.exit.textContent = game.result ? "Salir de la partida" : "Salir (la partida sigue abierta)";
 }
 
 function machineMovetimeFor(level){
