@@ -722,11 +722,12 @@
      texto del encabezado es la clave con la que se recuerda si el panel estaba
      plegado), filas con turno resaltado y una pastilla flotante para abrir la
      partida de un toque. */
-  #panel-club h2[data-badge]::after{
-    content:attr(data-badge); margin-left:8px; padding:0 8px; border-radius:999px;
-    background:var(--ember); color:#1a1620; font-size:.7rem; vertical-align:middle;
-    font-family:"IBM Plex Mono", monospace;
+  #panel-club h2 .h2-badge{
+    margin-left:.4em; min-width:1.5em; padding:1px 7px; border-radius:999px; text-align:center;
+    background:var(--ember); color:#1a1620; font-size:.7rem; letter-spacing:0; line-height:1.4;
+    font-family:"IBM Plex Mono", monospace; font-weight:600;
   }
+  #panel-club h2 .h2-badge[hidden]{ display:none; }
   .club-turn-row{ border-left:3px solid var(--ember); padding-left:8px; }
   #turn-chip{
     position:fixed; right:12px; bottom:12px; z-index:850; display:flex; align-items:center;
@@ -740,6 +741,24 @@
   /* El bloque de minutos/incremento personalizado lleva `display:flex` en línea, que le ganaba al atributo
      `hidden`: los campos Min/Incr. se veían siempre, también con "Sin reloj" o "Asíncrona". */
   #club-compose-time-custom[hidden]{ display:none !important; }
+  /* V152 · Club en tres secciones. Un `display` en línea o de clase le ganaba al atributo `hidden`
+     varias veces (los campos Min/Incr., por ejemplo): dentro del Club, hidden siempre manda. */
+  #panel-club [hidden]{ display:none !important; }
+  .club-tabs{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin:0 0 12px; }
+  .club-tabs button{
+    font-family:"Cinzel", serif; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase;
+    padding:9px 4px; border-radius:3px; cursor:pointer;
+    background:rgba(0,0,0,.25); color:var(--text-dim); border:1px solid var(--line);
+  }
+  .club-tabs button[aria-selected="true"]{
+    color:var(--text); border-color:var(--ember); background:rgba(217,138,61,.12);
+  }
+  .club-tabs button:focus-visible{ outline:2px solid var(--ember); outline-offset:1px; }
+  .club-view h3{ margin:14px 0 6px; font-size:.95rem; }
+  .club-view > .club-group:first-child h3, .club-view > h3:first-child{ margin-top:2px; }
+  .club-invite{ margin-top:16px; border-top:1px solid var(--line); padding-top:10px; }
+  .club-invite summary{ cursor:pointer; color:var(--text-dim); font-size:.85rem; }
+  #club-compose{ margin:2px 0 6px; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
     z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
@@ -2302,6 +2321,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
            refreshClub()/clearAccountProfile() más abajo). -->
       <section class="panel" id="panel-club" hidden>
         <h2>Club</h2>
+        <p class="lib-note" id="club-note"></p>
         <div id="club-joiner">
           <p class="free-hint" style="margin:0 0 10px">Todav&iacute;a no eres miembro del club. Si alguien te pas&oacute; un c&oacute;digo, p&eacute;galo aqu&iacute;.</p>
           <div class="btns">
@@ -2310,42 +2330,65 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           </div>
         </div>
         <div id="club-member-area" hidden>
-          <div class="btns" style="margin-bottom:6px">
-            <button class="btn" id="club-invite-btn">Generar c&oacute;digo de invitaci&oacute;n</button>
+          <!-- V152: el panel Club se organiza en tres secciones, por lo que la gente hace:
+               ver sus partidas y retos (lo primero), retar a alguien, y torneos/trofeos. Los
+               contenedores y botones conservan sus ids: todo el JS de antes sigue igual. -->
+          <div class="club-tabs" role="tablist" aria-label="Secciones del Club">
+            <button type="button" role="tab" id="club-tab-games" aria-selected="true" aria-controls="club-view-games">Partidas</button>
+            <button type="button" role="tab" id="club-tab-challenge" aria-selected="false" aria-controls="club-view-challenge">Retar</button>
+            <button type="button" role="tab" id="club-tab-tournaments" aria-selected="false" aria-controls="club-view-tournaments">Torneos</button>
           </div>
-          <p class="lib-note" id="club-invite-note"></p>
 
-          <div id="club-compose" hidden style="margin:10px 0; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
-            <p class="free-hint" style="margin:0 0 8px">Retando a <strong id="club-compose-name"></strong></p>
-            <label class="lib-label" for="club-compose-variant">Variante</label>
-            <select id="club-compose-variant" aria-label="Variante del reto">
-              <option value="clasico">Cl&aacute;sico</option>
-              <option value="capablanca">Capablanca</option>
-              <option value="maharaja">Maharaj&aacute;</option>
-              <option value="amazonas">Amazonas</option>
-            </select>
-            <label class="lib-label" for="club-compose-color" style="margin-top:8px">Tu color</label>
-            <select id="club-compose-color" aria-label="Tu color en el reto">
-              <option value="aleatorio">Aleatorio</option>
-              <option value="blancas">Blancas</option>
-              <option value="negras">Negras</option>
-            </select>
-            <label class="lib-label" for="club-compose-time" style="margin-top:8px">Reloj</label>
-            <select id="club-compose-time" aria-label="Control de tiempo del reto">
-              <option value="none" selected>Sin reloj</option>
-              <option value="5+0">5+0</option>
-              <option value="10+0">10+0</option>
-              <option value="15+10">15+10</option>
-              <option value="30+0">30+0</option>
-              <option value="custom">Personalizado…</option>
-              <option value="async">Asíncrona (plazo por jugada)…</option>
-            </select>
-            <div id="club-compose-time-custom" hidden style="margin-top:6px; display:flex; gap:10px; align-items:center">
-              <label style="font-size:.85rem">Min <input type="number" id="club-compose-time-min" min="1" max="180" value="15" style="width:56px"></label>
-              <label style="font-size:.85rem">Incr. (s) <input type="number" id="club-compose-time-inc" min="0" max="60" value="10" style="width:56px"></label>
+          <div id="club-view-games" class="club-view" role="tabpanel" aria-labelledby="club-tab-games">
+            <div class="club-group" id="club-group-in" hidden>
+              <h3>Te están retando</h3>
+              <div id="club-challenges-in"></div>
             </div>
-            <div id="club-compose-async" hidden style="margin-top:6px">
-              <label style="font-size:.85rem">Plazo por jugada
+            <div class="club-group" id="club-group-active" hidden>
+              <h3>Tus partidas</h3>
+              <div id="club-active-games"></div>
+            </div>
+            <div class="club-group" id="club-group-out" hidden>
+              <h3>Esperando respuesta</h3>
+              <div id="club-challenges-out"></div>
+            </div>
+            <div id="club-games-empty" hidden>
+              <p class="free-hint">Todavía no tienes partidas ni retos. Reta a alguien del club para empezar.</p>
+              <div class="btns"><button type="button" class="btn" id="club-empty-challenge">Retar a alguien</button></div>
+            </div>
+          </div>
+
+          <div id="club-view-challenge" class="club-view" role="tabpanel" aria-labelledby="club-tab-challenge" hidden>
+            <div id="club-members-wrap">
+              <p class="free-hint" style="margin:0 0 6px">Elige a quién retar:</p>
+              <div id="club-members-list"></div>
+            </div>
+
+            <div id="club-compose" hidden>
+              <p class="free-hint" style="margin:0 0 8px">Retando a <strong id="club-compose-name"></strong></p>
+              <div class="seg" role="group" aria-label="Tipo de partida">
+                <button type="button" id="club-kind-live" aria-pressed="true">En vivo</button>
+                <button type="button" id="club-kind-async" aria-pressed="false">Asíncrona</button>
+              </div>
+              <p class="free-hint" id="club-kind-hint" style="margin:-4px 0 10px"></p>
+
+              <div id="club-live-opts">
+                <label class="lib-label" for="club-compose-time">Reloj</label>
+                <select id="club-compose-time" aria-label="Control de tiempo del reto">
+                  <option value="none" selected>Sin reloj</option>
+                  <option value="5+0">5+0</option>
+                  <option value="10+0">10+0</option>
+                  <option value="15+10">15+10</option>
+                  <option value="30+0">30+0</option>
+                  <option value="custom">Personalizado…</option>
+                </select>
+                <div id="club-compose-time-custom" hidden style="margin-top:6px; display:flex; gap:10px; align-items:center">
+                  <label style="font-size:.85rem">Min <input type="number" id="club-compose-time-min" min="1" max="180" value="15" style="width:56px"></label>
+                  <label style="font-size:.85rem">Incr. (s) <input type="number" id="club-compose-time-inc" min="0" max="60" value="10" style="width:56px"></label>
+                </div>
+              </div>
+              <div id="club-compose-async" hidden>
+                <label class="lib-label" for="club-compose-days">Plazo por jugada</label>
                 <select id="club-compose-days" aria-label="Plazo por jugada en días">
                   <option value="1">1 día</option>
                   <option value="2" selected>2 días</option>
@@ -2353,33 +2396,44 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
                   <option value="5">5 días</option>
                   <option value="7">7 días</option>
                 </select>
-              </label>
-              <p class="free-hint" style="margin:6px 0 0">Sin reloj. Juegan cuando puedan: si alguien no mueve dentro del plazo, su rival puede reclamar la victoria.</p>
+              </div>
+
+              <label class="lib-label" for="club-compose-variant" style="margin-top:8px">Variante</label>
+              <select id="club-compose-variant" aria-label="Variante del reto">
+                <option value="clasico">Cl&aacute;sico</option>
+                <option value="capablanca">Capablanca</option>
+                <option value="maharaja">Maharaj&aacute;</option>
+                <option value="amazonas">Amazonas</option>
+              </select>
+              <label class="lib-label" for="club-compose-color" style="margin-top:8px">Tu color</label>
+              <select id="club-compose-color" aria-label="Tu color en el reto">
+                <option value="aleatorio">Aleatorio</option>
+                <option value="blancas">Blancas</option>
+                <option value="negras">Negras</option>
+              </select>
+              <div class="btns" style="margin-top:12px">
+                <button type="button" class="btn" id="club-compose-send">Enviar reto</button>
+                <button type="button" class="btn" id="club-compose-cancel">Cancelar</button>
+              </div>
             </div>
-            <div class="btns" style="margin-top:10px">
-              <button class="btn" id="club-compose-send">Enviar reto</button>
-              <button class="btn" id="club-compose-cancel">Cancelar</button>
+
+            <details id="club-invite-details" class="club-invite">
+              <summary>Invitar a alguien al club</summary>
+              <div class="btns" style="margin-top:8px">
+                <button class="btn" id="club-invite-btn">Generar c&oacute;digo de invitaci&oacute;n</button>
+              </div>
+              <p class="lib-note" id="club-invite-note"></p>
+            </details>
+          </div>
+
+          <div id="club-view-tournaments" class="club-view" role="tabpanel" aria-labelledby="club-tab-tournaments" hidden>
+            <div class="btns" style="margin-bottom:4px">
+              <button class="btn" id="club-museum-open">Vitrina de trofeos</button>
             </div>
-          </div>
-
-          <h3 style="margin:14px 0 6px; font-size:.95rem">Retos recibidos</h3>
-          <div id="club-challenges-in"></div>
-
-          <h3 style="margin:14px 0 6px; font-size:.95rem">Retos enviados</h3>
-          <div id="club-challenges-out"></div>
-
-          <h3 style="margin:14px 0 6px; font-size:.95rem">Partidas en curso</h3>
-          <div id="club-active-games"></div>
-
-          <h3 style="margin:14px 0 6px; font-size:.95rem">Vitrina de trofeos</h3>
-          <div class="btns" style="margin-bottom:6px">
-            <button class="btn" id="club-museum-open">Entrar a la vitrina</button>
-          </div>
-
-          <h3 style="margin:14px 0 6px; font-size:.95rem">Torneos</h3>
-          <div class="btns" style="margin-bottom:6px">
-            <button class="btn" id="club-tournament-new">Crear torneo</button>
-          </div>
+            <h3>Torneos</h3>
+            <div class="btns" style="margin-bottom:6px">
+              <button class="btn" id="club-tournament-new">Crear torneo</button>
+            </div>
           <div id="club-tournament-compose" hidden style="margin:10px 0; padding:10px; border:1px solid var(--line, #444); border-radius:6px">
             <label class="lib-label" for="club-tournament-name">Nombre del torneo</label>
             <input id="club-tournament-name" type="text" maxlength="60" placeholder="Ej. Primer torneo del club" aria-label="Nombre del torneo">
@@ -2409,10 +2463,8 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <div id="club-tournaments"></div>
           <div id="club-tournament-detail" style="margin-top:10px"></div>
 
-          <h3 style="margin:14px 0 6px; font-size:.95rem">Miembros del club</h3>
-          <div id="club-members-list"></div>
+          </div>
         </div>
-        <p class="lib-note" id="club-note"></p>
       </section>
       <!-- Ronda "panel de Modalidad" (2026-09-17): a pedido de Arthur, todos
            los selectores de "qué tipo de sesión es esta" viven juntos acá —
@@ -5986,12 +6038,16 @@ async function loadClubMembers(){
 function openClubCompose(id, name){
   clubComposeTarget = { id, name };
   clubComposeNameEl.textContent = name;
+  setClubKind(clubComposeKind);
+  document.getElementById("club-members-wrap").hidden = true;   // V152: el formulario reemplaza a la lista
   clubComposeEl.hidden = false;
 }
-document.getElementById("club-compose-cancel").onclick = () => {
+function closeClubCompose(){
   clubComposeEl.hidden = true;
+  document.getElementById("club-members-wrap").hidden = false;
   clubComposeTarget = null;
-};
+}
+document.getElementById("club-compose-cancel").onclick = closeClubCompose;
 document.getElementById("club-compose-send").onclick = async () => {
   if(!clubComposeTarget) return;
   const variant = clubComposeVariantEl.value;
@@ -6000,7 +6056,7 @@ document.getElementById("club-compose-send").onclick = async () => {
   clubNote("Enviando reto…");
   // V150: "Asíncrona" usa su propia función del servidor (13_asincronas.sql), que envía el reto
   // sin reloj y le anota el plazo por jugada.
-  const isAsync = clubComposeTimeEl.value === "async";
+  const isAsync = clubComposeKind === "async";
   const days = +document.getElementById("club-compose-days").value || 2;
   const { error } = isAsync
     ? await sb.rpc("send_async_challenge", { p_invited_id: clubComposeTarget.id, p_variant: variant, p_creator_color: color, p_days: days })
@@ -6013,8 +6069,8 @@ document.getElementById("club-compose-send").onclick = async () => {
       });
   if(error){ clubNote("No se pudo enviar el reto: " + asyncErrorText(error), true); return; }
   clubNote("Reto" + (isAsync ? " asíncrono (" + days + (days === 1 ? " día" : " días") + " por jugada)" : "") + " enviado a " + clubComposeTarget.name + ".");
-  clubComposeEl.hidden = true;
-  clubComposeTarget = null;
+  closeClubCompose();
+  clubShowTab("games");     // V152: el reto enviado aparece enseguida en "Esperando respuesta"
   loadClubChallenges();
 };
 
@@ -6028,7 +6084,7 @@ async function loadClubChallenges(){
   if(inErr){ clubNote("No se pudieron cargar los retos recibidos: " + inErr.message, true); }
   clubChallengesInEl.innerHTML = "";
   if(!incoming || incoming.length === 0){
-    clubChallengesInEl.innerHTML = '<p class="free-hint">Sin retos pendientes.</p>';
+    clubChallengesInEl.innerHTML = "";   // V152: sin retos, el grupo entero se oculta (clubSyncGroups)
   } else {
     incoming.forEach(ch => {
       const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
@@ -6048,15 +6104,16 @@ async function loadClubChallenges(){
   if(outErr){ clubNote("No se pudieron cargar tus retos enviados: " + outErr.message, true); }
   clubChallengesOutEl.innerHTML = "";
   if(!outgoing || outgoing.length === 0){
-    clubChallengesOutEl.innerHTML = '<p class="free-hint">No tienes retos enviados en espera.</p>';
+    clubChallengesOutEl.innerHTML = "";
   } else {
     outgoing.forEach(ch => {
       const who = ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "alguien";
-      clubChallengesOutEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant] + asyncTag(ch.async_days) + " (esperando respuesta)", [
+      clubChallengesOutEl.appendChild(clubRow(who + " · " + VARIANT_LABEL[ch.variant] + asyncTag(ch.async_days), [
         clubBtn("Cancelar", () => cancelClubChallenge(ch.id))
       ]));
     });
   }
+  clubLoaded.ch = true; clubSyncGroups();
 }
 
 // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): Arthur pidió que el
@@ -6908,7 +6965,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V151 · 30-sep-2026 · Asíncronas: el aviso de turno solo le llega a quien le toca mover (ya no se calcula con datos viejos al salir de la partida)";
+const BUILD_ID = "V152 · 30-sep-2026 · Paneles siempre colapsados con acordeón; Club en tres secciones (Partidas, Retar, Torneos)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -7616,7 +7673,8 @@ async function loadClubActiveGames(){
     // reemplazar una lista correcta por "No tienes partidas en curso" con datos obsoletos.
     if(mySeq !== clubActiveGamesSeq) return;
     clubTurnSync([], {});
-    el.innerHTML = '<p class="free-hint">No tienes partidas en curso.</p>';
+    el.innerHTML = "";
+    clubLoaded.active = true; clubSyncGroups();
     return;
   }
   // Ojo: NO se limpia el.innerHTML todavía — recién después de este segundo await, junto con el
@@ -7650,6 +7708,7 @@ async function loadClubActiveGames(){
     el.appendChild(row);
   });
   clubTurnSync(rows, oppById);
+  clubLoaded.active = true; clubSyncGroups();
 }
 
 // Fase 2 · paso 4 (ronda de limpieza, 2026-09-24): Arthur probó varias veces
@@ -8393,7 +8452,8 @@ function ensureTurnChip(){
   main.onclick = () => {
     const mine = myTurnRows();
     if(mine.length === 1){ enterLiveGame(mine[0]); return; }
-    if(clubPanelEl.classList.contains("collapsed")){ const h = clubPanelEl.querySelector("h2"); if(h) h.click(); }
+    expandPanelExclusive(clubPanelEl);   // V152: acordeón (cierra el que estuviera abierto)
+    clubShowTab("games");
     clubPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   close.onclick = () => {
@@ -8405,13 +8465,20 @@ function ensureTurnChip(){
 function renderTurnIndicators(){
   const h2 = clubPanelEl ? clubPanelEl.querySelector("h2") : null;
   if(!accountProfile){
-    if(h2) h2.removeAttribute("data-badge");
+    if(h2){ h2.removeAttribute("data-badge"); const bd0 = h2.querySelector(".h2-badge"); if(bd0) bd0.hidden = true; }
     document.title = turnBaseTitle;
     const c0 = document.getElementById("turn-chip"); if(c0) c0.hidden = true;
     return;
   }
   const mine = myTurnRows(), n = mine.length;
-  if(h2){ if(n) h2.setAttribute("data-badge", String(n)); else h2.removeAttribute("data-badge"); }
+  if(h2){
+    if(n) h2.setAttribute("data-badge", String(n)); else h2.removeAttribute("data-badge");
+    let bd = h2.querySelector(".h2-badge");
+    if(!bd){ bd = document.createElement("span"); bd.className = "h2-badge"; bd.hidden = true; h2.appendChild(bd); }
+    bd.hidden = n === 0;
+    bd.textContent = n ? String(n) : "";
+    bd.title = n === 1 ? "Te toca mover en 1 partida" : "Te toca mover en " + n + " partidas";
+  }
   document.title = (n ? "(" + n + ") " : "") + turnBaseTitle;
   const chip = ensureTurnChip();
   const sig = mine.map(r => r.id + ":" + (r.ply_count || 0)).join(",");
@@ -8468,9 +8535,6 @@ function updateAsyncBanner(){
   claimBtn.hidden = !!(game.result || myMove || left > 0);
 }
 document.getElementById("live-game-claim").onclick = () => { if(liveGame) claimAsyncForfeit(liveGame.id); };
-clubComposeTimeEl.addEventListener("change", () => {
-  document.getElementById("club-compose-async").hidden = clubComposeTimeEl.value !== "async";
-});
 // Refrescos de respaldo: cada 60 s y al volver a ver la pestaña (el plazo y los turnos cambian con el tiempo).
 setInterval(() => {
   if(accountProfile && document.visibilityState === "visible" && clubMemberAreaEl && !clubMemberAreaEl.hidden) loadClubActiveGames();
@@ -8478,6 +8542,55 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible" && accountProfile && clubMemberAreaEl && !clubMemberAreaEl.hidden) loadClubActiveGames();
 });
+
+/* ---- Club en secciones + acordeón de paneles (V152, 2026-09-30) ----
+   (1) Pestañas del Club: Partidas (lo que te espera: retos que te hacen, tus partidas, retos que
+       enviaste), Retar (elegir a quién, tipo de partida: en vivo o asíncrona) y Torneos (vitrina y
+       torneos). Los grupos de "Partidas" solo se muestran si tienen algo; si no hay nada, un
+       mensaje con un botón lleva directo a "Retar".
+   (2) Retar: el formulario reemplaza a la lista de miembros y, al enviar, vuelve a "Partidas".
+   `var` por la misma razón que los bloques anteriores. */
+var clubLoaded = { ch: false, active: false };
+var clubComposeKind = "live";
+function clubShowTab(name){
+  const tabs = { games: "club-tab-games", challenge: "club-tab-challenge", tournaments: "club-tab-tournaments" };
+  const views = { games: "club-view-games", challenge: "club-view-challenge", tournaments: "club-view-tournaments" };
+  if(!tabs[name]) name = "games";
+  for(const k of Object.keys(tabs)){
+    const t = document.getElementById(tabs[k]), v = document.getElementById(views[k]);
+    if(t){ t.setAttribute("aria-selected", String(k === name)); t.tabIndex = k === name ? 0 : -1; }
+    if(v) v.hidden = k !== name;
+  }
+}
+function clubSyncGroups(){
+  const has = id => { const c = document.getElementById(id); return !!c && c.childElementCount > 0; };
+  const pairs = [["club-group-in", "club-challenges-in"], ["club-group-active", "club-active-games"], ["club-group-out", "club-challenges-out"]];
+  let any = false;
+  pairs.forEach(([g, c]) => { const on = has(c); any = any || on; const grp = document.getElementById(g); if(grp) grp.hidden = !on; });
+  const empty = document.getElementById("club-games-empty");
+  if(empty) empty.hidden = !(clubLoaded.ch && clubLoaded.active) || any;
+}
+function setClubKind(kind){
+  clubComposeKind = kind === "async" ? "async" : "live";
+  const live = clubComposeKind === "live";
+  document.getElementById("club-kind-live").setAttribute("aria-pressed", String(live));
+  document.getElementById("club-kind-async").setAttribute("aria-pressed", String(!live));
+  document.getElementById("club-live-opts").hidden = !live;
+  document.getElementById("club-compose-async").hidden = live;
+  document.getElementById("club-kind-hint").textContent = live
+    ? "Los dos conectados, jugando ahora (con o sin reloj)."
+    : "Cada quien juega cuando pueda. Si alguien no mueve dentro del plazo, su rival puede reclamar la victoria.";
+}
+document.getElementById("club-kind-live").onclick = () => setClubKind("live");
+document.getElementById("club-kind-async").onclick = () => setClubKind("async");
+["games", "challenge", "tournaments"].forEach(k => {
+  document.getElementById("club-tab-" + k).onclick = () => clubShowTab(k);
+});
+document.getElementById("club-empty-challenge").onclick = () => clubShowTab("challenge");
+setClubKind("live");
+
+// Acordeón: expande UN panel y cierra los demás (lo usa también la pastilla de turno).
+var expandPanelExclusive = function(panel){ if(panel) panel.classList.remove("collapsed"); };
 
 function machineMovetimeFor(level){
   if(level <= 0) return 300;
@@ -9896,37 +10009,34 @@ function slugifyPanelTitle(text){
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 function initCollapsiblePanels(){
-  let collapsedSet;
-  try{
-    collapsedSet = new Set(JSON.parse(localStorage.getItem(PANEL_COLLAPSE_KEY) || "[]"));
-  } catch(e){ collapsedSet = new Set(); }
-  const saveCollapsedSet = () => {
-    try{ localStorage.setItem(PANEL_COLLAPSE_KEY, JSON.stringify([...collapsedSet])); }
-    catch(e){ /* localStorage no disponible (modo privado, cuota, etc.) -- el
-                 colapso sigue funcionando en esta visita, solo no se recuerda
-                 para la próxima; no es motivo para romper nada más. */ }
-  };
-  document.querySelectorAll(".panel").forEach((panel, i) => {
+  // V152 (pedido de Arthur): al abrir el Tablero TODOS los paneles empiezan colapsados, y abrir uno
+  // cierra el que estuviera abierto (acordeón). Ya no se recuerda el estado entre visitas; se borra
+  // la clave vieja para no dejar basura.
+  try{ localStorage.removeItem(PANEL_COLLAPSE_KEY); }catch(e){}
+  const panels = [...document.querySelectorAll(".panel")].filter(p => p.querySelector(":scope > h2"));
+  const setCollapsed = (panel, collapsed) => {
+    panel.classList.toggle("collapsed", collapsed);
     const h2 = panel.querySelector(":scope > h2");
-    if(!h2) return;
-    const key = panel.id || slugifyPanelTitle(h2.textContent) + "-" + i;
-    const setCollapsed = (collapsed) => {
-      panel.classList.toggle("collapsed", collapsed);
-      h2.setAttribute("aria-expanded", String(!collapsed));
-    };
+    if(h2) h2.setAttribute("aria-expanded", String(!collapsed));
+  };
+  const expandExclusive = (panel) => {
+    panels.forEach(o => { if(o !== panel) setCollapsed(o, true); });
+    setCollapsed(panel, false);
+    // Al cerrarse el panel de arriba, el que se abrió se desplaza: se mantiene a la vista.
+    try{ panel.scrollIntoView({ block: "nearest" }); }catch(e){}
+  };
+  expandPanelExclusive = expandExclusive;
+  panels.forEach(panel => {
+    const h2 = panel.querySelector(":scope > h2");
     h2.setAttribute("role", "button");
     h2.setAttribute("tabindex", "0");
-    setCollapsed(collapsedSet.has(key));
+    setCollapsed(panel, true);
     const toggle = () => {
-      const collapsed = !panel.classList.contains("collapsed");
-      setCollapsed(collapsed);
-      if(collapsed) collapsedSet.add(key); else collapsedSet.delete(key);
-      saveCollapsedSet();
+      if(panel.classList.contains("collapsed")) expandExclusive(panel);
+      else setCollapsed(panel, true);
     };
     h2.addEventListener("click", toggle);
-    // Espacio/Enter: mismo comportamiento esperado de cualquier botón real,
-    // ya que un <h2> no es nativamente interactivo con el teclado pese al
-    // `role="button"`.
+    // Espacio/Enter: mismo comportamiento esperado de cualquier botón real.
     h2.addEventListener("keydown", (ev) => {
       if(ev.key === " " || ev.key === "Enter"){ ev.preventDefault(); toggle(); }
     });
