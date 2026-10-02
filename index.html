@@ -694,7 +694,7 @@
   /* Reto de claudIA (bloque 3): paneles de ayuda fuera de vista y tablero
      cubierto durante la pausa. */
   body.reto-on #panel-openings, body.reto-on #panel-library, body.reto-on #panel-hof,
-  body.reto-on #panel-oracle, body.reto-on #panel-free{ display:none !important; }
+  body.reto-on #panel-oracle, body.reto-on #panel-analysis, body.reto-on #panel-free{ display:none !important; }
   .reto-cover{
     grid-column:2; grid-row:1; z-index:6; align-self:stretch;
     display:flex; align-items:center; justify-content:center; text-align:center;
@@ -708,7 +708,7 @@
      viendo el tablero. Los paneles de ayuda se ocultan solo para quien
      pausó, igual que en el reto de claudIA (body.reto-on). */
   body.live-paused-me #panel-openings, body.live-paused-me #panel-library, body.live-paused-me #panel-hof,
-  body.live-paused-me #panel-oracle, body.live-paused-me #panel-free{ display:none !important; }
+  body.live-paused-me #panel-oracle, body.live-paused-me #panel-analysis, body.live-paused-me #panel-free{ display:none !important; }
   .pause-cover{ flex-direction:column; gap:10px; }
   .pause-cover .pause-title{ font-family:"Cinzel", serif; letter-spacing:.06em; font-size:1.15rem; }
   .pause-cover .pause-count{ font-family:"IBM Plex Mono", monospace; font-size:2.2rem; color:var(--ember-soft); }
@@ -723,7 +723,7 @@
   /* V148 · Juego limpio en partidas en vivo (club y torneo): mientras la partida
      está en curso, el Oráculo (motor) y el Grimorio (líneas de apertura) no se ven.
      Al terminar la partida (resultado puesto) vuelven, para estudiarla. */
-  body.live-focus #panel-oracle, body.live-focus #panel-openings, body.live-focus #panel-free{ display:none !important; }
+  body.live-focus #panel-oracle, body.live-focus #panel-analysis, body.live-focus #panel-openings, body.live-focus #panel-free{ display:none !important; }
   /* V149 · Menú de la partida en vivo en pantalla completa: en zen los paneles no
      existen, así que Tablas / Rendirse / Pausa / Salir viven en un menú que se abre
      desde un botón de 3 puntos, junto al de salir de pantalla completa. El menú es
@@ -1594,6 +1594,37 @@
   }
 
   .oracle-btn-row{ display:flex; gap:6px; margin-bottom:10px; }
+  /* ---- Análisis de partida (V155) ---- */
+  .an-bar{ height:8px; border-radius:4px; background:var(--tablet-2); border:1px solid var(--line); overflow:hidden; margin:8px 0 4px; }
+  .an-bar > i{ display:block; height:100%; width:0; background:var(--ember); transition:width .25s; }
+  .an-prog-txt{ font-size:.78rem; color:var(--text-dim); margin:0 0 8px; }
+  .an-sum{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
+  .an-side{ background:var(--tablet); border:1px solid var(--line); border-radius:8px; padding:8px 10px; min-width:0; }
+  .an-who{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); overflow-wrap:anywhere; }
+  .an-side b{ display:block; font-size:1.3rem; color:var(--marble); margin:2px 0 4px; }
+  .an-acc-l{ font-size:.7rem; font-weight:400; color:var(--text-dim); }
+  .an-side small{ display:block; color:var(--text-dim); font-size:.74rem; line-height:1.5; }
+  .an-chart{ width:100%; height:120px; display:block; background:var(--tablet); border:1px solid var(--line); border-radius:8px; cursor:pointer; touch-action:manipulation; }
+  .an-area{ fill:var(--marble); opacity:.82; }
+  .an-mid{ stroke:var(--ember); stroke-width:1; stroke-dasharray:3 3; vector-effect:non-scaling-stroke; opacity:.8; }
+  .an-line{ fill:none; stroke:var(--marble-edge); stroke-width:1.5; vector-effect:non-scaling-stroke; }
+  .an-cur{ stroke:var(--ember-soft); stroke-width:2; vector-effect:non-scaling-stroke; }
+  .an-dot.an-error{ fill:var(--ember); stroke:var(--ground); stroke-width:1; vector-effect:non-scaling-stroke; }
+  .an-dot.an-blunder{ fill:var(--danger); stroke:var(--ground); stroke-width:1; vector-effect:non-scaling-stroke; }
+  .an-chart-cap{ font-size:.7rem; color:var(--text-faint); margin:4px 2px 0; }
+  .an-crit{ list-style:none; margin:10px 0 0; padding:0; display:grid; gap:6px; }
+  .an-crit li.an-none{ color:var(--text-dim); font-size:.82rem; font-style:italic; }
+  .an-crit-btn{ width:100%; text-align:left; background:var(--tablet); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:pointer; font:inherit; display:grid; gap:2px; }
+  .an-crit-btn:hover{ border-color:var(--frame-hi); }
+  .an-crit-btn:focus-visible{ outline:2px solid var(--ember); outline-offset:2px; }
+  .an-crit-mv{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.86rem; color:var(--marble); }
+  .an-crit-tx{ font-size:.78rem; color:var(--text-dim); line-height:1.45; }
+  .an-crit-tx b{ color:var(--text); font-family:"IBM Plex Mono", ui-monospace, monospace; font-weight:600; }
+  .an-tag{ font-weight:700; margin-left:2px; font-size:.9em; }
+  .an-tag.an-imprecision{ color:var(--ember-soft); }
+  .an-tag.an-error{ color:var(--ember); }
+  .an-tag.an-blunder{ color:var(--danger); }
+  .an-foot{ font-size:.7rem; color:var(--text-faint); line-height:1.5; margin:10px 0 0; }
   .oracle-note{ font-size:.86rem; color:var(--frost); font-style:italic; margin:0 0 10px; min-height:1.2em; }
   .oracle-note:empty{ margin:0; min-height:0; }
   .oracle-note.err{ color:#f0b3aa; }
@@ -2714,6 +2745,32 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         </div>
         <p class="oracle-note" id="oracle-note"></p>
         <div class="oracle-result" id="oracle-result"></div>
+      </section>
+
+      <section class="panel" id="panel-analysis" hidden>
+        <h2>Análisis de partida</h2>
+        <p class="oracle-note">Revisa la partida jugada a jugada con el motor: marca imprecisiones, errores y blunders y te muestra dónde se torció. Solo ajedrez clásico.</p>
+        <div class="seg seg3" id="an-speed" role="group" aria-label="Profundidad del análisis">
+          <button type="button" data-ms="500" aria-pressed="false">Rápido</button>
+          <button type="button" data-ms="1000" aria-pressed="true">Normal</button>
+          <button type="button" data-ms="2000" aria-pressed="false">Profundo</button>
+        </div>
+        <div class="oracle-btn-row">
+          <button class="btn" id="an-start">Analizar partida</button>
+          <button class="btn" id="an-cancel" hidden>Cancelar</button>
+        </div>
+        <div id="an-progress" hidden>
+          <div class="an-bar"><i id="an-bar-fill"></i></div>
+          <p class="an-prog-txt" id="an-prog-txt" aria-live="polite"></p>
+        </div>
+        <p class="oracle-note" id="an-note" aria-live="polite"></p>
+        <div id="an-result" hidden>
+          <div class="an-sum" id="an-sum"></div>
+          <svg class="an-chart" id="an-chart" viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label="Gráfica de la ventaja jugada a jugada. Toca un punto para ir a esa jugada."></svg>
+          <p class="an-chart-cap">Arriba ganan las blancas, abajo las negras. Toca la gráfica para ir a esa jugada. Puntos: errores y blunders.</p>
+          <ul class="an-crit" id="an-crit"></ul>
+          <p class="an-foot" id="an-foot"></p>
+        </div>
       </section>
 
       <section class="panel" id="panel-openings">
@@ -5278,6 +5335,7 @@ function render(){
   syncClockRunning();
   syncLiveClockRunning();
   retoAfterRender();
+  if(typeof anSyncUI === "function") anSyncUI();   // V155
   maybeMachineMove();
 }
 
@@ -5321,8 +5379,8 @@ function renderMoves(){
     const num = i/2 + 1;
     const w = game.sans[i], b = game.sans[i+1];
     html += '<div class="moverow"><span class="n">' + num + '.</span>' +
-      '<span class="mv' + (game.cursor === i+1 ? " here" : "") + '" data-ply="' + (i+1) + '">' + w + "</span>" +
-      (b ? '<span class="mv' + (game.cursor === i+2 ? " here" : "") + '" data-ply="' + (i+2) + '">' + b + "</span>" : "<span></span>") +
+      '<span class="mv' + (game.cursor === i+1 ? " here" : "") + '" data-ply="' + (i+1) + '">' + w + anTag(i) + "</span>" +
+      (b ? '<span class="mv' + (game.cursor === i+2 ? " here" : "") + '" data-ply="' + (i+2) + '">' + b + anTag(i+1) + "</span>" : "<span></span>") +
       "</div>";
   }
   movesEl.innerHTML = html;
@@ -5701,6 +5759,8 @@ function updatePanelVisibility(variant){
   // desaparece en esta variante en vez de mostrarse inerte; reaparece
   // solo al volver a Clásico o Capablanca.
   document.getElementById("panel-oracle").hidden = variant === "maharaja";
+  // V155: el análisis de partida es solo para el clásico y para partidas (no Modo Libre).
+  document.getElementById("panel-analysis").hidden = !showPlayPanels || variant !== "clasico";
 }
 function updateVariantUI(variant){
   const btnClasica = document.getElementById("variant-clasica");
@@ -7111,7 +7171,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V154 · 1-oct-2026 · Acceso: service worker (abre sin red o con red floja, siempre red primero para no quedarse en una versión vieja)";
+const BUILD_ID = "V155 · 1-oct-2026 · Análisis de partida (clásico): gráfica de ventaja, errores marcados en la lista de jugadas y momentos críticos";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9180,6 +9240,7 @@ function handleSfLine(line){
     const kind = sfRequestKind;
     sfRequestKind = null;
     if(kind === "machine") finishMachineMove(parts[1]);
+    else if(kind === "analysis") anStepDone(parts[1]);   // V155: análisis de partida
     else finishOracle(parts[1]);
   }
 }
@@ -10188,6 +10249,357 @@ function initCollapsiblePanels(){
     });
   });
 }
+
+/* ============================ Análisis de partida (V155, 2026-10-01) ============================
+   Revisa la línea principal con el mismo Stockfish clásico del Oráculo (mismo worker, así que
+   nunca compite con él ni con la Máquina: mientras corre, sfBusy está puesto y los dos esperan).
+   Evalúa cada posición UNA vez y califica cada jugada por cuánto bajó la probabilidad de ganar
+   del que movió (en % de victoria, no en centipeones: perder un peón en una posición ya ganada
+   pesa menos que en una igualada). Solo ajedrez clásico por ahora (decisión de Arthur).
+   `var` por la misma razón que los bloques anteriores: render() puede llamar a estas funciones
+   antes de que esta línea del script se ejecute. */
+var anResult = null;      // resultado del último análisis terminado (ver anFinish)
+var anRun = null;         // corrida en curso (null = ninguna)
+var AN_SPEED_KEY = "tablero-encantado.analisis-velocidad.v1";
+var AN_MATE = 10000;      // "centipeones" que se le asignan a un mate (menos 10 por jugada de distancia)
+var AN_LIM = { imprecision: 8, error: 15, blunder: 25 };  // pérdida de % de victoria que dispara cada marca. Un poco más holgado que Lichess (5/10/15) porque este motor es viejo y busca poco tiempo; el sesgo sistemático ya se compensa en anFinish.
+var anMs = 1000;
+try{ const s = +localStorage.getItem(AN_SPEED_KEY); if([500, 1000, 2000].includes(s)) anMs = s; }catch(e){}
+
+var anEl = {
+  panel: document.getElementById("panel-analysis"),
+  start: document.getElementById("an-start"),
+  cancel: document.getElementById("an-cancel"),
+  speed: document.getElementById("an-speed"),
+  progress: document.getElementById("an-progress"),
+  barFill: document.getElementById("an-bar-fill"),
+  progTxt: document.getElementById("an-prog-txt"),
+  note: document.getElementById("an-note"),
+  result: document.getElementById("an-result"),
+  sum: document.getElementById("an-sum"),
+  chart: document.getElementById("an-chart"),
+  crit: document.getElementById("an-crit"),
+  foot: document.getElementById("an-foot")
+};
+function anNote(msg, err){
+  anEl.note.textContent = msg || "";
+  anEl.note.className = "oracle-note" + (err ? " err" : "");
+  delete anEl.note.dataset.est;
+}
+function anSig(){ return game.startFEN + "|" + game.sans.join(" "); }
+function anValid(){ return !!anResult && anResult.sig === anSig(); }
+function anWinPct(cp){ return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1); }
+// Puntaje del motor (relativo al que mueve) → centipeones desde el punto de vista de las blancas.
+function anWhiteCp(info, pos){
+  const f = pos.turn === "w" ? 1 : -1;
+  if(info.mate !== null && info.mate !== undefined){
+    const m = info.mate * f;
+    return m > 0 ? AN_MATE - Math.abs(m) * 10 : -AN_MATE + Math.abs(m) * 10;
+  }
+  return (info.cp || 0) * f;
+}
+function anFmtTime(ms){
+  const s = Math.max(0, Math.round(ms / 1000));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+// Etiqueta junto a la jugada en la lista de notación (solo si el análisis corresponde a esta partida).
+function anTag(i){
+  if(!anValid()) return "";
+  const m = anResult.marks[i];
+  if(!m || !m.kind) return "";
+  const sym = m.kind === "blunder" ? "??" : (m.kind === "error" ? "?" : "?!");
+  const lbl = m.kind === "blunder" ? "blunder" : (m.kind === "error" ? "error" : "imprecisión");
+  return '<span class="an-tag an-' + m.kind + '" title="' + lbl + '" aria-label="' + lbl + '">' + sym + "</span>";
+}
+
+function anSetLock(on){
+  sfBusy = on;
+  oracleAskBtn.disabled = on || vsMachine || variantOf(liveState().board) === "maharaja" || liveFocusActive();
+  anEl.start.hidden = on;
+  anEl.cancel.hidden = !on;
+  anEl.cancel.disabled = false;
+  anEl.speed.querySelectorAll("button").forEach(b => { b.disabled = on; });
+  anEl.progress.hidden = !on;
+}
+function anAbort(msg, err){
+  if(anRun && anRun.timer) clearTimeout(anRun.timer);
+  anRun = null;
+  sfRequestKind = null;
+  anSetLock(false);
+  anNote(msg || "", !!err);
+  anSyncUI();
+  try{ maybeMachineMove(); }catch(e){}   // si claudIA estaba esperando el motor, retoma
+}
+
+function anStartRun(){
+  if(anRun) return;
+  if(liveFocusActive()){ anNote("El análisis no está disponible durante una partida en vivo.", true); return; }
+  if(currentMode !== "play" || variantOf(liveState().board) !== "clasico"){ anNote("El análisis de partida solo funciona en ajedrez clásico por ahora.", true); return; }
+  if(sfBusy || fsfBusy || machineThinking){ anNote("El motor está ocupado (Oráculo o claudIA pensando). Espera un momento y vuelve a intentar.", true); return; }
+  if(game.states.length < 2){ anNote("Todavía no hay jugadas que analizar. Juega o carga una partida primero.", true); return; }
+  branch = null;
+  const states = game.states.slice();
+  anRun = {
+    sig: anSig(), ms: anMs, poss: states, fens: states.map(toFEN),
+    sans: game.sans.slice(), ucis: game.ucis.slice(),
+    cp: new Array(states.length).fill(null), best: new Array(states.length).fill(null),
+    depth: new Array(states.length).fill(0), i: 0, done: 0, cancelled: false, t0: Date.now(), timer: null
+  };
+  anResult = null;
+  anEl.result.hidden = true;
+  anNote("");
+  // El Oráculo no puede tener una consulta "viva": syncOracleStaleness le mandaría "stop" al
+  // motor en pleno análisis (porque sfBusy está puesto) y cortaría una posición a medias.
+  oracleForFEN = null; clearArrow(); oracleResultEl.innerHTML = ""; oracleNote("");
+  anSetLock(true);
+  anProgress();
+  render();   // quita las marcas viejas de la lista de jugadas
+  getEngine(() => {
+    if(!anRun) return;
+    sfWorker.postMessage("setoption name MultiPV value 1");
+    sfWorker.postMessage("setoption name Skill Level value 20");
+    anNext();
+  });
+  if(!sfWorker && anRun) anAbort("No pude iniciar el motor en este navegador.", true);
+}
+function anProgress(){
+  const r = anRun; if(!r) return;
+  const total = r.fens.length;
+  anEl.barFill.style.width = Math.round(100 * r.done / total) + "%";
+  const el = Date.now() - r.t0;
+  const eta = r.done > 2 ? Math.round(el / r.done * (total - r.done)) : null;
+  anEl.progTxt.textContent = "Posición " + Math.min(r.done + 1, total) + " de " + total + " · " + anFmtTime(el) + (eta !== null ? " · faltan ≈ " + anFmtTime(eta) : "");
+}
+function anNext(){
+  const r = anRun; if(!r) return;
+  if(r.cancelled){ anAbort("Análisis cancelado."); return; }
+  // Posiciones terminales: no se le pregunta al motor (mate: perdió el que mueve; tablas: 0).
+  while(r.i < r.fens.length){
+    const pos = r.poss[r.i];
+    const oc = outcome(pos);
+    if(oc === "checkmate"){ r.cp[r.i] = pos.turn === "w" ? -AN_MATE : AN_MATE; r.done++; r.i++; continue; }
+    if(END_OC.includes(oc)){ r.cp[r.i] = 0; r.done++; r.i++; continue; }
+    break;
+  }
+  anProgress();
+  if(r.i >= r.fens.length){ anFinish(); return; }
+  sfInfos = {}; sfDepthSeen = 0;
+  sfRequestKind = "analysis";
+  // Si el motor no contesta (worker caído), no nos quedamos colgados para siempre.
+  if(r.timer) clearTimeout(r.timer);
+  r.timer = setTimeout(() => { if(anRun === r) anAbort("El motor dejó de responder. Intenta de nuevo (o con una velocidad menor).", true); }, r.ms + 10000);
+  sfWorker.postMessage("position fen " + r.fens[r.i]);
+  sfWorker.postMessage("go movetime " + r.ms);
+}
+// Llamado desde handleSfLine cuando el motor contesta "bestmove" y el pedido era de análisis.
+function anStepDone(bestUci){
+  const r = anRun; if(!r) return;
+  if(r.timer){ clearTimeout(r.timer); r.timer = null; }
+  if(r.cancelled){ anAbort("Análisis cancelado."); return; }
+  if(liveFocusActive()){ anAbort("Análisis detenido: empezó una partida en vivo.", true); return; }
+  const pos = r.poss[r.i];
+  const info = sfInfos[1];
+  r.cp[r.i] = info ? anWhiteCp(info, pos) : 0;
+  r.best[r.i] = (bestUci && bestUci !== "(none)") ? bestUci : null;
+  r.depth[r.i] = sfDepthSeen;
+  r.done++; r.i++;
+  anNext();
+}
+function anCancel(){
+  const r = anRun; if(!r) return;
+  r.cancelled = true;
+  anEl.cancel.disabled = true;
+  anEl.progTxt.textContent = "Cancelando…";
+  if(sfRequestKind === "analysis"){ try{ sfWorker.postMessage("stop"); }catch(e){} }
+  else anAbort("Análisis cancelado.");
+}
+
+function anFinish(){
+  const r = anRun;
+  if(r.timer) clearTimeout(r.timer);
+  const n = r.fens.length;
+  const wp = r.cp.map(anWinPct);               // % de victoria de las blancas en cada posición
+  // Primera pasada: pérdida "cruda" de cada jugada y si coincide con la primera opción del motor.
+  const raw = [];
+  for(let i = 0; i < n - 1; i++){
+    const mover = r.poss[i].turn;
+    const before = mover === "w" ? wp[i] : 100 - wp[i];
+    const after = mover === "w" ? wp[i + 1] : 100 - wp[i + 1];
+    const isBest = !!r.best[i] && r.best[i].toLowerCase() === (r.ucis[i] || "").toLowerCase();
+    raw.push({ mover, before, after, loss: Math.max(0, before - after), isBest });
+  }
+  // Calibración contra el ruido del motor: la posición de antes se busca con "el turno a favor" del
+  // que mueve y la de después con el turno del rival, y además son dos búsquedas distintas. Resultado
+  // (medido): hasta jugar EXACTAMENTE la primera opción del motor "pierde" 3-6 puntos de victoria.
+  // Como esas jugadas deberían perder 0 por definición, su pérdida mediana es el sesgo de esta
+  // partida; se resta de todas (y las jugadas que coinciden con el motor valen 0 directamente).
+  // Con menos de 3 jugadas "del motor" no hay muestra: se usa un sesgo típico de 3.
+  const bestLoss = raw.filter(o => o.isBest).map(o => o.loss).sort((p, q) => p - q);
+  let bias = 3;
+  if(bestLoss.length >= 3){
+    const mid = Math.floor(bestLoss.length / 2);
+    bias = bestLoss.length % 2 ? bestLoss[mid] : (bestLoss[mid - 1] + bestLoss[mid]) / 2;
+  }
+  bias = Math.max(0, Math.min(8, bias));
+  const marks = [];
+  const side = { w: { n: 0, acc: 0, best: 0, imprecision: 0, error: 0, blunder: 0 },
+                 b: { n: 0, acc: 0, best: 0, imprecision: 0, error: 0, blunder: 0 } };
+  raw.forEach((o, i) => {
+    const loss = o.isBest ? 0 : Math.max(0, o.loss - bias);
+    const acc = Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669));
+    let kind = null;
+    if(loss >= AN_LIM.blunder) kind = "blunder";
+    else if(loss >= AN_LIM.error) kind = "error";
+    else if(loss >= AN_LIM.imprecision) kind = "imprecision";
+    marks.push({ loss, kind, isBest: o.isBest, before: o.before, after: o.after, best: r.best[i] });
+    const sd = side[o.mover];
+    sd.n++; sd.acc += acc; if(o.isBest) sd.best++;
+    if(kind) sd[kind]++;
+  });
+  const depths = r.depth.filter(d => d > 0);
+  anResult = {
+    sig: r.sig, ms: r.ms, wp, marks, side, bias,
+    avgDepth: depths.length ? Math.round(depths.reduce((a, b) => a + b, 0) / depths.length) : 0,
+    took: Date.now() - r.t0
+  };
+  const stale = anSig() !== r.sig;
+  anRun = null;
+  sfRequestKind = null;
+  anSetLock(false);
+  if(stale){
+    anResult = null;
+    anNote("La partida cambió mientras se analizaba; analízala de nuevo.", true);
+  } else {
+    anNote("");
+  }
+  anSyncUI();
+  render();
+  try{ maybeMachineMove(); }catch(e){}
+}
+
+function anBestSan(i){
+  const m = anResult.marks[i];
+  if(!m || !m.best) return null;
+  try{ return pvToSAN(game.states[i], [m.best], 1)[0] || null; }catch(e){ return null; }
+}
+function anMoveLabel(i){
+  const num = Math.floor(i / 2) + 1;
+  return (i % 2 === 0 ? num + "." : num + "…") + game.sans[i];
+}
+function anRenderResult(){
+  const a = anResult;
+  const names = { w: (game.white || "").trim(), b: (game.black || "").trim() };
+  const card = (c, label) => {
+    const s = a.side[c];
+    const acc = s.n ? Math.round(s.acc / s.n) : 0;
+    const flags = [];
+    if(s.blunder) flags.push(s.blunder + (s.blunder === 1 ? " blunder" : " blunders"));
+    if(s.error) flags.push(s.error + (s.error === 1 ? " error" : " errores"));
+    if(s.imprecision) flags.push(s.imprecision + (s.imprecision === 1 ? " imprecisión" : " imprecisiones"));
+    return '<div class="an-side"><span class="an-who">' + label + (names[c] ? " · " + names[c].replace(/[<>&]/g, "") : "") + "</span>" +
+      "<b>" + acc + '%<span class="an-acc-l"> precisión</span></b>' +
+      "<small>" + (flags.length ? flags.join(" · ") : "Sin errores marcados") + "<br>" +
+      (s.n ? Math.round(100 * s.best / s.n) : 0) + "% de jugadas = primera opción del motor</small></div>";
+  };
+  anEl.sum.innerHTML = card("w", "Blancas") + card("b", "Negras");
+
+  // Gráfica: % de victoria de las blancas (arriba = ganan las blancas). Un punto por posición.
+  const n = a.wp.length, W = 300, H = 100;
+  const x = i => n > 1 ? (i / (n - 1)) * W : 0;
+  const y = p => H - p;
+  let line = "";
+  a.wp.forEach((p, i) => { line += (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p).toFixed(1); });
+  const area = line + "L" + W + " " + H + "L0 " + H + "Z";
+  let dots = "";
+  a.marks.forEach((m, i) => {
+    if(m.kind === "error" || m.kind === "blunder"){
+      dots += '<circle cx="' + x(i + 1).toFixed(1) + '" cy="' + y(a.wp[i + 1]).toFixed(1) + '" r="2.6" class="an-dot an-' + m.kind + '"/>';
+    }
+  });
+  anEl.chart.innerHTML =
+    '<path d="' + area + '" class="an-area"/>' +
+    '<line x1="0" y1="50" x2="' + W + '" y2="50" class="an-mid"/>' +
+    '<path d="' + line + '" class="an-line"/>' + dots +
+    '<line id="an-cur" x1="0" y1="0" x2="0" y2="' + H + '" class="an-cur"/>';
+
+  // Momentos críticos: las peores jugadas (errores y blunders), de mayor a menor pérdida.
+  const worst = a.marks.map((m, i) => ({ m, i })).filter(o => o.m.kind === "error" || o.m.kind === "blunder")
+    .sort((p, q) => q.m.loss - p.m.loss).slice(0, 5);
+  if(!worst.length){
+    anEl.crit.innerHTML = '<li class="an-none">No hay errores graves en esta partida. Las pérdidas que hubo son pequeñas.</li>';
+  } else {
+    anEl.crit.innerHTML = worst.map(o => {
+      const sym = o.m.kind === "blunder" ? "??" : "?";
+      const best = anBestSan(o.i);
+      const who = game.states[o.i].turn === "w" ? "Blancas" : "Negras";
+      return '<li><button type="button" class="an-crit-btn" data-ply="' + (o.i + 1) + '">' +
+        '<span class="an-crit-mv">' + anMoveLabel(o.i).replace(/[<>&]/g, "") + '<span class="an-tag an-' + o.m.kind + '">' + sym + "</span></span>" +
+        '<span class="an-crit-tx">' + who + ": la probabilidad de ganar pasa de " + Math.round(o.m.before) + "% a " + Math.round(o.m.after) + "%." +
+        (best && best !== game.sans[o.i] ? " El motor prefería <b>" + best.replace(/[<>&]/g, "") + "</b>." : "") + "</span></button></li>";
+    }).join("");
+  }
+  anEl.foot.textContent = "Motor: Stockfish.js (clásico) · " + (a.ms / 1000) + " s por posición · profundidad media " + a.avgDepth +
+    " · análisis hecho en " + anFmtTime(a.took) + ". Es un motor antiguo: en posiciones muy tácticas una marca puede ser discutible.";
+  anEl.result.hidden = false;
+}
+// Se llama desde render(): mantiene la UI del panel acorde a la partida actual.
+function anSyncUI(){
+  if(!anEl || !anEl.panel) return;
+  if(anResult && !anValid()){
+    anResult = null;
+    anEl.result.hidden = true;
+    if(!anRun) anNote("La partida cambió; analízala de nuevo si quieres.");
+  }
+  if(anValid()){
+    if(anEl.result.hidden || !anEl.chart.firstChild) anRenderResult();
+    const cur = document.getElementById("an-cur");
+    if(cur){
+      const n = anResult.wp.length;
+      const cx = n > 1 ? (Math.min(game.cursor, n - 1) / (n - 1)) * 300 : 0;
+      cur.setAttribute("x1", cx); cur.setAttribute("x2", cx);
+    }
+  }
+  if(!anRun){
+    const plies = game.states.length - 1;
+    anEl.start.disabled = plies < 1;
+    anEl.speed.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.ms === anMs)));
+    if(!anResult && (!anEl.note.textContent || anEl.note.dataset.est === "1")){
+      anEl.note.textContent = plies < 1 ? "" : "Tiempo estimado: ≈ " + anFmtTime((plies + 1) * anMs) + " para " + plies + " jugadas.";
+      anEl.note.className = "oracle-note";
+      if(plies >= 1) anEl.note.dataset.est = "1"; else delete anEl.note.dataset.est;
+    }
+  }
+}
+anEl.start.onclick = anStartRun;
+anEl.cancel.onclick = anCancel;
+anEl.speed.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-ms]");
+  if(!b || anRun) return;
+  anMs = +b.dataset.ms;
+  try{ localStorage.setItem(AN_SPEED_KEY, String(anMs)); }catch(err){}
+  if(!anResult) anNote("");
+  anSyncUI();
+});
+anEl.crit.addEventListener("click", (e) => {
+  const b = e.target.closest(".an-crit-btn");
+  if(!b) return;
+  branch = null;
+  game.cursor = +b.dataset.ply;
+  selected = null;
+  persist(); render();
+});
+anEl.chart.addEventListener("click", (e) => {
+  if(!anValid()) return;
+  const rect = anEl.chart.getBoundingClientRect();
+  const n = anResult.wp.length;
+  const ply = Math.round(((e.clientX - rect.left) / rect.width) * (n - 1));
+  branch = null;
+  game.cursor = Math.max(0, Math.min(n - 1, ply));
+  selected = null;
+  persist(); render();
+});
+// (sin anSyncUI() aquí: `game` todavía no existe; lo llama render() desde restore())
+
 initCollapsiblePanels();
 
 /* ============================ Arranque ============================ */
