@@ -1624,6 +1624,9 @@
   .an-tag.an-imprecision{ color:var(--ember-soft); }
   .an-tag.an-error{ color:var(--ember); }
   .an-tag.an-blunder{ color:var(--danger); }
+  .an-share{ margin:10px 0 4px; }
+  .an-share .btn{ width:100%; }
+  .an-copy-box{ width:100%; height:150px; margin-top:6px; background:var(--tablet); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.72rem; line-height:1.5; resize:vertical; }
   .an-foot{ font-size:.7rem; color:var(--text-faint); line-height:1.5; margin:10px 0 0; }
   .oracle-note{ font-size:.86rem; color:var(--frost); font-style:italic; margin:0 0 10px; min-height:1.2em; }
   .oracle-note:empty{ margin:0; min-height:0; }
@@ -2765,6 +2768,16 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         </div>
         <p class="oracle-note" id="an-note" aria-live="polite"></p>
         <div id="an-result" hidden>
+          <div class="an-share">
+            <div class="seg seg3" id="an-me" role="group" aria-label="Con qué bando jugaste">
+              <button type="button" data-me="w" aria-pressed="false">Jugué Blancas</button>
+              <button type="button" data-me="b" aria-pressed="false">Jugué Negras</button>
+              <button type="button" data-me="x" aria-pressed="true">Ambos / no sé</button>
+            </div>
+            <button class="btn" id="an-copy">Copiar análisis para Claudia</button>
+            <p class="oracle-note" id="an-copy-note" aria-live="polite"></p>
+            <textarea class="an-copy-box" id="an-copy-box" readonly hidden spellcheck="false" aria-label="Texto del análisis para copiar"></textarea>
+          </div>
           <div class="an-sum" id="an-sum"></div>
           <svg class="an-chart" id="an-chart" viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label="Gráfica de la ventaja jugada a jugada. Toca un punto para ir a esa jugada."></svg>
           <p class="an-chart-cap">Arriba ganan las blancas, abajo las negras. Toca la gráfica para ir a esa jugada. Puntos: errores y blunders.</p>
@@ -7171,7 +7184,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V155 · 1-oct-2026 · Análisis de partida (clásico): gráfica de ventaja, errores marcados en la lista de jugadas y momentos críticos";
+const BUILD_ID = "V156 · 1-oct-2026 · Análisis de partida: botón «Copiar análisis para Claudia» (resumen, momentos críticos con FEN y PGN anotado con evaluaciones)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10279,7 +10292,11 @@ var anEl = {
   sum: document.getElementById("an-sum"),
   chart: document.getElementById("an-chart"),
   crit: document.getElementById("an-crit"),
-  foot: document.getElementById("an-foot")
+  foot: document.getElementById("an-foot"),
+  me: document.getElementById("an-me"),
+  copy: document.getElementById("an-copy"),
+  copyNote: document.getElementById("an-copy-note"),
+  copyBox: document.getElementById("an-copy-box")
 };
 function anNote(msg, err){
   anEl.note.textContent = msg || "";
@@ -10348,6 +10365,8 @@ function anStartRun(){
   anResult = null;
   anEl.result.hidden = true;
   anNote("");
+  anMe = vsMachine ? machineHumanColor : "x";
+  anEl.copyNote.textContent = ""; anEl.copyBox.hidden = true;
   // El Oráculo no puede tener una consulta "viva": syncOracleStaleness le mandaría "stop" al
   // motor en pleno análisis (porque sfBusy está puesto) y cortaría una posición a medias.
   oracleForFEN = null; clearArrow(); oracleResultEl.innerHTML = ""; oracleNote("");
@@ -10458,7 +10477,7 @@ function anFinish(){
   });
   const depths = r.depth.filter(d => d > 0);
   anResult = {
-    sig: r.sig, ms: r.ms, wp, marks, side, bias,
+    sig: r.sig, ms: r.ms, wp, cp: r.cp.slice(), marks, side, bias,
     avgDepth: depths.length ? Math.round(depths.reduce((a, b) => a + b, 0) / depths.length) : 0,
     took: Date.now() - r.t0
   };
@@ -10540,6 +10559,7 @@ function anRenderResult(){
   }
   anEl.foot.textContent = "Motor: Stockfish.js (clásico) · " + (a.ms / 1000) + " s por posición · profundidad media " + a.avgDepth +
     " · análisis hecho en " + anFmtTime(a.took) + ". Es un motor antiguo: en posiciones muy tácticas una marca puede ser discutible.";
+  anSyncMe();
   anEl.result.hidden = false;
 }
 // Se llama desde render(): mantiene la UI del panel acorde a la partida actual.
@@ -10597,6 +10617,124 @@ anEl.chart.addEventListener("click", (e) => {
   game.cursor = Math.max(0, Math.min(n - 1, ply));
   selected = null;
   persist(); render();
+});
+/* ---- Copiar análisis para Claudia (V156, 2026-10-01) ----
+   Arthur: "El Tablero Encantado surgió de entrenar contigo; lo lógico es que el resultado vuelva
+   contigo". Arma UN texto pegable en el chat: resumen por bando, momentos críticos (con el FEN de
+   la posición ANTES de cada jugada, para poder montarla en un tablero), el PGN anotado con la
+   evaluación de cada jugada ([%eval], formato de Lichess) y qué se le pide a Claudia. */
+var anMe = "x";   // con qué bando jugó Arthur: "w", "b" o "x" (no indicado)
+function anEvalStr(cp){
+  if(Math.abs(cp) >= AN_MATE) return null;   // posición terminal (mate/tablas): sin anotar
+  if(Math.abs(cp) >= AN_MATE - 1000){
+    const m = Math.round((AN_MATE - Math.abs(cp)) / 10);
+    return "#" + (cp > 0 ? "" : "-") + m;
+  }
+  return (cp / 100).toFixed(2);
+}
+function anFmtResult(){
+  const res = game.result || "";
+  if(RESULT_LABEL[res]) return RESULT_LABEL[res];
+  const oc = outcome(game.states[game.states.length - 1]);
+  if(oc === "checkmate") return game.states[game.states.length - 1].turn === "w" ? "0–1 (mate, ganan negras)" : "1–0 (mate, ganan blancas)";
+  if(END_OC.includes(oc)) return "tablas";
+  return "partida sin terminar";
+}
+function anAnnotatedPGN(){
+  const a = anResult;
+  const st0 = parseFEN(game.startFEN);
+  const result = game.result || "*";
+  const tags = [
+    ["Event", "El Tablero Encantado"], ["Site", "?"],
+    ["Date", (d => d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0"))(new Date())], ["Round", "-"],
+    ["White", game.white || "?"], ["Black", game.black || "?"], ["Result", result]
+  ];
+  if(game.startFEN !== START) tags.push(["SetUp", "1"], ["FEN", game.startFEN]);
+  const head = tags.map(([k, v]) => "[" + k + ' "' + v + '"]').join("\n");
+  let n = st0.full, white = st0.turn === "w", body = "";
+  game.sans.forEach((s, i) => {
+    const m = a.marks[i];
+    const suffix = m && m.kind ? (m.kind === "blunder" ? "??" : (m.kind === "error" ? "?" : "?!")) : "";
+    const ev = anEvalStr(a.cp[i + 1]);
+    let note = ev ? "[%eval " + ev + "]" : "";
+    if(m && m.kind){
+      const best = anBestSan(i);
+      note += (note ? " " : "") + "Pierde " + Math.round(m.loss) + " puntos de probabilidad de ganar." + (best && best !== s ? " Mejor: " + best + "." : "");
+    }
+    if(white) body += n + ". " + s + suffix + (note ? " {" + note + "}" : "") + " ";
+    else { body += (i === 0 ? n + "... " : "") + s + suffix + (note ? " {" + note + "}" : "") + " "; n++; }
+    white = !white;
+  });
+  return head + "\n\n" + (body + result).trim() + "\n";
+}
+function anBuildReport(){
+  const a = anResult;
+  const nm = c => ((c === "w" ? game.white : game.black) || "").trim() || "?";
+  const lines = [];
+  lines.push("Claudia, esta es una partida mía analizada con El Tablero Encantado. Quiero que la revises como mi entrenadora.");
+  lines.push("");
+  lines.push("=== PARTIDA ===");
+  lines.push("Yo jugué con: " + (anMe === "w" ? "las blancas" : (anMe === "b" ? "las negras" : "(no lo indiqué: analiza los dos lados)")));
+  lines.push("Blancas: " + nm("w") + " · Negras: " + nm("b") + " · Resultado: " + anFmtResult() + (nm("w") === "?" && nm("b") === "?" ? " (no puse nombres en el Tablero)" : ""));
+  lines.push("Jugadas: " + game.sans.length + " semi-jugadas.");
+  lines.push("Motor: Stockfish.js clásico (versión antigua, sin red neuronal), " + (a.ms / 1000) + " s por posición, profundidad media " + a.avgDepth + ".");
+  lines.push("Aviso: las cifras son aproximadas. Las evaluaciones pueden bailar ±0,5 peón entre jugadas vecinas, y una marca puede ser discutible en posiciones muy tácticas; si crees que el motor se equivocó, dímelo.");
+  lines.push("Cómo se mide: \"probabilidad de ganar\" va de 0 a 100% desde el punto de vista del que mueve. Una jugada se marca ?! si pierde ≥" + AN_LIM.imprecision + " puntos, ? si pierde ≥" + AN_LIM.error + " y ?? si pierde ≥" + AN_LIM.blunder + " (ya descontado el ruido típico del motor).");
+  lines.push("");
+  lines.push("=== RESUMEN ===");
+  [["w", "Blancas"], ["b", "Negras"]].forEach(([c, label]) => {
+    const s = a.side[c];
+    const acc = s.n ? Math.round(s.acc / s.n) : 0;
+    const pl = (k, one, many) => k + " " + (k === 1 ? one : many);
+    lines.push(label + (nm(c) !== "?" ? " (" + nm(c) + ")" : "") + ": precisión " + acc + "% · " + pl(s.blunder, "blunder", "blunders") + ", " + pl(s.error, "error", "errores") + ", " +
+      pl(s.imprecision, "imprecisión", "imprecisiones") + " · " + (s.n ? Math.round(100 * s.best / s.n) : 0) + "% de las jugadas fueron la primera opción del motor.");
+  });
+  lines.push("");
+  const flagged = a.marks.map((m, i) => ({ m, i })).filter(o => o.m.kind).sort((p, q) => q.m.loss - p.m.loss).slice(0, 8);
+  lines.push("=== MOMENTOS CRÍTICOS (de mayor a menor pérdida) ===");
+  if(!flagged.length) lines.push("El motor no marcó ninguna jugada con pérdida importante.");
+  flagged.forEach((o, k) => {
+    const sym = o.m.kind === "blunder" ? "??" : (o.m.kind === "error" ? "?" : "?!");
+    const who = game.states[o.i].turn === "w" ? "Blancas" : "Negras";
+    const best = anBestSan(o.i);
+    lines.push((k + 1) + ". " + anMoveLabel(o.i) + sym + " (" + who + "): su probabilidad de ganar pasó de " + Math.round(o.m.before) + "% a " + Math.round(o.m.after) + "%." +
+      (best && best !== game.sans[o.i] ? " El motor prefería " + best + "." : ""));
+    lines.push("   Posición ANTES de esa jugada (FEN): " + toFEN(game.states[o.i]));
+  });
+  lines.push("");
+  lines.push("=== PGN ANOTADO (con evaluación después de cada jugada, desde las blancas) ===");
+  lines.push(anAnnotatedPGN().trim());
+  lines.push("");
+  lines.push("=== LO QUE TE PIDO ===");
+  lines.push("1. Explícame qué provocó mis momentos críticos: ¿falta de cálculo, prisa, un patrón que se repite?");
+  lines.push("2. Dime qué hábito o tema debo trabajar según esta partida (y si encaja con lo que ya sabes de mí).");
+  lines.push("3. Ponme 2 o 3 ejercicios cortos para corregirlo, empezando por las posiciones de los momentos críticos.");
+  lines.push("4. Si alguna marca del motor te parece injusta, dímelo y explícame por qué.");
+  return lines.join("\n");
+}
+async function anCopyReport(){
+  if(!anValid()){ anEl.copyNote.textContent = "Analiza la partida primero."; return; }
+  const text = anBuildReport();
+  anEl.copyBox.value = text;
+  try{
+    await navigator.clipboard.writeText(text);
+    anEl.copyBox.hidden = true;
+    anEl.copyNote.textContent = "¡Copiado! Pégalo en el chat con Claudia.";
+  }catch(e){
+    anEl.copyBox.hidden = false;
+    anEl.copyBox.focus(); anEl.copyBox.select();
+    anEl.copyNote.textContent = "No pude copiarlo solo. El texto está abajo: mantén presionado, elige «Seleccionar todo» y copia.";
+  }
+}
+function anSyncMe(){
+  anEl.me.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.me === anMe)));
+}
+anEl.copy.onclick = anCopyReport;
+anEl.me.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-me]");
+  if(!b) return;
+  anMe = b.dataset.me;
+  anSyncMe();
 });
 // (sin anSyncUI() aquí: `game` todavía no existe; lo llama render() desde restore())
 
