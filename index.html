@@ -7111,7 +7111,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V153 · 30-sep-2026 · Pantalla completa: tablero al máximo, columnas en espejo, nombre en una línea; cementerios fijos desde el inicio con peones ×N y entrada fantasmal";
+const BUILD_ID = "V154 · 1-oct-2026 · Acceso: service worker (abre sin red o con red floja, siempre red primero para no quedarse en una versión vieja)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10228,4 +10228,13 @@ syncBoardMetrics();
 
 
 
+<script>
+// Service worker: el Tablero abre aunque la red esté caída o floja (ver sw.js).
+// Falla en silencio: sin él, todo funciona igual que antes.
+if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
+</script>
 </html>
