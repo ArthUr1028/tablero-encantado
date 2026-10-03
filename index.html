@@ -355,6 +355,14 @@
      achican más en zen que en el resto de la app (6px en vez de 10px de
      padding acá; el botón mismo se achica más abajo). */
   body.zen-mode .wrap{ padding-top:6px; padding-bottom:6px; }
+  /* V164 (pedido de Arthur: el Capablanca no se agranda al ajustar el zoom): en ESCRITORIO (puntero fino) la
+     página en pantalla completa deja de estar limitada a 1400px de ancho y su relleno lateral baja de
+     clamp(18px,3.5vw,44px) a ~1.2vw. El 8×8, que se limita por el ALTO, no lo notaba; el Capablanca (10
+     columnas) se limita por el ANCHO que le quede entre las columnas laterales, así que esos ~120-500px de
+     margen se los quitaban directamente al tablero. Solo con ratón: en el celular no cambia nada. */
+  @media (hover:hover) and (pointer:fine){
+    body.zen-mode .wrap{ max-width:none; padding-left:clamp(8px,1.2vw,20px); padding-right:clamp(8px,1.2vw,20px); }
+  }
   /* Botón fuera del tablero (ver HTML, ya no vive dentro de `.board-frame`):
      fila propia en el flujo normal de la página, alineada a la derecha,
      ANTES de `.stage` -- en TODO momento, no solo en pantalla completa, así
@@ -492,7 +500,8 @@
   /* V160 (pedido de Arthur): celular en horizontal + pantalla completa + modo Capablanca -> el cementerio
      de cada bando pasa a ser UNA sola columna de piezas pegada al costado del tablero (antes: una caja
      ancha con las piezas en filas que se envolvían, debajo del nombre). `gy-col` lo pone el JS
-     (gyColWanted) solo en ese caso exacto; el resto de variantes y de pantallas no cambia.
+     (gyColWanted): en el celular solo en ese caso exacto (V163 lo extendió al ESCRITORIO, todas las
+     variantes y las dos vistas, ver más abajo).
      Cada lateral se divide en dos columnas: la de AFUERA lleva nombre y reloj; la de ADENTRO, pegada al
      tablero, el cementerio (mayores primero y, al final, el peón con su contador ×N). Es un espejo: el
      bando de arriba cuelga del borde superior a la izquierda; el de abajo se apoya en el borde inferior
@@ -505,7 +514,10 @@
   body.zen-mode.zen-side.gy-col .stage{
     /* 128px mínimo por lateral: con tablets, el tablero (limitado solo por el alto) se comía casi todo el ancho y
        el nombre quedaba en ~40px; 128 deja ≥ ~75px para nombre y reloj junto a la caja del cementerio. */
-    grid-template-columns:minmax(128px,1fr) minmax(0,var(--board-max-w)) minmax(128px,1fr);
+    /* V164: el mínimo baja de 128px a clamp(100px,14vw,128px): con zoom alto (ventana de ~680px de ancho) el
+       Capablanca, que se limita por ancho, perdía ~56px de tablero a esas columnas; a partir de ~915px de
+       ancho el mínimo sigue siendo 128px (los celulares no cambian). */
+    grid-template-columns:minmax(clamp(100px,14vw,128px),1fr) minmax(0,var(--board-max-w)) minmax(clamp(100px,14vw,128px),1fr);
     column-gap:6px;
   }
   body.zen-mode.zen-side.gy-col #zen-info-left,
@@ -536,18 +548,34 @@
      `--gy-col-h`, así que el tablero no se mueve al capturar) y, si ocuparan espacio, empujarían al
      peón lejos de las piezas. Se quitan del flujo solo en este modo; el reparto de sus tamaños
      (fitGyCol) sigue contando TODOS los huecos posibles para que las piezas no cambien de tamaño. */
-  body.zen-mode.zen-side.gy-col .graveyard .piece.slot,
-  body.zen-mode.zen-side.gy-col .graveyard .gy-pawnslot.slot{ display:none; }
+  body.gy-col .graveyard .piece.slot,
+  body.gy-col .graveyard .gy-pawnslot.slot{ display:none; }
   /* V161: el peón y su contador ×N van APILADOS (antes lado a lado: 44px de ancho, lo que más ensanchaba
      la caja). Así la caja mide lo que mide una pieza más su relleno, como la tira de la vista vertical. */
-  body.zen-mode.zen-side.gy-col .gy-pawnslot{ flex-direction:column; gap:1px; }
-  body.zen-mode.zen-side.gy-col .gy-count{ min-width:0; text-align:center; font-size:.62rem; letter-spacing:-.02em; }
+  body.gy-col .gy-pawnslot{ flex-direction:column; gap:1px; }
+  body.gy-col .gy-count{ min-width:0; text-align:center; font-size:.62rem; letter-spacing:-.02em; }
   /* Si la columna entera no cupiera en el alto del tablero (celular bajo, 10 huecos), el JS
      (fitGyCol) fija `--gy-col-piece` y las piezas se achican lo justo; sin esa variable, el tamaño de siempre. */
-  body.zen-mode.zen-side.gy-col .graveyard .piece.fairy{
+  body.gy-col .graveyard .piece.fairy{
     width:var(--gy-col-piece, clamp(19px, calc(var(--piece-size, min(10.5vw, 8.2vh, 62px)) * .5), 40px));
     height:var(--gy-col-piece, clamp(19px, calc(var(--piece-size, min(10.5vw, 8.2vh, 62px)) * .5), 40px));
   }
+  /* V163 (pedido de Arthur): ESCRITORIO, vista normal y pantalla completa, todas las variantes: la misma
+     columna única de cementerio. `gy-col` ya no es solo del celular (ver gyColWanted). En la vista normal
+     (no pantalla completa) las dos cajas son `position:absolute` colgadas de los costados del marco del
+     tablero y se estiran de borde a borde del marco (top/bottom en -1px = cubren también su borde de 1px):
+     la de la IZQUIERDA es la del bando de arriba y se llena de arriba hacia abajo; la de la DERECHA, la
+     del bando de abajo, de abajo hacia arriba (el mismo espejo de la pantalla completa). Quedan a 6px del
+     marco. Antes: dos cajas en esquinas opuestas (arriba-derecha y abajo-izquierda) con las piezas en
+     filas que se envolvían. En pantalla completa lo resuelven las reglas de `.zen-side` de más arriba. */
+  body.gy-col:not(.zen-mode) #graveyard-top,
+  body.gy-col:not(.zen-mode) #graveyard-bottom{
+    top:-1px; bottom:-1px; height:auto; width:max-content; max-width:none; max-height:none;
+    flex-direction:column; flex-wrap:nowrap; align-items:center; justify-content:flex-start; gap:3px;
+    padding:5px 3px;
+  }
+  body.gy-col:not(.zen-mode) #graveyard-top{ left:auto; right:calc(100% + 7px); }
+  body.gy-col:not(.zen-mode) #graveyard-bottom{ right:auto; left:calc(100% + 7px); flex-direction:column-reverse; }
 
   /* ---------- Tablero ---------- */
   .board-area{ display:flex; flex-direction:column; align-items:center; gap:14px; }
@@ -4157,10 +4185,34 @@ function fitGyCol(){
   if(size < natural) root.style.setProperty("--gy-col-piece", size + "px");
   else root.style.removeProperty("--gy-col-piece");
 }
+/* V163: en la vista NORMAL de escritorio las cajas del cementerio cuelgan (position:absolute) fuera del marco,
+   a cada lado; `.board-area` reserva ahí el sitio con padding simétrico para que la caja no pise el panel
+   lateral ni se salga de la pantalla (el marco, que mide 100% del ancho interior, se encoge lo justo en
+   ventanas medianas; en pantallas grandes, donde el tablero ya está limitado por su tope, el padding no
+   mueve nada). 0 si no hay caja (Modo Libre). En pantalla completa no hace falta: las cajas viven en columnas
+   de la grilla. */
+function gyColReserve(){
+  const clear = () => { boardAreaEl.style.removeProperty("padding-left"); boardAreaEl.style.removeProperty("padding-right"); };
+  if(zenMode){ clear(); return; }
+  const w = Math.max(graveyardTopEl.offsetWidth, graveyardBottomEl.offsetWidth);
+  if(!(w > 0)){ clear(); return; }
+  const need = Math.ceil(w) + 7 + 6;   // 7 = hueco hasta el marco (6px + su borde), 6 = margen de seguridad
+  const cur = parseFloat(boardAreaEl.style.paddingLeft) || 0;
+  if(Math.abs(cur - need) >= 1.5){ boardAreaEl.style.paddingLeft = need + "px"; boardAreaEl.style.paddingRight = need + "px"; }
+}
+
 function syncGraveyardLayout(){
   const rootPx = parseFloat(document.documentElement.style.getPropertyValue("--piece-size")) || 0;
   if(!(rootPx > 0)) return;
+  // V163: si el modo cambió (p. ej. al cruzar el ancho de una ventana vertical), se vuelve a dibujar y se sale:
+  // renderGraveyards() vuelve a llamar a esta función con la clase ya correcta.
+  if(syncGyCol()){ try{ renderGraveyards(); }catch(e){} return; }
   fitGyCol();   // V160
+  if(document.body.classList.contains("gy-col")){
+    gyColReserve();
+    [graveyardTopEl, graveyardBottomEl].forEach(el => { el.style.removeProperty("max-height"); el.style.removeProperty("flex-direction"); });
+    return;
+  }
   /* V144: se agrega `zenMode && zenSideColumnsWanted()` a esta condición --
      en ese caso `syncInfoPlacement()` (antes `syncLandscapeInfoPlacement()`)
      movió los cementerios a `#zen-info-left`/`#zen-info-right`, un tercer
@@ -4333,7 +4385,11 @@ function zenBoardMaxW(boardScale, effH, useStableH, extraCapPx){
   const heightTerm = useStableH
     ? (ZEN_PCT * boardScale / 100 * effH).toFixed(1) + "px"
     : (ZEN_PCT * boardScale).toFixed(1) + "vh";
-  const terms = [ZEN_PCT + "vw", heightTerm, Math.round(950 * boardScale) + "px"];
+  // V164: el techo fijo de 950px (por boardScale) solo se conserva en dispositivos táctiles. En escritorio ya no
+  // hay tope fijo: el tablero ocupa lo que dejen el alto y el ancho de la ventana (si se aleja el zoom,
+  // la ventana en px CSS crece y el tablero con ella; antes se detenía en 950px y dejaba la pantalla vacía).
+  const capPx = useStableH ? Math.round(950 * boardScale) : 6000;
+  const terms = [ZEN_PCT + "vw", heightTerm, capPx + "px"];
   if(extraCapPx != null) terms.push(Math.max(200, Math.round(extraCapPx)) + "px");
   return "min(" + terms.join(", ") + ")";
 }
@@ -4924,7 +4980,11 @@ function landscapeInfoWanted(){
    `isTouchLandscapeWide()` no cubre a propósito (esa función es SOLO para
    el modo horizontal táctil de la V140, no para esto). */
 function zenSideColumnsWanted(){
-  return window.matchMedia("(min-width:700px)").matches;
+  if(window.matchMedia("(min-width:700px)").matches) return true;
+  // V164: escritorio con la ventana APAISADA y estrecha (p. ej. un zoom del 200% en una laptop de 1366px:
+  // 683×384 px CSS). Con una sola columna el tablero perdía ~110px de alto en nombres y botón (66% del
+  // alto); con columnas laterales se limita solo por el alto. Con ventana vertical siguen las dos filas.
+  return window.matchMedia("(hover:hover) and (pointer:fine) and (min-width:520px) and (orientation:landscape)").matches;
 }
 function syncInfoPlacement(){
   if(!landscapeInfoEl) return;
@@ -5209,7 +5269,8 @@ function renderGraveyardSide(el, types, color, key, advance){
   // En las esquinas de escritorio (position:absolute) el cementerio no empuja nada al crecer: reservar
   // todos los huecos solo dejaría una lápida alta y vacía. Se reservan dos (que se vea desde el inicio)
   // y el resto aparece al capturar. En los diseños en flujo (tira vertical, columnas) se reserva todo.
-  const corner = getComputedStyle(el).position === "absolute";
+  // V163: en modo columna (gy-col) las cajas también son position:absolute pero ocupan todo el alto del marco: no son esquinas.
+  const corner = getComputedStyle(el).position === "absolute" && !document.body.classList.contains("gy-col");
   const capMajors = corner ? Math.min(cap.majors, 2) : cap.majors;
   const sig = color + "|" + capMajors + "|" + cap.pawns + "|" + (corner ? "c" : "f") + "|" + types.join("");
   // Sin nada que mostrar ni reservar (Modo Libre, o una posición sin piezas de ese color) el
@@ -5257,16 +5318,22 @@ function renderGraveyardSide(el, types, color, key, advance){
     el.querySelectorAll(".gy-new, .gy-bump").forEach(n => n.classList.remove("gy-new", "gy-bump"));
   }, 800);
 }
-/* V160: ¿cementerio en UNA columna junto al tablero? Solo en celular (táctil) en horizontal, con pantalla
-   completa y columnas laterales, y solo en el modo Capablanca (pedido de Arthur; las demás variantes
-   siguen como estaban). Se reevalúa en cada render porque la variante puede cambiar con la pantalla
+/* V160/V163: ¿cementerio en UNA columna junto al tablero? Escritorio (sin pantalla táctil): siempre, en las dos
+   vistas y con todas las variantes (V163). Celular: solo en horizontal, con pantalla completa y columnas
+   laterales, y solo en el modo Capablanca (pedido de Arthur; las demás variantes siguen como estaban). Se reevalúa en cada render porque la variante puede cambiar con la pantalla
    completa ya puesta (p. ej. al aceptar una partida en vivo). `zenMode` es un `let` declarado más abajo
    que esta función: render() puede correr antes de esa línea, por eso va en try/catch (zona muerta). */
 function gyColWanted(){
   try{
-    if(!zenMode || !zenSideColumnsWanted()) return false;
-    if(!window.matchMedia("(hover:none) and (pointer:coarse) and (orientation:landscape)").matches) return false;
-    return variantOf(liveState().board) === "capablanca";
+    const touch = window.matchMedia("(hover:none) and (pointer:coarse)").matches;
+    if(zenMode){
+      if(!zenSideColumnsWanted()) return false;
+      if(!touch) return true;   // V163: escritorio, pantalla completa: todas las variantes
+      // celular (V160): solo en horizontal y solo en Capablanca
+      return window.matchMedia("(orientation:landscape)").matches && variantOf(liveState().board) === "capablanca";
+    }
+    // V163: escritorio, vista normal, todas las variantes. En ventanas verticales angostas queda la tira de siempre.
+    return !touch && !useGraveyardStrip();
   }catch(e){ return false; }
 }
 function syncGyCol(){
@@ -7348,7 +7415,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V162 · 3-oct-2026 · Cementerios en columna: piezas juntas, de arriba hacia abajo en uno y de abajo hacia arriba en el otro";
+const BUILD_ID = "V164 · 3-oct-2026 · Escritorio: cementerios en columna única (todas las variantes y vistas) y pantalla completa que aprovecha todo el espacio (Capablanca incluido)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
