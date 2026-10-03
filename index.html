@@ -165,6 +165,8 @@
      tablero clásico no se ve afectado, sigue topando en sus 760px
      propios de .board-frame. */
   .wrap{ position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:clamp(18px,3.5vw,44px); }
+  /* V158: ver `syncStickyBoardHeight()`: con tablero fijo el margen inferior baja a 10px para que el final de la página no levante el tablero. */
+  body.sticky-board:not(.zen-mode) .wrap{ padding-bottom:10px; }
 
   /* Ronda "Mi nombre en la esquina" (Versión 105, 2026-09-18): el campo de
      personalización del Tablero (no de la partida) vive arriba a la izquierda,
@@ -195,6 +197,7 @@
     font-size:clamp(.95rem,2.4vw,1.08rem);
     text-wrap:balance;
   }
+
   .rule{
     width:min(320px,70%); height:1px; margin:1.1em auto 0;
     background:linear-gradient(90deg, transparent, var(--ember), transparent);
@@ -333,8 +336,7 @@
      entero, y el padding vertical de `.wrap` (pensado para dar aire
      alrededor del encabezado) se reduce a un margen mínimo fijo -- ya no
      hay nada arriba/abajo que necesite ese aire. */
-  body.zen-mode header,
-  body.zen-mode footer{ display:none; }
+  body.zen-mode header{ display:none; }
   /* Ronda "el tablero ocupa poco espacio en pantalla completa" (V145,
      2026-09-28): Arthur mandó captura de su celular en horizontal donde,
      ya en pantalla completa, el tablero se veía chico con mucho negro
@@ -370,6 +372,21 @@
      completa: son dos botones ahora -- ver nota junto al HTML -- pero
      comparten esta misma chapa vía `.zen-toggle-btn`), no solo en zen --
      afuera de zen ya no lleva tampoco la chapa `.btn.icon` completa. */
+
+  /* V158 (pedido de Arthur): con dos columnas (tablero a la izquierda, paneles a la derecha) el botón de
+     pantalla completa deja de ser una fila propia arriba y pasa a ocupar el tope de la columna de
+     paneles, a la altura del borde superior del bloque del tablero; los paneles bajan lo que mide el
+     botón. La fila se queda en el flujo con alto 0 (así `.stage` sube y no queda hueco) y el botón se
+     coloca encima. `toggle-col` lo pone el JS (syncToggleAlign) solo cuando `.stage` tiene de verdad
+     más de una columna y no hay pantalla completa; `toggle-col-info` además cuando el bloque de info
+     táctil-horizontal (#landscape-info) es lo primero de la columna. `--tgl-h` = alto medido del botón
+     + 10px de separación. En una sola columna (celular vertical) nada de esto aplica. */
+  body.toggle-col:not(.zen-mode) .zen-toggle-row{ position:relative; height:0; margin:0; z-index:3; }
+  body.toggle-col:not(.zen-mode) .zen-toggle-row .zen-toggle-btn{ position:absolute; top:0; right:0; }
+  body.toggle-col:not(.zen-mode) #side-panels{ padding-top:var(--tgl-h, 52px); }
+  body.toggle-col-info:not(.zen-mode) #side-panels{ padding-top:0; }
+  body.toggle-col-info:not(.zen-mode) #landscape-info{ margin-top:var(--tgl-h, 52px); }
+
   .zen-toggle-btn{
     background:none; border-color:transparent; box-shadow:none;
     opacity:.65; transition:opacity .15s, border-color .15s, transform .06s;
@@ -1535,10 +1552,7 @@
     .hof-node-count{ display:none; }
   }
 
-  footer{
-    margin-top:26px; text-align:center;
-    font-size:.82rem; color:var(--text-faint); font-style:italic;
-  }
+  /* V158: se quitó el <footer> (leyenda de arrastrar/atajos) a pedido de Arthur: así el scroll termina en el último panel. */
   kbd{
     font-family:"IBM Plex Mono",monospace; font-style:normal;
     background:rgba(0,0,0,.4); border:1px solid var(--line); border-radius:3px;
@@ -2869,10 +2883,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
       </section>
     </div>
   </div>
-
-  <footer>
-    Arrastra o toca una pieza para moverla &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> (o deslizar el dedo fuera de las casillas) recorren la partida &middot; <kbd>F</kbd> gira el tablero
-  </footer>
 </div>
 
 <div class="promo-ov" id="promo" hidden>
@@ -4305,7 +4315,30 @@ function stableViewportHeight(){
   const probeH = (h && h > 0) ? h : window.innerHeight;
   return Math.max(probeH, window.innerHeight);
 }
+/* V158: decide si el botón de pantalla completa va en el tope de la columna de paneles (ver CSS
+   `body.toggle-col`). Se mira el layout REAL (cuántas columnas tiene `.stage` ya resueltas), no se
+   duplican las media queries. Se llama al inicio de syncStickyBoardHeight() (corre en cada resize,
+   rotación y cambio de modo) y al cambiar pantalla completa. */
+function syncToggleAlign(){
+  const stage = document.querySelector(".stage");
+  if(!stage || !document.body) return;
+  const zen = document.body.classList.contains("zen-mode");
+  let cols = 1;
+  try{ cols = getComputedStyle(stage).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length; }catch(e){}
+  const on = !zen && cols > 1;
+  const infoEl = document.getElementById("landscape-info");
+  const info = on && !!infoEl && getComputedStyle(infoEl).display !== "none";
+  document.body.classList.toggle("toggle-col", on);
+  document.body.classList.toggle("toggle-col-info", info);
+  if(on){
+    const btn = document.querySelector(".zen-toggle-btn:not([hidden])");
+    const h = btn ? btn.getBoundingClientRect().height : 0;
+    if(h > 0) document.documentElement.style.setProperty("--tgl-h", Math.ceil(h + 10) + "px");
+  }
+}
+
 function syncStickyBoardHeight(boardScale){
+  syncToggleAlign();
   /* Ronda "tablero recortado no vuelve a agrandarse" (Versión 110,
      2026-09-18, arreglo #2 del mismo parche): esta función SOLO tenía una
      rama para achicar (`if(overflow > 0)`) — nunca una para deshacer el
@@ -4476,6 +4509,12 @@ function syncStickyBoardHeight(boardScale){
   const stickyActive =
     (window.matchMedia("(min-width:1100px)").matches && !touchNow) ||
     touchLandscapeWide;
+  /* V158: con tablero fijo, el margen inferior de la página (`.wrap`, hasta 44px) tiene que caber en la
+     holgura (SAFETY = 10px) que este cálculo deja bajo el tablero; si no, al llegar al FINAL de la página
+     el contenedor termina antes de lo que el tablero necesita y lo empuja hacia arriba (medido en celular
+     horizontal: el tablero pasaba de 20px a 0,6px del borde). Por eso, con tablero fijo, ese margen baja
+     a 10px (ver CSS `body.sticky-board`). */
+  document.body.classList.toggle("sticky-board", !!stickyActive);
   /* V139: en touchLandscapeWide, tanto el límite de ancho del tablero
      (el término "vh") como el font-size de las coordenadas (--coord-vmin)
      se calculan contra el alto ESTABLE (`stableViewportHeight()`, ver la
@@ -7191,7 +7230,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V157 · 2-oct-2026 · Paneles: el tablero ya no se mueve al desplegar y el despliegue se anima";
+const BUILD_ID = "V158 · 2-oct-2026 · Scroll: sin pie de página, freno al llegar a la zona de juego, botón de pantalla completa alineado con el tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10376,6 +10415,85 @@ function initCollapsiblePanels(){
     });
   });
 }
+
+/* V158 (pedido de Arthur): al SUBIR con el scroll, la página se detiene al llegar al tope de la zona de
+   juego (el inicio de `.stage`, con 20px de aire: la misma distancia a la que se queda pegado el tablero
+   fijo, así el tablero no se mueve entre ese punto y el resto de los paneles). Para ver el encabezado
+   (título, presentación, campo de nombre) hay que hacer un SEGUNDO scroll: otro gesto, no el mismo.
+   Lo que se probó y se descartó: `scroll-snap` del navegador (con la rueda no frena en el tope y además
+   rebota los pasos de 100px al inicio). Por eso se controla el gesto desde JS:
+   - Rueda/trackpad: un gesto = eventos separados por menos de 220ms (incluye la inercia del trackpad).
+     Si un gesto que venía desde más abajo cruzaría el tope, se corta justo en él y el resto de ESE gesto
+     se ignora hacia arriba; el gesto siguiente pasa libre. Un gesto que ya empieza en el tope o más
+     arriba nunca se toca. Si el puntero está sobre algo con su propio scroll (registro del chat, listas)
+     se deja en paz.
+   - Teclado: AvPág/↑ se detienen en el tope si lo cruzarían; Inicio sigue yendo directo arriba.
+   - Dedo: el scroll táctil lo hace el navegador y no se puede cancelar a mitad de gesto, así que se
+     corrige sobre la marcha: si un gesto que venía desde abajo se pasa del tope, se devuelve ahí y se
+     bloquea hasta el siguiente toque. (Mejor esfuerzo: en Android real puede notarse un pequeño rebote;
+     no es verificable en el entorno de pruebas.)
+   - Barra de scroll, Inicio y saltos por código siguen yendo donde les pidas. En pantalla completa no aplica. */
+function initScrollStop(){
+  const PAD = 20, EPS = 1.5;
+  const stageEl2 = document.querySelector(".stage");
+  if(!stageEl2) return;
+  const off = () => document.body.classList.contains("zen-mode");
+  const getT = () => Math.max(0, Math.round(stageEl2.getBoundingClientRect().top + window.scrollY - PAD));
+  const innerCanScrollUp = (t) => {
+    for(let n = t; n && n !== document.body && n !== document.documentElement; n = n.parentElement){
+      if(n.nodeType !== 1) continue;
+      const oy = getComputedStyle(n).overflowY;
+      if((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1 && n.scrollTop > 0) return true;
+    }
+    return false;
+  };
+  // ---- rueda / trackpad ----
+  let lastWheel = 0, wState = "free";   // free | stopped | pass
+  window.addEventListener("wheel", (e) => {
+    if(e.ctrlKey || e.defaultPrevented || off()) return;
+    const now = performance.now(), fresh = now - lastWheel > 220;
+    lastWheel = now;
+    const y = window.scrollY, T = getT();
+    if(fresh) wState = (y <= T + EPS) ? "pass" : "free";
+    if(e.deltaY >= 0){ if(wState === "stopped") wState = "free"; return; }
+    if(wState === "pass" || T <= 0) return;
+    if(innerCanScrollUp(e.target)) return;
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
+    if(wState === "stopped"){ e.preventDefault(); return; }
+    if(y + dy < T + 0.5){ e.preventDefault(); window.scrollTo(0, T); wState = "stopped"; }
+  }, { passive: false });
+  // ---- teclado ----
+  window.addEventListener("keydown", (e) => {
+    if(e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || off()) return;
+    const t = e.target, tag = t && t.tagName;
+    if(tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (t && t.isContentEditable)) return;
+    let step = 0;
+    if(e.key === "ArrowUp") step = 40;
+    else if(e.key === "PageUp" || (e.key === " " && e.shiftKey)) step = window.innerHeight * 0.875;
+    if(!step) return;
+    const y = window.scrollY, T = getT();
+    if(T > 0 && y > T + EPS && y - step < T){ e.preventDefault(); window.scrollTo(0, T); }
+  });
+  // ---- dedo ----
+  let touching = false, touchEnd = 0, tState = "free", lastY = window.scrollY;   // free | stopped | pass
+  const tStart = () => { touching = true; tState = (window.scrollY <= getT() + EPS) ? "pass" : "free"; };
+  const tStop = () => { touching = false; touchEnd = performance.now(); };
+  window.addEventListener("touchstart", tStart, { passive: true });
+  window.addEventListener("touchend", tStop, { passive: true });
+  window.addEventListener("touchcancel", tStop, { passive: true });
+  window.addEventListener("scroll", () => {
+    const y = window.scrollY;
+    if(!off() && (touching || performance.now() - touchEnd < 2500)){
+      const T = getT();
+      if(T > 0){
+        if(tState === "free" && y < T - 0.5 && y < lastY){ window.scrollTo(0, T); tState = "stopped"; }
+        else if(tState === "stopped" && y < T - 0.5){ window.scrollTo(0, T); }
+      }
+    }
+    lastY = window.scrollY;
+  }, { passive: true });
+}
+initScrollStop();
 
 /* ============================ Análisis de partida (V155, 2026-10-01) ============================
    Revisa la línea principal con el mismo Stockfish clásico del Oráculo (mismo worker, así que
