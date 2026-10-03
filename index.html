@@ -209,6 +209,14 @@
     grid-template-columns:minmax(0,1fr) 328px;
     gap:clamp(18px,3vw,36px);
     align-items:start;
+    /* V159: sin esto, cuando el JS le pone un `min-height` a `.stage` (colchón anti-salto al
+       desplegar/colapsar paneles, ver initCollapsiblePanels) y la grilla es de UNA columna (celular y
+       tablet verticales: tablero arriba, paneles abajo = dos filas), las filas `auto` se ESTIRAN para
+       llenar ese alto sobrante (`align-content` por defecto = stretch) y la fila de los paneles baja
+       junto con el resto del espacio: se abría un hueco de hasta ~190px entre el tablero y el panel
+       Cuenta mientras duraba la animación y luego saltaba de vuelta (grabación de pantalla de Arthur,
+       2-oct-2026). Con dos columnas hay una sola fila y no se notaba (por eso en la laptop andaba bien). */
+    align-content:start;
     /* Ronda 10 (2026-09-10): esta es la causa real de que deslizar el dedo
        nunca respondiera en el Android de Arthur. Mis pruebas anteriores
        "funcionaban" porque disparaban PointerEvent sintéticos por código,
@@ -668,6 +676,8 @@
        costado, y no exige tocar el HTML de cada panel uno por uno). */
     cursor:pointer; user-select:none;
     justify-content:space-between;
+    /* V159: en el celular, tocar el encabezado dibujaba una barra azul de selección sobre el título (se ve en la grabación de Arthur). */
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
   .panel h2::before{ content:"\25C6"; font-size:.6em; color:var(--ember); }
   /* Flecha a la derecha del título, gira 180° cuando el panel está
@@ -7230,7 +7240,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V158 · 2-oct-2026 · Scroll: sin pie de página, freno al llegar a la zona de juego, botón de pantalla completa alineado con el tablero";
+const BUILD_ID = "V159 · 2-oct-2026 · Celular: sin hueco al desplegar paneles, sin rebote del scroll táctil, sin resaltado azul al tocar";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10421,17 +10431,17 @@ function initCollapsiblePanels(){
    fijo, así el tablero no se mueve entre ese punto y el resto de los paneles). Para ver el encabezado
    (título, presentación, campo de nombre) hay que hacer un SEGUNDO scroll: otro gesto, no el mismo.
    Lo que se probó y se descartó: `scroll-snap` del navegador (con la rueda no frena en el tope y además
-   rebota los pasos de 100px al inicio). Por eso se controla el gesto desde JS:
+   rebota los pasos de 100px al inicio). Por eso se controla el gesto desde JS (solo rueda y teclado):
    - Rueda/trackpad: un gesto = eventos separados por menos de 220ms (incluye la inercia del trackpad).
      Si un gesto que venía desde más abajo cruzaría el tope, se corta justo en él y el resto de ESE gesto
      se ignora hacia arriba; el gesto siguiente pasa libre. Un gesto que ya empieza en el tope o más
      arriba nunca se toca. Si el puntero está sobre algo con su propio scroll (registro del chat, listas)
      se deja en paz.
    - Teclado: AvPág/↑ se detienen en el tope si lo cruzarían; Inicio sigue yendo directo arriba.
-   - Dedo: el scroll táctil lo hace el navegador y no se puede cancelar a mitad de gesto, así que se
-     corrige sobre la marcha: si un gesto que venía desde abajo se pasa del tope, se devuelve ahí y se
-     bloquea hasta el siguiente toque. (Mejor esfuerzo: en Android real puede notarse un pequeño rebote;
-     no es verificable en el entorno de pruebas.)
+   - Dedo: SIN freno (V159). La V158 intentaba frenar el scroll táctil corrigiendo `scrollTo` en cada
+     evento de scroll, y en Chrome de Android eso peleaba cuadro a cuadro contra la inercia del propio
+     navegador: la página oscilaba ±160px durante casi 2 s (grabación de pantalla de Arthur). El scroll
+     táctil lo hace el navegador en otro hilo y no se puede cancelar ni corregir desde aquí sin rebote.
    - Barra de scroll, Inicio y saltos por código siguen yendo donde les pidas. En pantalla completa no aplica. */
 function initScrollStop(){
   const PAD = 20, EPS = 1.5;
@@ -10474,24 +10484,6 @@ function initScrollStop(){
     const y = window.scrollY, T = getT();
     if(T > 0 && y > T + EPS && y - step < T){ e.preventDefault(); window.scrollTo(0, T); }
   });
-  // ---- dedo ----
-  let touching = false, touchEnd = 0, tState = "free", lastY = window.scrollY;   // free | stopped | pass
-  const tStart = () => { touching = true; tState = (window.scrollY <= getT() + EPS) ? "pass" : "free"; };
-  const tStop = () => { touching = false; touchEnd = performance.now(); };
-  window.addEventListener("touchstart", tStart, { passive: true });
-  window.addEventListener("touchend", tStop, { passive: true });
-  window.addEventListener("touchcancel", tStop, { passive: true });
-  window.addEventListener("scroll", () => {
-    const y = window.scrollY;
-    if(!off() && (touching || performance.now() - touchEnd < 2500)){
-      const T = getT();
-      if(T > 0){
-        if(tState === "free" && y < T - 0.5 && y < lastY){ window.scrollTo(0, T); tState = "stopped"; }
-        else if(tState === "stopped" && y < T - 0.5){ window.scrollTo(0, T); }
-      }
-    }
-    lastY = window.scrollY;
-  }, { passive: true });
 }
 initScrollStop();
 
