@@ -509,8 +509,9 @@
   /* V160 (pedido de Arthur): celular en horizontal + pantalla completa + modo Capablanca -> el cementerio
      de cada bando pasa a ser UNA sola columna de piezas pegada al costado del tablero (antes: una caja
      ancha con las piezas en filas que se envolvían, debajo del nombre). `gy-col` lo pone el JS
-     (gyColWanted): en el celular solo en ese caso exacto (V163 lo extendió al ESCRITORIO, todas las
-     variantes y las dos vistas, ver más abajo).
+     (gyColWanted): V160 solo en el celular en horizontal con Capablanca; V163 lo extendió al ESCRITORIO
+     (todas las variantes, las dos vistas) y V166 al celular en horizontal con pantalla completa en TODAS las
+     variantes.
      Cada lateral se divide en dos columnas: la de AFUERA lleva nombre y reloj; la de ADENTRO, pegada al
      tablero, el cementerio (mayores primero y, al final, el peón con su contador ×N). Es un espejo: el
      bando de arriba cuelga del borde superior a la izquierda; el de abajo se apoya en el borde inferior
@@ -5336,9 +5337,10 @@ function renderGraveyardSide(el, types, color, key, advance){
     el.querySelectorAll(".gy-new, .gy-bump").forEach(n => n.classList.remove("gy-new", "gy-bump"));
   }, 800);
 }
-/* V160/V163: ¿cementerio en UNA columna junto al tablero? Escritorio (sin pantalla táctil): siempre, en las dos
-   vistas y con todas las variantes (V163). Celular: solo en horizontal, con pantalla completa y columnas
-   laterales, y solo en el modo Capablanca (pedido de Arthur; las demás variantes siguen como estaban). Se reevalúa en cada render porque la variante puede cambiar con la pantalla
+/* V160/V163/V166: ¿cementerio en UNA columna junto al tablero? Escritorio (sin pantalla táctil): siempre, en las
+   dos vistas y con todas las variantes (V163). Celular/tablet: en horizontal, con pantalla completa y columnas
+   laterales (≥700px de ancho), con todas las variantes (V166; antes solo Capablanca). En vertical, o en
+   horizontal sin pantalla completa, siguen como estaban (tira / cajas de siempre). Se reevalúa en cada render porque la variante puede cambiar con la pantalla
    completa ya puesta (p. ej. al aceptar una partida en vivo). `zenMode` es un `let` declarado más abajo
    que esta función: render() puede correr antes de esa línea, por eso va en try/catch (zona muerta). */
 function gyColWanted(){
@@ -5347,8 +5349,9 @@ function gyColWanted(){
     if(zenMode){
       if(!zenSideColumnsWanted()) return false;
       if(!touch) return true;   // V163: escritorio, pantalla completa: todas las variantes
-      // celular (V160): solo en horizontal y solo en Capablanca
-      return window.matchMedia("(orientation:landscape)").matches && variantOf(liveState().board) === "capablanca";
+      // celular/tablet: en horizontal, todas las variantes (V160: solo Capablanca; V166 lo extendió a todas).
+      // El ancho mínimo para las columnas laterales ya lo exige zenSideColumnsWanted() (700px en táctil).
+      return window.matchMedia("(orientation:landscape)").matches;
     }
     // V163: escritorio, vista normal, todas las variantes. En ventanas verticales angostas queda la tira de siempre.
     return !touch && !useGraveyardStrip();
@@ -7433,7 +7436,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V165 · 3-oct-2026 · Cementerios con ancho completo desde el inicio y jugador izquierdo en espejo del derecho (pantalla completa)";
+const BUILD_ID = "V166 · 3-oct-2026 · Celular horizontal en pantalla completa: cementerios en columna única en todas las variantes";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
