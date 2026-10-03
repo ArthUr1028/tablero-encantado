@@ -520,14 +520,24 @@
   body.zen-mode.zen-side.gy-col #zen-info-right .graveyard{
     width:max-content; max-width:none;
     /* V161: el alto de la caja = el del marco del tablero desde el primer momento (`--gy-col-h` lo mide y
-       publica el JS en fitGyCol); los huecos se reparten parejo de punta a punta (space-between: las
-       piezas mayores desde su borde y el peón con su contador en el extremo opuesto). Sin la variable
-       (primer instante, antes de medir) la caja toma su alto natural. */
+       publica el JS en fitGyCol). Sin la variable (primer instante, antes de medir) la caja toma su
+       alto natural. (V162: el contenido se apila desde un borde, ver más abajo.) */
     height:var(--gy-col-h, auto);
-    flex-direction:column; flex-wrap:nowrap; align-items:center; justify-content:space-between; gap:3px;
+    flex-direction:column; flex-wrap:nowrap; align-items:center; justify-content:flex-start; gap:3px;
     padding:5px 3px;
   }
+  /* V162 (pedido de Arthur): las piezas capturadas van JUNTAS, sin huecos entre ellas. El cementerio de la
+     izquierda las apila de ARRIBA hacia ABAJO (flex-start de una columna normal) y el de la derecha de
+     ABAJO hacia ARRIBA (columna invertida: flex-start = borde inferior). El peón con su contador ×N va a
+     continuación de la última pieza. Antes (V161) los huecos reservados, aunque invisibles, se repartían
+     parejo a lo largo de todo el alto (`space-between`) y las piezas quedaban a ~14px unas de otras. */
   body.zen-mode.zen-side.gy-col #zen-info-right .graveyard{ flex-direction:column-reverse; }
+  /* V162: aquí los huecos reservados de la V153 ya no hacen falta (el alto de la caja lo fija
+     `--gy-col-h`, así que el tablero no se mueve al capturar) y, si ocuparan espacio, empujarían al
+     peón lejos de las piezas. Se quitan del flujo solo en este modo; el reparto de sus tamaños
+     (fitGyCol) sigue contando TODOS los huecos posibles para que las piezas no cambien de tamaño. */
+  body.zen-mode.zen-side.gy-col .graveyard .piece.slot,
+  body.zen-mode.zen-side.gy-col .graveyard .gy-pawnslot.slot{ display:none; }
   /* V161: el peón y su contador ×N van APILADOS (antes lado a lado: 44px de ancho, lo que más ensanchaba
      la caja). Así la caja mide lo que mide una pieza más su relleno, como la tira de la vista vertical. */
   body.zen-mode.zen-side.gy-col .gy-pawnslot{ flex-direction:column; gap:1px; }
@@ -4136,7 +4146,9 @@ function fitGyCol(){
   const items = (el) => el.querySelectorAll(":scope > .gy-lane > *").length;
   const n = Math.max(items(graveyardTopEl), items(graveyardBottomEl), 1);
   const cnt = graveyardTopEl.querySelector(".gy-count") || graveyardBottomEl.querySelector(".gy-count");
-  const countExtra = cnt ? Math.ceil(cnt.getBoundingClientRect().height) + 1 : 0;   // el contador va apilado bajo el peón
+  // El contador va apilado bajo el peón. Con `line-height:1` su alto es su tamaño de letra; se calcula así y
+  // no con getBoundingClientRect porque un hueco sin usar está en display:none (alto 0) en este modo (V162).
+  const countExtra = cnt ? Math.ceil(parseFloat(getComputedStyle(cnt).fontSize) || 10) + 1 : 0;
   const PAD = 10, BORDER = 2, GAP = 3;
   const ps = parseFloat(root.style.getPropertyValue("--piece-size")) || 0;
   const natural = Math.round(Math.min(40, Math.max(19, ps * 0.5)));
@@ -7336,7 +7348,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V161 · 3-oct-2026 · Cementerios en columna: más angostos, pegados al tablero y con su mismo alto desde el inicio";
+const BUILD_ID = "V162 · 3-oct-2026 · Cementerios en columna: piezas juntas, de arriba hacia abajo en uno y de abajo hacia arriba en el otro";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
