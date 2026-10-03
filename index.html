@@ -659,7 +659,7 @@
      sea un giro suave y no un parpadeo). */
   .panel h2::after{
     content:"\25BE"; margin-left:auto; font-size:.85em; color:var(--ember-soft);
-    transition:transform .15s ease; flex:0 0 auto;
+    transition:transform .28s cubic-bezier(.22,.8,.3,1); flex:0 0 auto;
   }
   .panel.collapsed h2::after{ transform:rotate(-90deg); }
   .panel.collapsed h2{ margin-bottom:0; }
@@ -670,6 +670,13 @@
      conviven sin pisarse: colapsar el panel no toca esos `hidden`, así que
      al reabrirlo cada cosa aparece exactamente como había quedado). */
   .panel.collapsed > *:not(h2){ display:none; }
+  /* V157: mientras un panel se anima (altura vía WAAPI) el contenido se recorta en vez de desbordar. */
+  .panel.panel-anim{ overflow:hidden; }
+  /* V157: en pantalla completa no hay paneles ni scroll (requisito de la V144): se anula el colchón de
+     `.stage` que pone el JS en línea al animar paneles. `!important` a propósito: es la única forma de
+     ganarle a un estilo en línea. */
+  body.zen-mode .stage{ min-height:0 !important; }
+  @media (prefers-reduced-motion:reduce){ .panel h2::after{ transition:none; } }
 
   .status{
     font-family:"Cinzel", serif; font-size:.9rem; letter-spacing:.03em;
@@ -7184,7 +7191,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V156 · 1-oct-2026 · Análisis de partida: botón «Copiar análisis para Claudia» (resumen, momentos críticos con FEN y PGN anotado con evaluaciones)";
+const BUILD_ID = "V157 · 2-oct-2026 · Paneles: el tablero ya no se mueve al desplegar y el despliegue se anima";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10233,27 +10240,134 @@ function initCollapsiblePanels(){
   // cierra el que estuviera abierto (acordeón). Ya no se recuerda el estado entre visitas; se borra
   // la clave vieja para no dejar basura.
   try{ localStorage.removeItem(PANEL_COLLAPSE_KEY); }catch(e){}
+  /* V157 (2026-10-02, pedido de Arthur): (1) el tablero NO se mueve al desplegar/colapsar un panel y
+     (2) el despliegue se anima. Dos causas reales del desplazamiento, ambas medidas con Playwright:
+     (a) este acordeón llamaba a `panel.scrollIntoView()` en cada despliegue y esa llamada hace
+         scroll de TODA la página (scrollY 0→114, 131, 423… según el panel) -- se quitó. Los paneles
+         ahora crecen y se encogen en su sitio y el scroll es solo el del usuario (el tablero fijo de
+         escritorio ya se queda quieto mientras los paneles se deslizan). La pastilla de turno hace
+         su propio scroll explícito aparte, así que no depende de esto.
+     (b) al cerrar un panel alto y abrir uno más corto, `.stage` se ACORTA (documento 1529→1293px
+         medido): el NAVEGADOR recorta el scroll (449→213) y además el contenedor del tablero fijo se
+         achica y lo empuja (boardTop 54→-42). Ya no es código nuestro. Se resuelve con un colchón en
+         `.stage` (ver holdStage/trimStage más abajo): se congela su altura antes de cualquier cambio
+         (también antes de las mediciones temporales, que fuerzan layout y por sí solas ya podrían
+         disparar el recorte) y al terminar las animaciones se recorta a lo mínimo que mantiene válidos
+         el scroll actual y el tablero pegado (normalmente nada). En pantalla completa se anula por CSS.
+     Animación: altura del panel (WAAPI, de la altura actual a la final medida de verdad) + fundido de
+     su contenido. Al colapsar, la clase `collapsed` se aplica al TERMINAR (si no, el contenido
+     desaparecería de golpe antes de poder animarlo). Estado lógico = `aria-expanded` del <h2>, no la
+     clase, porque durante un colapso animado la clase todavía no está puesta. Respeta
+     prefers-reduced-motion (cambio instantáneo como antes, pero también con colchón). */
+  const PANEL_ANIM_MS = 280;
+  const PANEL_EASE = "cubic-bezier(.22,.8,.3,1)";
   const panels = [...document.querySelectorAll(".panel")].filter(p => p.querySelector(":scope > h2"));
-  const setCollapsed = (panel, collapsed) => {
-    panel.classList.toggle("collapsed", collapsed);
+  const running = new Map();   // panel -> { finish }  (animación en curso)
+  const reduceMotion = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const isOpen = (panel) => panel.querySelector(":scope > h2").getAttribute("aria-expanded") === "true";
+
+  /* Colchón en `.stage` (el contenedor de tablero + paneles). Cada cambio de altura de un panel
+     encoge `.stage`, y eso rompe la posición del tablero de dos maneras: el documento se acorta y el
+     navegador recorta el scroll, y el contenedor del tablero fijo (sticky) se achica y lo empuja
+     hacia arriba. Solución única para las dos: antes de tocar nada se congela la altura actual de
+     `.stage` (min-height) y, al terminar todas las animaciones, se recorta a lo mínimo que mantiene
+     válidas la posición de scroll actual (a) y la del tablero fijo (b). Se vuelve a recortar al subir
+     con el scroll, así que el espacio sobrante nunca se queda. En pantalla completa no aplica (CSS). */
+  const stageEl = document.querySelector(".stage");
+  const holdStage = () => {
+    if(!stageEl) return;
+    const cur = stageEl.getBoundingClientRect().height;   // fraccionario a propósito: redondear movería el tablero levantado
+    if(cur > (parseFloat(stageEl.style.minHeight) || 0)) stageEl.style.minHeight = cur + "px";
+  };
+  const trimStage = () => {
+    if(!stageEl || !stageEl.style.minHeight) return;
+    const r = stageEl.getBoundingClientRect();
+    const other = document.documentElement.scrollHeight - r.height;       // alto de todo lo que no es .stage
+    let need = window.scrollY + window.innerHeight - other;                // (a) el documento no puede quedar más corto que el scroll actual
+    const cs = boardAreaEl ? getComputedStyle(boardAreaEl) : null;
+    if(cs && cs.position === "sticky"){                                    // (b) el contenedor debe llegar al menos hasta donde el tablero está AHORA
+      // (no hasta su posición pegada "ideal": si el tablero está levantado por el final de la columna,
+      // exigir la posición ideal haría crecer el contenedor y lo soltaría de golpe -- era el salto de 41px)
+      const br = boardAreaEl.getBoundingClientRect();
+      need = Math.max(need, (br.top + window.scrollY) + br.height - (r.top + window.scrollY));
+    }
+    const floor = boardAreaEl ? boardAreaEl.offsetHeight : 0;              // por debajo de esto el min-height no tiene efecto
+    stageEl.style.minHeight = need <= floor ? "" : need + "px";
+  };
+  /* Anclaje de scroll del navegador: cuando algo crece/encoge POR ENCIMA de lo que se está mirando, Chrome
+     corrige el scroll solo para que lo mirado no se mueva -- y eso mueve el tablero si está a la vista
+     (medido en celular: scrollY sube +34 mientras un panel crece). Mientras dura el cambio de paneles se
+     apaga SOLO si el tablero está a la vista (en escritorio siempre lo está: es fijo); si el tablero está
+     fuera de pantalla se deja encendido, porque ahí ayuda a que el encabezado que tocaste no se escape. */
+  const boardVisible = () => {
+    if(!boardAreaEl) return false;
+    const r = boardAreaEl.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight;
+  };
+  const setAnchoring = (off) => { document.documentElement.style.overflowAnchor = off ? "none" : ""; };
+  let trimQueued = false;
+  const queueTrim = () => {
+    if(trimQueued || !stageEl || !stageEl.style.minHeight) return;
+    trimQueued = true;
+    requestAnimationFrame(() => { trimQueued = false; if(!running.size) trimStage(); });
+  };
+  window.addEventListener("scroll", queueTrim, { passive: true });
+  window.addEventListener("resize", queueTrim);
+
+  const setCollapsed = (panel, collapsed, animate) => {
     const h2 = panel.querySelector(":scope > h2");
+    const prev = running.get(panel);
+    if(prev) prev.finish();                       // termina al instante lo que estuviera animándose
     if(h2) h2.setAttribute("aria-expanded", String(!collapsed));
+    const already = panel.classList.contains("collapsed") === collapsed;
+    if(already) return;
+    if(!animate || panel.offsetParent === null){  // arranque o panel oculto: cambio directo, sin animar
+      panel.classList.toggle("collapsed", collapsed);
+      return;
+    }
+    // Alturas inicial y final reales. Primero se congela `.stage`: la medición temporal fuerza layout y
+    // un documento más corto ya dispararía por sí solo el recorte de scroll.
+    holdStage();
+    if(boardVisible()) setAnchoring(true);
+    const startH = panel.getBoundingClientRect().height;
+    panel.classList.toggle("collapsed", collapsed);
+    const endH = panel.getBoundingClientRect().height;
+    if(typeof panel.animate !== "function" || reduceMotion()){
+      requestAnimationFrame(() => { if(!running.size){ trimStage(); setAnchoring(false); } });   // la clase ya quedó puesta: cambio instantáneo
+      return;
+    }
+    if(collapsed) panel.classList.remove("collapsed");   // el contenido sigue visible mientras se recorta
+    const kids = [...panel.children].filter(c => c.tagName !== "H2");
+    panel.classList.add("panel-anim");
+    const grow = panel.animate([{ height: startH + "px" }, { height: endH + "px" }],
+                               { duration: PANEL_ANIM_MS, easing: PANEL_EASE, fill: "forwards" });
+    const fades = kids.map(k => k.animate(collapsed ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }],
+                                          { duration: PANEL_ANIM_MS, easing: "ease", fill: "forwards" }));
+    let done = false;
+    const finish = () => {
+      if(done) return; done = true;
+      running.delete(panel);
+      if(collapsed) panel.classList.add("collapsed");
+      panel.classList.remove("panel-anim");
+      grow.cancel(); fades.forEach(f => f.cancel());
+      if(!running.size){ trimStage(); setAnchoring(false); }
+    };
+    running.set(panel, { finish });
+    grow.onfinish = finish;
   };
   const expandExclusive = (panel) => {
-    panels.forEach(o => { if(o !== panel) setCollapsed(o, true); });
-    setCollapsed(panel, false);
-    // Al cerrarse el panel de arriba, el que se abrió se desplaza: se mantiene a la vista.
-    try{ panel.scrollIntoView({ block: "nearest" }); }catch(e){}
+    panels.forEach(o => { if(o !== panel) setCollapsed(o, true, true); });
+    setCollapsed(panel, false, true);
   };
   expandPanelExclusive = expandExclusive;
   panels.forEach(panel => {
     const h2 = panel.querySelector(":scope > h2");
     h2.setAttribute("role", "button");
     h2.setAttribute("tabindex", "0");
-    setCollapsed(panel, true);
+    setCollapsed(panel, true, false);   // arranque: todo colapsado, sin animar
     const toggle = () => {
-      if(panel.classList.contains("collapsed")) expandExclusive(panel);
-      else setCollapsed(panel, true);
+      if(isOpen(panel)) setCollapsed(panel, true, true);
+      else expandExclusive(panel);
     };
     h2.addEventListener("click", toggle);
     // Espacio/Enter: mismo comportamiento esperado de cualquier botón real.
