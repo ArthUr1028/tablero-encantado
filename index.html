@@ -7446,7 +7446,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V171 · 3-oct-2026 · Copiar análisis: ejercicios generados por la app, sin adivinar amenazas, Veo solo en momentos críticos";
+const BUILD_ID = "V171 · 3-oct-2026 · Copiar análisis: ejercicios generados por la app (también en partidas sin errores graves), sin adivinar amenazas, Veo solo en momentos críticos";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11215,7 +11215,7 @@ function anCompose(o){
     const W = 8, wins = [];
     for(let i = 0; i + W < a.wp.length; i++){
       const j = i + W, dw = a.wp[i] - a.wp[j];            // >0: pierden las blancas
-      if(i >= 12 && anEvalStr(a.cp[i]) && anEvalStr(a.cp[j])) wins.push({ i, j, side: dw > 0 ? "Blancas" : "Negras", drop: Math.abs(dw) });
+      if(i >= 12 && anEvalStr(a.cp[i]) && anEvalStr(a.cp[j]) && Math.abs(a.cp[i]) < AN_MATE - 1000 && Math.abs(a.cp[j]) < AN_MATE - 1000) wins.push({ i, j, side: dw > 0 ? "Blancas" : "Negras", drop: Math.abs(dw) });
     }
     wins.sort((p, q) => q.drop - p.drop);
     const picked = [];
@@ -11252,7 +11252,10 @@ function anCompose(o){
     L.push("   FEN antes de la jugada (mueven " + who.toLowerCase() + "): " + toFEN(st));
     L.push("   Piezas de ESTE momento — Blancas: " + pl.w + " | Negras: " + pl.b);
   });
-  const ex = crit.filter(x => { const b = anBestSan(x.i); return x.k !== "imprecision" && b && b !== game.sans[x.i]; }).slice(0, 2);
+  const hasBest = x => { const b = anBestSan(x.i); return !!b && b !== game.sans[x.i]; };
+  let ex = crit.filter(x => x.k !== "imprecision" && hasBest(x)).slice(0, 2);
+  // Sin errores graves: se admite 1 imprecisión si la evaluación se movió ≥ 1,5 peones (no es solo ruido del motor).
+  if(!ex.length) ex = crit.filter(x => hasBest(x) && Math.abs(a.cp[x.i + 1] - a.cp[x.i]) >= 150 && Math.abs(a.cp[x.i + 1]) < AN_MATE - 1000).slice(0, 1);
   ex.forEach((x, k) => {
     const st = game.states[x.i], who = st.turn === "w" ? "blancas" : "negras";
     L.push("EJERCICIO " + (k + 1) + ": FEN " + toFEN(st) + " · Pregunta: «Mueven " + who + ". Encuentra la mejor jugada.» · Solución (del motor): " + anBestSan(x.i) + ".");
