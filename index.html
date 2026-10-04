@@ -1764,6 +1764,10 @@
   .an-tag.an-blunder{ color:var(--danger); }
   /* V172: modo entrenador */
   .tr-card{ margin:0 0 12px; padding:9px 12px; border-radius:3px; background:rgba(0,0,0,.28); border:1px solid var(--line); color:var(--text); font-size:.92rem; line-height:1.45; }
+  /* V173: el entrenador flota a la izquierda del tablero cuando sobra espacio */
+  .tr-card.tr-float{ position:fixed; z-index:45; margin:0; overflow:auto; background:rgba(22,17,12,.94); box-shadow:0 4px 16px rgba(0,0,0,.45); }
+  .tr-card .tr-coach{ margin:6px 0 0; color:var(--text); }
+  .tr-card .tr-coach.tr-tactic{ color:#eab070; }
   .tr-card.tr-green{ border-color:rgba(127,176,138,.6); }
   .tr-card.tr-yellow{ border-color:rgba(234,176,112,.6); }
   .tr-card.tr-red{ border-color:rgba(195,74,60,.75); }
@@ -7470,7 +7474,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V172 · 3-oct-2026 · Modo entrenador: semáforo por jugada, pistas en 3 escalones, reintentar jugada roja y resumen final";
+const BUILD_ID = "V173 · 3-oct-2026 · Entrenador a la izquierda del tablero (también en pantalla completa) y comentarios de aperturas, defensas y tácticas";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11565,9 +11569,9 @@ function trSummaryHTML(){
 function renderTrCard(){
   const el = document.getElementById("tr-card");
   if(!el) return;
-  if(!trCan() || !trSess){ el.hidden = true; el.innerHTML = ""; return; }
+  if(!trCan() || !trSess){ el.hidden = true; el.innerHTML = ""; trPlace(); return; }
   el.hidden = false;
-  if(trEnded() && trSess.moves.length){ el.className = "tr-card"; el.innerHTML = trSummaryHTML(); return; }
+  if(trEnded() && trSess.moves.length){ el.className = "tr-card"; el.innerHTML = trSummaryHTML(); trPlace(); return; }
   const last = trSess.last;
   const kind = last && last.kind && ["green", "yellow", "red"].includes(last.kind) ? last.kind : "";
   el.className = "tr-card" + (kind ? " tr-" + kind : "");
@@ -11600,11 +11604,170 @@ function renderTrCard(){
           : trHint === 2 ? "Pista 2 de 3: fíjate en la pieza resaltada en el tablero."
           : "Pista 3 de 3: el motor propone " + b.san + ".") + '</p>';
       } else if(!kind && !last) h += '<p class="tr-line">Tu turno.</p>';
+      if(trHint === 0) h += trCoachHTML();
       h += '<div class="tr-btns"><button class="btn mini" data-tr="hint"' + (b && trHint < 3 ? "" : " disabled") + '>' + (b ? (trHint >= 3 ? "Pista (ya la viste)" : "Pista") : "Pista (pensando…)") + '</button></div>';
     }
   }
   el.innerHTML = h;
+  trPlace();
 }
+
+/* ---- V173: ubicación a la izquierda del tablero + comentarios de aperturas y tácticas ---- */
+var trHome = null;
+function trPlace(){
+  const el = document.getElementById("tr-card");
+  if(!el || !boardFrameEl) return;
+  if(!trHome) trHome = { parent: el.parentNode, next: el.nextSibling };
+  let float = false, r = null, topMin = 12;
+  if(!el.hidden){
+    r = boardFrameEl.getBoundingClientRect();
+    // El borde izquierdo real incluye cementerios/nombres si están a ese lado.
+    let L = r.left;
+    [graveyardTopEl, graveyardBottomEl].forEach(n => {
+      if(!n) return; const q = n.getBoundingClientRect();
+      if(q.width > 0 && q.height > 0 && q.right <= r.left + 4 && q.left < L && q.bottom > r.top - 4) L = q.left;
+    });
+    [nameplateTopEl, nameplateBottomEl].forEach(n => {   // nombres en la columna izquierda: la tarjeta queda debajo
+      if(!n) return; const q = n.getBoundingClientRect();
+      if(q.width > 0 && q.height > 0 && q.right <= r.left + 4 && q.top < r.top + 120) topMin = Math.max(topMin, q.bottom + 10);
+    });
+    r = { left: L, top: r.top, width: r.width };
+    const avail = r.left - 20;
+    if(window.innerWidth >= 700 && r.width > 120 && avail >= 190) float = true;
+  }
+  if(float){
+    if(el.parentNode !== document.body) document.body.appendChild(el);
+    el.classList.add("tr-float");
+    const w = Math.min(280, r.left - 20);
+    const top = Math.max(topMin, r.top);
+    el.style.left = Math.max(8, Math.round(r.left - w - 12)) + "px";
+    el.style.width = Math.round(w) + "px";
+    el.style.top = Math.round(top) + "px"; el.style.bottom = "";
+    el.style.maxHeight = Math.max(120, window.innerHeight - top - 12) + "px";
+  } else if(!el.hidden && document.body.classList.contains("zen-mode")){
+    // Pantalla completa sin espacio a la izquierda (teléfono): tarjeta anclada abajo.
+    if(el.parentNode !== document.body) document.body.appendChild(el);
+    el.classList.add("tr-float");
+    el.style.left = "8px"; el.style.width = "calc(100vw - 16px)"; el.style.top = "auto"; el.style.bottom = "8px"; el.style.maxHeight = "40vh";
+    return;
+  } else {
+    el.classList.remove("tr-float");
+    el.style.bottom = "";
+    el.style.left = el.style.width = el.style.top = el.style.maxHeight = "";
+    if(trHome && el.parentNode !== trHome.parent){
+      if(trHome.next && trHome.next.parentNode === trHome.parent) trHome.parent.insertBefore(el, trHome.next);
+      else trHome.parent.appendChild(el);
+    }
+  }
+}
+(function(){
+  let q = false;
+  const go = () => { if(q) return; q = true; requestAnimationFrame(() => { q = false; try{ trPlace(); }catch(e){} }); };
+  window.addEventListener("resize", go);
+  window.addEventListener("scroll", go, { passive: true });
+  const go2 = () => { go(); setTimeout(go, 300); setTimeout(go, 900); };
+  try{ new MutationObserver(go2).observe(document.body, { attributes: true, attributeFilter: ["class"] }); }catch(e){}
+  try{ if(boardFrameEl) new ResizeObserver(go).observe(boardFrameEl); }catch(e){}
+})();
+function trOpeningName(full){
+  // Solo la parte principal del nombre (los subnombres vienen en inglés en el catálogo), más "Variante…/Ataque…" si existe.
+  const parts = String(full).split(": ");
+  let n = parts[0];
+  if(parts[1] && /^(Variante|Ataque|Sistema)\b/.test(parts[1])) n += ", " + parts[1].split(", ")[0];
+  return n;
+}
+function trArt(n){
+  const w = n.split(" ")[0];
+  return (/(a|ión|ia)$/i.test(w) ? "la " : "el ") + n;
+}
+var TR_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100, a: 6, c: 8, m: 12 };
+function trTacticOf(pos, mv){
+  const me = pos.turn, foe = me === "w" ? "b" : "w";
+  const p = pos.board[mv.from[0]][mv.from[1]], t = p[1];
+  const tgt = pos.board[mv.to[0]][mv.to[1]];
+  const pos2 = applyMove(pos, mv), b2 = pos2.board;
+  const chk = inCheck(pos2, foe);
+  if(t === "b" && tgt && tgt[1] === "p" && mv.to[1] === 7 && chk && ((me === "w" && mv.to[0] === 1) || (me === "b" && mv.to[0] === 6))) return "griego";
+  if(chk){
+    const p3 = cloneState(pos2); p3.board[mv.to[0]][mv.to[1]] = "";
+    if(inCheck(p3, foe)) return "descubierta";
+  }
+  const pf = cloneState(pos2); pf.turn = me;
+  let tg = [];
+  try{ tg = legalMoves(pf).filter(m => sameSq(m.from, mv.to) && b2[m.to[0]][m.to[1]] && b2[m.to[0]][m.to[1]][0] === foe && b2[m.to[0]][m.to[1]][1] !== "p").map(m => TR_VAL[b2[m.to[0]][m.to[1]][1]] || 0); }catch(e){}
+  if(chk) tg.push(100);
+  const seen = tg.length;
+  if(seen >= 2 && tg.filter(v => v >= 3).length >= 2) return "horquilla";
+  if(t === "b" || t === "r" || t === "q"){
+    const dirs = (t === "b" ? [[1,1],[1,-1],[-1,1],[-1,-1]] : t === "r" ? [[1,0],[-1,0],[0,1],[0,-1]] : [[1,1],[1,-1],[-1,1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]]);
+    const cols = b2[0].length;
+    for(const [dr, dc] of dirs){
+      let r = mv.to[0] + dr, c = mv.to[1] + dc, first = null;
+      while(r >= 0 && r < 8 && c >= 0 && c < cols){
+        const q = b2[r][c];
+        if(q){
+          if(q[0] !== foe) break;
+          if(!first){ if(q[1] === "k") break; first = q; }
+          else { if(q[1] === "k" || (TR_VAL[q[1]] || 0) > (TR_VAL[first[1]] || 0)) return "clavada"; break; }
+        }
+        r += dr; c += dc;
+      }
+    }
+  }
+  return null;
+}
+var trCoachCache = { fen: "", html: "" };
+function trCoachHTML(){
+  if(!trHumanTurn() || trPend || trGate) return "";
+  let h = "";
+  // Apertura / defensa
+  try{
+    if(game.startFEN === START && game.sans.length >= 1 && game.sans.length <= 16 && !branch){
+      const sans = game.sans.slice(0, game.cursor == null ? game.sans.length : game.cursor);
+      const m = findOpeningMatch(sans);
+      const rival = machineHumanColor === "w" ? "negras" : "blancas";
+      if(m && m[2].length === sans.length){
+        const n = trOpeningName(m[1]), isDef = /^Defensa|^Contragambito/.test(n);
+        const art = trArt(n);
+        const first = machineHumanColor === "b";   // el rival es blanco
+        h += '<p class="tr-coach">' + (sans.length === 1 ? "Las " + rival + " han iniciado con " + art
+          : first ? "Las blancas siguen con " + art
+          : isDef ? "Las negras responden con " + art : "Seguimos en " + art) + ' <span class="tr-line">(' + m[0] + ')</span>. ¿Qué harás?</p>';
+      } else if(m && sans.length - m[2].length <= 2){
+        h += '<p class="tr-coach">Seguimos en terreno conocido de ' + trArt(trOpeningName(m[1])) + ' (' + m[0] + '), aunque ya con jugadas poco habituales.</p>';
+      } else if(m){
+        h += '<p class="tr-coach">Ya salimos de la teoría tras ' + trArt(trOpeningName(m[1])) + '. Desde aquí manda el cálculo.</p>';
+      }
+    }
+  }catch(e){}
+  // Táctica (solo si el motor la confirma: mate o ventaja clara de la mejor jugada sobre la 2ª)
+  try{
+    const pre = trPre, pos = liveState(), fen = toFEN(pos);
+    if(pre && pre.fen === fen && pre.state === "done" && pre.infos && pre.infos[1] && pre.infos[1].pv){
+      if(trCoachCache.fen !== fen + "|" + (trSess ? trSess.moves.length : 0)){
+        let t = "";
+        const i1 = pre.infos[1], i2 = pre.infos[2];
+        const c1 = trCp(i1), c2 = i2 ? trCp(i2) : null;
+        const mate = i1.mate !== null && i1.mate !== undefined && i1.mate > 0 && i1.mate <= 4;
+        const clear = c2 !== null && c1 - c2 >= 80 && c1 > -150;
+        if(mate) t = "El motor ve un mate forzado en " + i1.mate + (i1.mate === 1 ? " jugada" : " jugadas") + ". Busca jaques.";
+        else if(clear){
+          const mv = matchUci(pos, i1.pv[0]);
+          const k = mv ? trTacticOf(pos, mv) : null;
+          t = k === "griego" ? "Aquí te conviene más aplicar el sacrificio griego: un alfil que se inmola sobre el peón del rey enemigo abre el ataque."
+            : k === "horquilla" ? "Hay una horquilla a tu alcance: una sola pieza puede atacar a dos piezas valiosas a la vez."
+            : k === "clavada" ? "Se puede explotar una clavada: una pieza rival no puede moverse sin dejar expuesta a otra más valiosa."
+            : k === "descubierta" ? "Mira el jaque a la descubierta: mover una pieza puede destapar el ataque de otra."
+            : "";
+        }
+        trCoachCache = { fen: fen + "|" + (trSess ? trSess.moves.length : 0), html: t ? '<p class="tr-coach tr-tactic">' + t + '</p>' : "" };
+      }
+      h += trCoachCache.html;
+    }
+  }catch(e){}
+  return h;
+}
+
 (function(){
   const card = document.getElementById("tr-card");
   if(card) card.addEventListener("click", e => {
