@@ -1763,9 +1763,15 @@
   .an-tag.an-error{ color:var(--ember); }
   .an-tag.an-blunder{ color:var(--danger); }
   /* V172: modo entrenador */
-  .tr-card{ margin:0 0 12px; padding:9px 12px; border-radius:3px; background:rgba(0,0,0,.28); border:1px solid var(--line); color:var(--text); font-size:.92rem; line-height:1.45; }
+  .tr-card{ margin:0 0 12px; padding:10px 14px; border-radius:14px; color:var(--text); font-size:.92rem; line-height:1.45;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.22));
+    border:1px solid rgba(255,255,255,.2);
+    box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2); }
+  .tr-card.tr-in{ animation:trIn .9s ease both; }
+  @keyframes trIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
   /* V173: el entrenador flota a la izquierda del tablero cuando sobra espacio */
-  .tr-card.tr-float{ position:fixed; z-index:45; margin:0; overflow:auto; background:rgba(22,17,12,.94); box-shadow:0 4px 16px rgba(0,0,0,.45); }
+  .tr-card.tr-float{ position:fixed; z-index:45; margin:0; overflow:auto; }
   .tr-card .tr-coach{ margin:6px 0 0; color:var(--text); }
   .tr-card .tr-coach.tr-tactic{ color:#eab070; }
   .tr-card.tr-green{ border-color:rgba(127,176,138,.6); }
@@ -2534,6 +2540,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
     <div class="zen-info" id="zen-info-right"></div>
 
     <div class="side" id="side-panels">
+      <div class="tr-card" id="tr-card" hidden aria-live="polite"></div>
       <!-- Fase 2 · Cuenta (2026-09-23): primer paso del multijugador —
            registro/login/logout contra Supabase Auth. A propósito NO toca
            todavía "Mi nombre" (#owner-name, ver más abajo) ni el resto del
@@ -2840,7 +2847,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <span class="dot b" aria-hidden="true"></span>
         </div>
         <div class="status" id="status">Turno de las blancas</div>
-        <div class="tr-card" id="tr-card" hidden aria-live="polite"></div>
         <!-- Fase 2 · paso 4 (2026-09-24): banner de la partida en vivo que
              el tablero está reflejando ahora mismo (si hay una).
              Ronda "botones en La Partida" (2026-09-25): a pedido de Arthur
@@ -11566,15 +11572,19 @@ function trSummaryHTML(){
     '<p class="tr-line">' + tip + '</p>' +
     '<div class="tr-btns"><button class="btn mini" data-tr="analyze">Analizar partida a fondo</button></div>';
 }
+function trCls(el, extra){
+  const keep = (el.classList.contains("tr-in") ? " tr-in" : "") + (el.classList.contains("tr-float") ? " tr-float" : "");
+  el.className = "tr-card" + (extra ? " " + extra : "") + keep;
+}
 function renderTrCard(){
   const el = document.getElementById("tr-card");
   if(!el) return;
-  if(!trCan() || !trSess){ el.hidden = true; el.innerHTML = ""; trPlace(); return; }
-  el.hidden = false;
-  if(trEnded() && trSess.moves.length){ el.className = "tr-card"; el.innerHTML = trSummaryHTML(); trPlace(); return; }
+  if(!trCan() || !trSess){ el.classList.remove("tr-in"); el.hidden = true; el.innerHTML = ""; trPlace(); return; }
+  if(el.hidden){ el.hidden = false; el.classList.add("tr-in"); }
+  if(trEnded() && trSess.moves.length){ trCls(el, ""); el.innerHTML = trSummaryHTML(); trPlace(); return; }
   const last = trSess.last;
   const kind = last && last.kind && ["green", "yellow", "red"].includes(last.kind) ? last.kind : "";
-  el.className = "tr-card" + (kind ? " tr-" + kind : "");
+  trCls(el, kind ? "tr-" + kind : "");
   let h = "";
   const pct = x => Math.round(x) + "%";
   if(trPend){
@@ -11617,8 +11627,9 @@ var trHome = null;
 function trPlace(){
   const el = document.getElementById("tr-card");
   if(!el || !boardFrameEl) return;
-  if(!trHome) trHome = { parent: el.parentNode, next: el.nextSibling };
-  let float = false, r = null, topMin = 12;
+  const sideEl = document.getElementById("side-panels");
+  trHome = { parent: sideEl, next: sideEl ? sideEl.firstChild : null };
+  let float = false, r = null, zen = null;
   if(!el.hidden){
     r = boardFrameEl.getBoundingClientRect();
     // El borde izquierdo real incluye cementerios/nombres si están a ese lado.
@@ -11627,20 +11638,27 @@ function trPlace(){
       if(!n) return; const q = n.getBoundingClientRect();
       if(q.width > 0 && q.height > 0 && q.right <= r.left + 4 && q.left < L && q.bottom > r.top - 4) L = q.left;
     });
-    [nameplateTopEl, nameplateBottomEl].forEach(n => {   // nombres en la columna izquierda: la tarjeta queda debajo
-      if(!n) return; const q = n.getBoundingClientRect();
-      if(q.width > 0 && q.height > 0 && q.right <= r.left + 4 && q.top < r.top + 120) topMin = Math.max(topMin, q.bottom + 10);
-    });
-    r = { left: L, top: r.top, width: r.width };
-    const avail = r.left - 20;
-    if(window.innerWidth >= 700 && r.width > 120 && avail >= 190) float = true;
+    if(document.body.classList.contains("zen-mode")){
+      // Pantalla completa: al borde izquierdo de la pantalla, sin pisar el texto del nombre.
+      const np = nameplateTopEl, q = np ? np.getBoundingClientRect() : null;
+      let tl = L;
+      if(q && q.width > 0){ const rg = document.createRange(); rg.selectNodeContents(np); const t = rg.getBoundingClientRect(); if(t.width > 0) tl = Math.min(tl, t.left); }
+      const wSide = tl - 12 - 14;          // junto al nombre, a la altura del tablero
+      const wUnder = L - 12 - 14;          // debajo del nombre
+      if(wSide >= 190){ zen = { w: Math.min(280, wSide), top: r.top }; }
+      else if(wUnder >= 150 && q){ zen = { w: Math.min(280, wUnder), top: q.bottom + 10 }; }
+      if(zen) float = true;
+    } else {
+      r = { left: L, top: r.top, width: r.width };
+      if(window.innerWidth >= 700 && r.width > 120 && r.left - 20 >= 190) float = true;
+    }
   }
   if(float){
     if(el.parentNode !== document.body) document.body.appendChild(el);
     el.classList.add("tr-float");
-    const w = Math.min(280, r.left - 20);
-    const top = Math.max(topMin, r.top);
-    el.style.left = Math.max(8, Math.round(r.left - w - 12)) + "px";
+    const w = zen ? zen.w : Math.min(280, r.left - 20);
+    const top = zen ? Math.max(12, zen.top) : Math.max(12, r.top);
+    el.style.left = (zen ? 12 : Math.max(8, Math.round(r.left - w - 12))) + "px";
     el.style.width = Math.round(w) + "px";
     el.style.top = Math.round(top) + "px"; el.style.bottom = "";
     el.style.maxHeight = Math.max(120, window.innerHeight - top - 12) + "px";
@@ -11654,15 +11672,14 @@ function trPlace(){
     el.classList.remove("tr-float");
     el.style.bottom = "";
     el.style.left = el.style.width = el.style.top = el.style.maxHeight = "";
-    if(trHome && el.parentNode !== trHome.parent){
-      if(trHome.next && trHome.next.parentNode === trHome.parent) trHome.parent.insertBefore(el, trHome.next);
-      else trHome.parent.appendChild(el);
-    }
+    if(trHome.parent && el.parentNode !== trHome.parent) trHome.parent.insertBefore(el, trHome.parent.firstChild);
   }
 }
 (function(){
   let q = false;
   const go = () => { if(q) return; q = true; requestAnimationFrame(() => { q = false; try{ trPlace(); }catch(e){} }); };
+  const cardEl = document.getElementById("tr-card");
+  if(cardEl) cardEl.addEventListener("animationend", () => cardEl.classList.remove("tr-in"));
   window.addEventListener("resize", go);
   window.addEventListener("scroll", go, { passive: true });
   const go2 = () => { go(); setTimeout(go, 300); setTimeout(go, 900); };
@@ -11733,9 +11750,13 @@ function trCoachHTML(){
         h += '<p class="tr-coach">' + (sans.length === 1 ? "Las " + rival + " han iniciado con " + art
           : first ? "Las blancas siguen con " + art
           : isDef ? "Las negras responden con " + art : "Seguimos en " + art) + ' <span class="tr-line">(' + m[0] + ')</span>. ¿Qué harás?</p>';
+      } else if(m && trSess && trSess.offbook !== undefined && trSess.offbook !== sans.length){
+        /* la salida de teoría ya se comentó una vez */
       } else if(m && sans.length - m[2].length <= 2){
+        if(trSess && trSess.offbook === undefined) trSess.offbook = sans.length;
         h += '<p class="tr-coach">Seguimos en terreno conocido de ' + trArt(trOpeningName(m[1])) + ' (' + m[0] + '), aunque ya con jugadas poco habituales.</p>';
       } else if(m){
+        if(trSess && trSess.offbook === undefined) trSess.offbook = sans.length;
         h += '<p class="tr-coach">Ya salimos de la teoría tras ' + trArt(trOpeningName(m[1])) + '. Desde aquí manda el cálculo.</p>';
       }
     }
