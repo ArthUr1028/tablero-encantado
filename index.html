@@ -1769,6 +1769,17 @@
     box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3);
     -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2); }
   body.is-free .free-hide{ display:none !important; }
+  /* V179: en pantalla completa, controles de La Partida (Iniciar/Pausa, navegación y notación) a la derecha del tablero */
+  .zen-game{ position:fixed; z-index:44; display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:14px; overflow:hidden;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.22));
+    border:1px solid rgba(255,255,255,.2); box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2); }
+  .zen-game[hidden]{ display:none; }
+  .zen-game .zg-title{ font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember-soft, #eab070); opacity:.9; }
+  .zen-game #match-controls{ margin:0; }
+  .zen-game .nav{ margin:0; }
+  .zen-game .moves{ margin:0; max-height:none; flex:1 1 auto; min-height:48px; }
+  .zen-game.zg-min .moves, .zen-game.zg-min .zg-title{ display:none; }
   .tr-card .tr-name{ font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember-soft, #eab070); margin:0 0 4px; opacity:.9; }
   .tr-card.tr-compact{ font-size:.8rem; padding:8px 10px; line-height:1.35; }
   .tr-card.tr-compact .btn.mini{ padding:3px 7px; }
@@ -2504,6 +2515,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
     </button>
   </div>
 
+  <div class="zen-game" id="zen-game" hidden></div>
   <div class="stage">
     <div class="board-area">
       <div class="nameplate" id="nameplate-top" aria-hidden="true"></div>
@@ -2819,18 +2831,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           </div>
           <p class="free-hint" id="clock-note" style="margin-top:8px">Cada bando arranca con su propio tiempo; al mover se suma el incremento, si hay. Se acaba el tiempo de un bando y pierde la partida.</p>
         </div>
-        <!-- Ronda "Iniciar realmente inicia la partida" (2026-09-17): Arthur
-             pidió que "Iniciar partida" exista SIEMPRE (con reloj activado o
-             no) y de verdad frene el juego — ni claudIA ni el humano mueven
-             pieza hasta pulsarlo, y "Pausa" congela ambas cosas (jugar Y, si
-             hay reloj, el reloj) por igual. Por eso vive fuera de
-             #clock-config: no depende de que el reloj esté activado. Ver
-             matchStarted/matchPaused, tryMove() y maybeMachineMove() en el
-             script. -->
-        <div class="btns free-hide" id="match-controls" style="margin-top:10px">
-          <button class="btn" id="match-start">Iniciar partida</button>
-          <button class="btn" id="match-pause" disabled>Pausa</button>
-        </div>
         <!-- Reto de claudIA (bloque 3, 2026-09-30): un clic y claudIA sortea
              modalidad y color; nivel segun modalidad (ver RETO_TABLE). -->
         <div class="btns free-hide" id="reto-box" style="margin-top:10px">
@@ -2850,6 +2850,18 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <span class="dot b" aria-hidden="true"></span>
         </div>
         <div class="status" id="status">Turno de las blancas</div>
+        <!-- Ronda "Iniciar realmente inicia la partida" (2026-09-17): Arthur
+             pidió que "Iniciar partida" exista SIEMPRE (con reloj activado o
+             no) y de verdad frene el juego — ni claudIA ni el humano mueven
+             pieza hasta pulsarlo, y "Pausa" congela ambas cosas (jugar Y, si
+             hay reloj, el reloj) por igual. Por eso vive fuera de
+             #clock-config: no depende de que el reloj esté activado. Ver
+             matchStarted/matchPaused, tryMove() y maybeMachineMove() en el
+             script. -->
+        <div class="btns free-hide" id="match-controls" style="margin:0 0 12px">
+          <button class="btn" id="match-start">Iniciar partida</button>
+          <button class="btn" id="match-pause" disabled>Pausa</button>
+        </div>
         <!-- Fase 2 · paso 4 (2026-09-24): banner de la partida en vivo que
              el tablero está reflejando ahora mismo (si hay una).
              Ronda "botones en La Partida" (2026-09-25): a pedido de Arthur
@@ -5155,7 +5167,7 @@ function setZenMode(active){
   // siempre, al salir) -- una sola llamada cubre ambos.
   syncBoardMetrics();
   try{ updateZenLiveMenu(); }catch(e){} // V149
-  try{ trPlace(); setTimeout(trPlace, 250); setTimeout(trPlace, 800); }catch(e){}
+  try{ trPlace(); zgPlace(); setTimeout(() => { trPlace(); zgPlace(); }, 250); setTimeout(() => { trPlace(); zgPlace(); }, 800); }catch(e){}
 }
 zenToggleEnterEl.addEventListener("click", () => setZenMode(true));
 zenToggleExitEl.addEventListener("click", () => setZenMode(false));
@@ -7484,7 +7496,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V178 · 3-oct-2026 · Entrenadora claudIA fija a la izquierda del tablero también con zoom, y con su nombre";
+const BUILD_ID = "V179 · 3-oct-2026 · Iniciar partida pasa a La Partida; en pantalla completa, Iniciar/Pausa, navegación y notación a la derecha del tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11603,6 +11615,62 @@ function trContinue(){
   render();
 }
 
+
+/* ---- V179: panel de partida a la derecha del tablero en pantalla completa ---- */
+var zgNodes = null, zgTitle = null;
+function zgPlace(){
+  try{ zgPlaceInner(); }catch(e){}
+}
+function zgPlaceInner(){
+  const box = document.getElementById("zen-game");
+  if(!box || !boardFrameEl) return;
+  if(!zgNodes){
+    zgNodes = ["match-controls", "nav-start", "moves"].map(id => {
+      let el = document.getElementById(id);
+      if(id === "nav-start") el = el && el.parentNode;     // la fila completa de navegación
+      return el ? { el, parent: el.parentNode, next: el.nextSibling } : null;
+    }).filter(Boolean);
+    zgTitle = document.createElement("div"); zgTitle.className = "zg-title"; zgTitle.textContent = "La partida";
+  }
+  const zen = zenMode || document.body.classList.contains("zen-mode");
+  if(!zen){
+    if(!box.hidden){
+      zgNodes.forEach(n => {
+        if(n.next && n.next.parentNode === n.parent) n.parent.insertBefore(n.el, n.next); else n.parent.appendChild(n.el);
+      });
+      box.hidden = true; box.classList.remove("zg-min"); box.removeAttribute("style");
+    }
+    return;
+  }
+  if(box.hidden || zgNodes[0].el.parentNode !== box){
+    box.hidden = false;
+    box.appendChild(zgTitle);
+    zgNodes.forEach(n => box.appendChild(n.el));
+  }
+  const r = boardFrameEl.getBoundingClientRect();
+  let R = r.right;
+  [graveyardTopEl, graveyardBottomEl].forEach(n => {
+    if(!n) return; const q = n.getBoundingClientRect();
+    if(q.width > 0 && q.height > 0 && q.left >= r.right - 4 && q.right > R) R = q.right;
+  });
+  const left = R + 14, right = window.innerWidth - 60;   // 60: botón de salir de pantalla completa
+  const w = Math.min(300, right - left);
+  if(w >= 150){
+    box.classList.remove("zg-min");
+    const top = Math.max(12, r.top);
+    let bottom = window.innerHeight - 12;
+    const np = nameplateBottomEl ? nameplateBottomEl.getBoundingClientRect() : null;
+    if(np && np.width > 0 && np.left >= r.right - 4 && np.top > top) bottom = Math.min(bottom, np.top - 10);
+    box.style.left = Math.round(left) + "px"; box.style.right = "auto"; box.style.width = Math.round(w) + "px";
+    box.style.top = Math.round(top) + "px"; box.style.bottom = "auto";
+    box.style.height = Math.max(110, Math.min(Math.round(r.height), Math.round(bottom - top), 620)) + "px";
+  } else {
+    // Sin espacio al costado: solo Iniciar/Pausa y navegación, en una tira abajo a la derecha.
+    box.classList.add("zg-min");
+    box.style.left = "auto"; box.style.right = "8px"; box.style.top = "auto"; box.style.bottom = "8px";
+    box.style.width = "auto"; box.style.height = "auto";
+  }
+}
 /* ---- V175: explicaciones breves y amenazas ---- */
 var TRN = { p: ["peón", "m"], n: ["caballo", "m"], b: ["alfil", "m"], r: ["torre", "f"], q: ["dama", "f"], k: ["rey", "m"] };
 function trNm(t, withArt, def){   // "el caballo" / "un caballo"
@@ -11841,7 +11909,7 @@ function trPlaceInner(){
 }
 (function(){
   let q = false;
-  const go = () => { if(q) return; q = true; requestAnimationFrame(() => { q = false; try{ trPlace(); }catch(e){} }); };
+  const go = () => { if(q) return; q = true; requestAnimationFrame(() => { q = false; try{ trPlace(); }catch(e){} zgPlace(); }); };
   const cardEl = document.getElementById("tr-card");
   if(cardEl) cardEl.addEventListener("animationend", () => cardEl.classList.remove("tr-in"));
   window.addEventListener("resize", go);
