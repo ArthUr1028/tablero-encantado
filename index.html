@@ -1780,6 +1780,13 @@
   .zen-game .nav{ margin:0; }
   .zen-game .moves{ margin:0; max-height:none; flex:1 1 auto; min-height:48px; }
   .zen-game.zg-min .moves, .zen-game.zg-min .zg-title{ display:none; }
+  /* V184b: pantalla completa en vertical angosto -- tablero, claudIA y La partida apilados (en ese orden) bajo el tablero.
+     El panel de La partida se simplifica: sin título ni notación, Iniciar/Pausa y navegación en una sola tira compacta. */
+  .zen-game.zg-stack{ flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 8px; border-radius:12px; overflow:visible; }
+  .zen-game.zg-stack #match-controls{ flex:1 1 auto; display:flex; flex-wrap:nowrap; gap:6px; margin:0; }
+  .zen-game.zg-stack #match-controls .btn{ padding:6px 10px; font-size:.84rem; }
+  .zen-game.zg-stack .nav{ flex:0 0 auto; gap:4px; margin:0; }
+  .zen-game.zg-stack .nav .btn.icon{ min-width:34px; padding:6px 7px; font-size:.88rem; }
   .tr-card .tr-name{ font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember-soft, #eab070); margin:0 0 4px; opacity:.9; }
   .tr-card .tr-name .tr-ia{ font-size:1.16em; letter-spacing:.2em; }
   .tr-card.tr-compact{ font-size:.8rem; padding:8px 10px; line-height:1.35; }
@@ -7497,7 +7504,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V184 · 3-oct-2026 · Entrenador más exigente: pérdida en centipeones siempre (70/150/300), apertura casi sin margen, aviso de partida decidida desde ±4";
+const BUILD_ID = "V184b · 4-oct-2026 · Pantalla completa en vertical: tablero, claudIA y La partida apilados; panel de la partida compacto";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11665,7 +11672,7 @@ function zgPlaceInner(){
       zgNodes.forEach(n => {
         if(n.next && n.next.parentNode === n.parent) n.parent.insertBefore(n.el, n.next); else n.parent.appendChild(n.el);
       });
-      box.hidden = true; box.classList.remove("zg-min"); box.removeAttribute("style");
+      box.hidden = true; box.classList.remove("zg-min"); box.classList.remove("zg-stack"); box.removeAttribute("style");
     }
     return;
   }
@@ -11683,7 +11690,7 @@ function zgPlaceInner(){
   const left = R + 14, right = window.innerWidth - 60;   // 60: botón de salir de pantalla completa
   const w = Math.min(300, right - left);
   if(w >= 150){
-    box.classList.remove("zg-min");
+    box.classList.remove("zg-min"); box.classList.remove("zg-stack");
     const top = Math.max(12, r.top);
     let bottom = window.innerHeight - 12;
     const np = nameplateBottomEl ? nameplateBottomEl.getBoundingClientRect() : null;
@@ -11691,8 +11698,21 @@ function zgPlaceInner(){
     box.style.left = Math.round(left) + "px"; box.style.right = "auto"; box.style.width = Math.round(w) + "px";
     box.style.top = Math.round(top) + "px"; box.style.bottom = "auto";
     box.style.height = Math.max(110, Math.min(Math.round(r.height), Math.round(bottom - top), 620)) + "px";
+  } else if(zenStackWanted()){
+    // V184b: vertical angosto -- tira compacta justo debajo de la tarjeta de claudIA (o del tablero si no hay tarjeta).
+    box.classList.add("zg-min"); box.classList.add("zg-stack");
+    box.style.left = "8px"; box.style.right = "auto"; box.style.bottom = "auto"; box.style.height = "auto";
+    box.style.width = Math.max(200, window.innerWidth - 16) + "px";
+    let top = zenBelowBoard() + 8;
+    const card = document.getElementById("tr-card");
+    if(card && !card.hidden && card.classList.contains("tr-float") && card.parentNode === document.body){
+      const cq = card.getBoundingClientRect(); if(cq.height > 0) top = Math.max(top, cq.bottom + 8);
+    }
+    top = Math.min(top, window.innerHeight - box.offsetHeight - 8);
+    box.style.top = Math.max(8, Math.round(top)) + "px";
   } else {
     // Sin espacio al costado: solo Iniciar/Pausa y navegación, en una tira abajo a la derecha.
+    box.classList.remove("zg-stack");
     box.classList.add("zg-min");
     box.style.left = "auto"; box.style.right = "8px"; box.style.top = "auto"; box.style.bottom = "8px";
     box.style.width = "auto"; box.style.height = "auto";
@@ -11931,6 +11951,30 @@ function trPlace(){
     try{ const el = document.getElementById("tr-card"); if(el && !el.hidden && (zenMode || document.body.classList.contains("zen-mode"))) trDock(el); }catch(e2){}
   }
 }
+/* V184b: pantalla completa en vertical angosto (sin espacio a los costados): claudIA y La partida van apiladas bajo el tablero. */
+function zenStackWanted(){
+  try{ return (zenMode || document.body.classList.contains("zen-mode")) && window.innerHeight >= window.innerWidth; }catch(e){ return false; }
+}
+function zenBelowBoard(){
+  let b = boardFrameEl ? boardFrameEl.getBoundingClientRect().bottom : 0;
+  const top0 = boardFrameEl ? boardFrameEl.getBoundingClientRect().top : 0;
+  [nameplateBottomEl, graveyardBottomEl].forEach(n => {
+    if(!n) return; const q = n.getBoundingClientRect();
+    if(q.width > 0 && q.height > 0 && q.top >= top0 && q.bottom > b) b = q.bottom;
+  });
+  return b;
+}
+function trStack(el){
+  if(el.parentNode !== document.body) document.body.appendChild(el);
+  el.classList.add("tr-float"); el.classList.remove("tr-compact");
+  const top = Math.round(zenBelowBoard() + 8);
+  const gz = document.getElementById("zen-game");
+  // Altura que ocupará el panel de La partida ya apilado (si aún no está apilado, una estimación; nunca la medida del modo anterior).
+  const gh = (gz && !gz.hidden && gz.classList.contains("zg-stack") && gz.offsetHeight > 0) ? gz.offsetHeight : 60;
+  el.style.left = "8px"; el.style.width = Math.max(200, window.innerWidth - 16) + "px";
+  el.style.top = top + "px"; el.style.bottom = "";
+  el.style.maxHeight = Math.max(56, window.innerHeight - top - 8 - gh - 8) + "px";
+}
 function trDock(el){
   if(el.parentNode !== document.body) document.body.appendChild(el);
   el.classList.add("tr-float");
@@ -11981,7 +12025,8 @@ function trPlaceInner(){
     el.style.top = Math.round(top) + "px"; el.style.bottom = "";
     el.style.maxHeight = Math.max(120, window.innerHeight - top - 12) + "px";
   } else if(!el.hidden && (dock || zenMode || document.body.classList.contains("zen-mode"))){
-    trDock(el);
+    if(!dock && zenStackWanted()) trStack(el); else trDock(el);
+    try{ zgPlace(); }catch(e){}
     return;
   } else {
     el.classList.remove("tr-float"); el.classList.remove("tr-compact");
@@ -12000,6 +12045,7 @@ function trPlaceInner(){
   const go2 = () => { go(); setTimeout(go, 300); setTimeout(go, 900); };
   try{ new MutationObserver(go2).observe(document.body, { attributes: true, attributeFilter: ["class"] }); }catch(e){}
   try{ if(boardFrameEl) new ResizeObserver(go).observe(boardFrameEl); }catch(e){}
+  try{ if(cardEl) new ResizeObserver(() => { try{ zgPlace(); }catch(e){} }).observe(cardEl); }catch(e){}
 })();
 function trOpeningName(full){
   // Solo la parte principal del nombre (los subnombres vienen en inglés en el catálogo), más "Variante…/Ataque…" si existe.
