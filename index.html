@@ -7497,7 +7497,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V183 · 3-oct-2026 · Entrenador: aviso único «partida decidida», el semáforo de apertura ya no suaviza posiciones perdidas";
+const BUILD_ID = "V184 · 3-oct-2026 · Entrenador más exigente: pérdida en centipeones siempre (70/150/300), apertura casi sin margen, aviso de partida decidida desde ±4";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11409,7 +11409,7 @@ function anBuildReport(){
 var TR_KEY = "tablero-encantado.entrenador.v1";
 var TR_PRE_MS = 1500, TR_QUICK_MS = 700, TR_AFTER_MS = 500, TR_BIAS = 3;
 var TR_LIM = { yellow: 8, red: 15, grave: 25 };
-var TR_OPENING_PLIES = 8;          // en las primeras 4 jugadas de cada bando se afloja el semáforo (ruido del motor viejo)
+var TR_OPENING_PLIES = 4;          // solo las 2 primeras jugadas de cada bando se aflojan, y solo ante pérdidas pequeñas
 var trOn = false;
 try{ trOn = localStorage.getItem(TR_KEY) === "1"; }catch(e){}
 var trSess = null, trPre = null, trGate = null, trPend = null, trHint = 0, trHintSq = null, trHintFen = null, trSeq = 0;
@@ -11578,19 +11578,23 @@ function trAfterDone(){
 }
 function trClassify(rec){
   let k = "green";
-  // V182: con la partida ya decidida la probabilidad de ganar se aplana (1% da igual que 0%) y regalar piezas
-  // "no costaba nada". En esas posiciones se mide también la pérdida en centipeones (acotada a ±15 peones).
-  if(!rec.isBest && typeof rec.cpBest === "number" && typeof rec.cpMine === "number" && (Math.abs(rec.cpBest) >= 300 || Math.abs(rec.cpMine) >= 300)){
-    const cap = v => Math.max(-1500, Math.min(1500, v));
-    const d = cap(rec.cpBest) - cap(rec.cpMine);
-    const eq = d >= 500 ? TR_LIM.grave : d >= 250 ? TR_LIM.red + 2 : d >= 100 ? TR_LIM.yellow + 1 : 0;
+  // V184: el semáforo mide SIEMPRE la pérdida en centipeones (además de la probabilidad de ganar, que se aplana al decidirse la partida).
+  // Escala (acotada a ±25 peones y con 20 cp de margen por el ruido de la búsqueda corta): ≥70 amarillo, ≥150 rojo, ≥300 grave.
+  let d = 0, cpDec = false;
+  if(!rec.isBest && typeof rec.cpBest === "number" && typeof rec.cpMine === "number"){
+    const cap = v => Math.max(-2500, Math.min(2500, v));
+    d = cap(rec.cpBest) - cap(rec.cpMine) - 20;
+    cpDec = Math.abs(rec.cpBest) >= 300 || Math.abs(rec.cpMine) >= 300;
+    const eq = d >= 300 ? TR_LIM.grave : d >= 150 ? TR_LIM.red + 1 : d >= 70 ? TR_LIM.yellow + 1 : 0;
     if(eq > rec.loss) rec.loss = eq;
+    // Si tras tu jugada sigues claramente ganando, perder ventaja es "algo mejor", no un error.
+    if(rec.loss >= TR_LIM.red && rec.loss < TR_LIM.grave && rec.cpMine >= 300 && rec.pBest - rec.pMine < TR_LIM.red) rec.loss = TR_LIM.red - 1;
   }
   if(!rec.isBest){
     if(rec.loss >= TR_LIM.red) k = "red"; else if(rec.loss >= TR_LIM.yellow) k = "yellow";
-    const decided = typeof rec.cpBest === "number" && typeof rec.cpMine === "number" && (Math.abs(rec.cpBest) >= 300 || Math.abs(rec.cpMine) >= 300);
-    if(rec.ply <= TR_OPENING_PLIES && !decided){   // V183: con la partida ya decidida no se afloja el semáforo
-      if(k === "yellow") k = "green";
+    // Solo en las dos primeras jugadas de cada bando se afloja el semáforo, y únicamente ante pérdidas pequeñas (ruido del motor viejo).
+    if(rec.ply <= TR_OPENING_PLIES && d < 150){
+      if(k === "yellow" && d < 100) k = "green";
       else if(k === "red" && rec.loss < 20) k = "yellow";
     }
   }
@@ -11600,13 +11604,13 @@ function trFinish(rec){
   const pend = trPend; trPend = null;
   if(rec){
     trClassify(rec);
-    // V183: partida decidida (±5 peones tras tu jugada; se sale por debajo de ±3). El aviso sale solo al entrar.
+    // V183: partida decidida (±4 peones tras tu jugada; se sale por debajo de ±2,5). El aviso sale solo al entrar.
     try{
       if(trSess && typeof rec.cpMine === "number"){
         const prev = trSess.dec || 0; rec.decPrev = prev;
         let now = prev;
-        if(rec.cpMine <= -500) now = -1; else if(rec.cpMine >= 500) now = 1;
-        else if(Math.abs(rec.cpMine) < 300) now = 0;
+        if(rec.cpMine <= -400) now = -1; else if(rec.cpMine >= 400) now = 1;
+        else if(Math.abs(rec.cpMine) < 250) now = 0;
         trSess.dec = now; rec.dec = now; rec.decEnter = now !== 0 && now !== prev;
       }
     }catch(e){}
