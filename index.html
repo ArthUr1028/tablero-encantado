@@ -7496,7 +7496,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V179 · 3-oct-2026 · Iniciar partida pasa a La Partida; en pantalla completa, Iniciar/Pausa, navegación y notación a la derecha del tablero";
+const BUILD_ID = "V180 · 3-oct-2026 · claudIA alterna frases en la primera pista";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11735,6 +11735,29 @@ function trWhy(pend, rec){
   }
   return "";
 }
+
+/* V180: la primera pista alterna frases (se elige por posición, así no parpadea al redibujar) */
+var TR_PHRASES = {
+  p: ["Un peón podría marcar la diferencia.", "Piensa en avanzar un peón.", "Revisa tus peones: alguno merece dar un paso.", "Si fuera tú, empujaría un peón."],
+  n: ["Si fuera tú, movería un caballo.", "Dale vida a un caballo.", "Un salto de caballo podría ser la clave.", "Piensa en mover a un caballo."],
+  b: ["Recomiendo mover un alfil.", "Hay una buena diagonal esperando a un alfil.", "Piensa en mover a un alfil.", "Tus alfiles piden diagonales: mira uno."],
+  r: ["Piensa en mover a la torre.", "Una torre pide trabajo.", "Quizá sea hora de activar una torre.", "Si fuera tú, miraría hacia las torres."],
+  q: ["La dama tiene algo que decir aquí.", "Piensa en mover a la dama.", "Es momento de pensar en la dama.", "Si fuera tú, consultaría con la dama."],
+  k: ["Tu rey puede dar un paso útil.", "Piensa en mover al rey.", "Si fuera tú, miraría al rey."],
+  castle: ["¿Qué tal si enrocas?", "Es buen momento para enrocar.", "Tu rey estaría más a salvo si enrocas.", "Si fuera tú, pensaría en el enroque."]
+};
+var trPhraseLast = "";
+function trHintPhrase(b, fen){
+  const key = (b.mv && b.mv.castle) ? "castle" : (b.piece[1] || "p");
+  const list = TR_PHRASES[key] || ["Piensa en mover una pieza."];
+  let h = 0; const str = String(fen) + key;
+  for(let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  let idx = h % list.length;
+  if(list[idx] === trPhraseLast && list.length > 1 && trHintFen2 !== fen) idx = (idx + 1) % list.length;
+  if(trHintFen2 !== fen){ trHintFen2 = fen; trPhraseCur = list[idx]; trPhraseLast = list[idx]; }
+  return trPhraseCur && list.indexOf(trPhraseCur) >= 0 ? trPhraseCur : list[idx];
+}
+var trHintFen2 = "", trPhraseCur = "";
 var TR_PIECE = { p: "un peón", n: "un caballo", b: "un alfil", r: "una torre", q: "la dama", k: "el rey" };
 function trBestMove(){
   const pre = trPre, pos = liveState();
@@ -11829,7 +11852,7 @@ function renderTrCard(){
       h += trCoachHTML("comment");   // comentarios de la posición (amenazas, apertura)
       h += trCoachHTML("tip");       // consejos: táctica confirmada y pistas, siempre debajo
       if(b){
-        h += '<p class="tr-line">Piensa en mover ' + (TR_PIECE[b.piece[1]] || "una pieza") + '.' +
+        h += '<p class="tr-line">' + trHintPhrase(b, toFEN(liveState())) +
           (trHint === 2 ? " Mira la pieza resaltada en el tablero." : "") +
           (trHint >= 3 ? " Te propongo mover " + b.san + "." : "") + '</p>';
       } else if(!kind && !last) h += '<p class="tr-line">Tu turno.</p>';
