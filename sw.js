@@ -1,9 +1,9 @@
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE = "tablero-" + CACHE_VERSION;
 const NET_TIMEOUT_MS = 4000;
 
 const CORE = ["index.html", "supabase.js"];
-const OPTIONAL = ["fairy-stockfish-engine.js", "fairy-stockfish-engine.wasm"];
+const OPTIONAL = ["fairy-stockfish-engine.js", "fairy-stockfish-engine.wasm", "stockfish-19-lite-single.wasm"];
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (event) => {
