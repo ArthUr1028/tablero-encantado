@@ -2861,7 +2861,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <p class="free-hint free-hide" id="reto-note" style="margin-top:8px"></p>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="panel-partida">
         <h2>La Partida</h2>
         <div class="players">
           <span class="dot w" aria-hidden="true"></span>
@@ -6948,6 +6948,8 @@ async function retoStart(){
   applyAutoNames();
   persist(); render();
   retoSave();
+  // V185: al empezar el reto se despliega «La Partida» (controles, Abandonar reto y jugadas); acordeón: cierra el que estuviera abierto.
+  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) expandPanelExclusive(pn); }catch(e){}
   showGlobalToast("claudIA eligió " + RETO_TABLE[variant].label + ": tú llevas " + (color === "w" ? "blancas" : "negras") + ". ¡Suerte!");
 }
 function retoRestore(){
@@ -7530,7 +7532,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V184f · 4-oct-2026 · «Abandonar reto» pasa al panel La partida (también en pantalla completa)";
+const BUILD_ID = "V185 · 4-oct-2026 · El reto abre «La Partida»; análisis e informe con la misma regla que el entrenador (70/150/300 cp, sin margen de apertura que oculte errores)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10913,6 +10915,11 @@ var anResult = null;      // resultado del último análisis terminado (ver anFi
 var anRun = null;         // corrida en curso (null = ninguna)
 var AN_SPEED_KEY = "tablero-encantado.analisis-velocidad.v1";
 var AN_MATE = 10000;      // "centipeones" que se le asignan a un mate (menos 10 por jugada de distancia)
+/* V185: el análisis de partida (marcas y «Copiar análisis para IA») usa la MISMA regla que el semáforo del entrenador (trClassify):
+   la pérdida se mide en probabilidad de ganar Y en centipeones, y vale la mayor de las dos. Centipeones (acotados a ±25 peones, con
+   20 cp de margen por el ruido de la búsqueda corta): ≥70 imprecisión, ≥150 error, ≥300 blunder. Solo las 2 primeras jugadas de cada
+   bando se aflojan, y únicamente ante pérdidas pequeñas; no hay más margen de apertura que oculte errores. */
+var AN_CP = { imprecision: 70, error: 150, blunder: 300, margin: 20, cap: 2500, openPlies: 4 };
 var AN_LIM = { imprecision: 8, error: 15, blunder: 25 };  // pérdida de % de victoria que dispara cada marca. Un poco más holgado que Lichess (5/10/15) porque este motor es viejo y busca poco tiempo; el sesgo sistemático ya se compensa en anFinish.
 var anMs = 1000;
 try{ const s = +localStorage.getItem(AN_SPEED_KEY); if([500, 1000, 2000].includes(s)) anMs = s; }catch(e){}
@@ -11104,13 +11111,29 @@ function anFinish(){
   const side = { w: { n: 0, acc: 0, best: 0, imprecision: 0, error: 0, blunder: 0 },
                  b: { n: 0, acc: 0, best: 0, imprecision: 0, error: 0, blunder: 0 } };
   raw.forEach((o, i) => {
-    const loss = o.isBest ? 0 : Math.max(0, o.loss - bias);
-    const acc = Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669));
+    const winLoss = o.isBest ? 0 : Math.max(0, o.loss - bias);
+    const acc = Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * winLoss) - 3.1669));
+    // V185: misma medida que el entrenador (ver AN_CP): pérdida en centipeones desde el punto de vista de quien movió.
+    let loss = winLoss, d = 0;
+    if(!o.isBest && typeof r.cp[i] === "number" && typeof r.cp[i + 1] === "number"){
+      const sg = o.mover === "w" ? 1 : -1, cap = v => Math.max(-AN_CP.cap, Math.min(AN_CP.cap, v));
+      const cpB = sg * r.cp[i], cpA = sg * r.cp[i + 1];
+      d = cap(cpB) - cap(cpA) - AN_CP.margin;
+      const eq = d >= AN_CP.blunder ? AN_LIM.blunder : d >= AN_CP.error ? AN_LIM.error + 1 : d >= AN_CP.imprecision ? AN_LIM.imprecision + 1 : 0;
+      if(eq > loss) loss = eq;
+      // Si tras su jugada sigue claramente ganando, perder ventaja es «algo mejor», no un error.
+      if(loss >= AN_LIM.error && loss < AN_LIM.blunder && cpA >= 300 && o.before - o.after < AN_LIM.error) loss = AN_LIM.error - 1;
+    }
     let kind = null;
     if(loss >= AN_LIM.blunder) kind = "blunder";
     else if(loss >= AN_LIM.error) kind = "error";
     else if(loss >= AN_LIM.imprecision) kind = "imprecision";
-    marks.push({ loss, kind, isBest: o.isBest, before: o.before, after: o.after, best: r.best[i] });
+    // Solo en las 2 primeras jugadas de cada bando se afloja, y únicamente ante pérdidas pequeñas.
+    if(!o.isBest && i + 1 <= AN_CP.openPlies && d < AN_CP.error){
+      if(kind === "imprecision" && d < 100) kind = null;
+      else if(kind === "error" && loss < 20) kind = "imprecision";
+    }
+    marks.push({ loss, winLoss, cpLoss: d, kind, isBest: o.isBest, before: o.before, after: o.after, best: r.best[i] });
     const sd = side[o.mover];
     sd.n++; sd.acc += acc; if(o.isBest) sd.best++;
     if(kind) sd[kind]++;
@@ -11274,7 +11297,7 @@ var anMe = "x";   // con qué bando jugó Arthur: "w", "b" o "x" (no indicado)
 var AN_LEVEL_KEY = "tablero-encantado.analisis-nivel.v1";
 var AN_HABITS_KEY = "tablero-encantado.analisis-habitos.v1";
 var AN_REPORT_MAX = 6000;      // caracteres: si se pasa, se abrevia (chats con límite de entrada)
-var AN_OPENING_PLIES = 8;      // en las primeras semi-jugadas solo se informan los blunders (el resto es ruido del motor viejo)
+var AN_OPENING_PLIES = 8;      // V185: ya NO oculta errores; solo evita destacar como «mejores jugadas» las de apertura (jugarlas es trivial)
 var anLevel = "x";             // "p" principiante, "i" intermedio, "a" avanzado, "x" no indicado
 var anHabits = "";             // texto libre opcional: "mis errores de siempre"
 var anLastTrim = 0;            // 0 = reporte normal; 1 = abreviado (para avisar al copiar)
@@ -11301,10 +11324,9 @@ function anFmtResult(){
 // Marca de la jugada i para el REPORTE: igual que en pantalla, salvo que en las primeras jugadas solo
 // se conservan los blunders (con un motor viejo y 0,5 s, un ?! o un ? ahí suele ser ruido: medido con 1.b3).
 function anKind(i){
+  // V185: la misma marca que se ve en pantalla y en el entrenador (sin margen de apertura que oculte errores).
   const m = anResult.marks[i];
-  if(!m || !m.kind) return null;
-  if(m.kind !== "blunder" && i < AN_OPENING_PLIES) return null;
-  return m.kind;
+  return m && m.kind ? m.kind : null;
 }
 function anSym(k){ return k === "blunder" ? "??" : (k === "error" ? "?" : "?!"); }
 // mode: "marked" = [%eval] solo en las jugadas marcadas; "plain" = sin comentarios (solo ?!/?/??)
@@ -11406,7 +11428,7 @@ function anCompose(o){
   L.push("Alumno: " + (mine ? "jugó con " + mine + " (céntrate en sus jugadas; las del rival solo si explican las suyas)." : "no indicó bando: analiza ambos lados con equilibrio."));
   L.push("Partida: Blancas " + nm("w") + " · Negras " + nm("b") + " · " + anFmtResult() + " · " + game.sans.length + " semi-jugadas.");
   L.push("Motor: " + (sfKind === "sf19" ? "Stockfish 19 lite" : "Stockfish antiguo") + ", " + (a.ms / 1000) + " s por posición. Evaluación en peones desde las BLANCAS (+0.35 = blancas mejor; -1.20 = negras mejor; #3 / #-3 = mate en 3 de las blancas / de las negras).");
-  L.push("Marcas: ?! imprecisión, ? error, ?? blunder (pérdidas de ≥" + AN_LIM.imprecision + ", ≥" + AN_LIM.error + " y ≥" + AN_LIM.blunder + " puntos de probabilidad de ganar). En las primeras " + (AN_OPENING_PLIES / 2) + " jugadas solo se informan los blunders (el motor viejo se equivoca más en la apertura).");
+  L.push("Marcas (las mismas del entrenador): ?! imprecisión = pierde ≥" + AN_CP.imprecision / 100 + " peón (≥" + AN_CP.imprecision + " centipeones) o ≥" + AN_LIM.imprecision + " puntos de probabilidad de ganar; ? error = ≥" + AN_CP.error / 100 + " peones o ≥" + AN_LIM.error + " puntos; ?? blunder = ≥" + AN_CP.blunder / 100 + " peones o ≥" + AN_LIM.blunder + " puntos. Valen igual en la apertura (solo se afloja ante pérdidas pequeñas en las 2 primeras jugadas de cada bando): si el motor marca un error ahí, trátalo como cualquier otro.");
   [["w", "Blancas"], ["b", "Negras"]].forEach(([c, label]) => {
     const s = a.side[c], k = cnt[c];
     const pl = (n, one, many) => n + " " + (n === 1 ? one : many);
@@ -11448,7 +11470,7 @@ function anCompose(o){
   L.push("Errores graves: " + (severe ? severe + " (ver momentos críticos)." : "ninguno."));
   L.push("");
   L.push("MOMENTOS CRÍTICOS (de mayor a menor pérdida)");
-  if(!crit.length) L.push("Ninguno: el motor no marcó pérdidas relevantes fuera de la apertura.");
+  if(!crit.length) L.push("Ninguno: el motor no marcó pérdidas relevantes.");
   crit.forEach((x, k) => {
     const who = game.states[x.i].turn === "w" ? "Blancas" : "Negras";
     const best = anBestSan(x.i), st = game.states[x.i], pl = anPieceList(st);
@@ -11669,10 +11691,10 @@ function trClassify(rec){
   // Escala (acotada a ±25 peones y con 20 cp de margen por el ruido de la búsqueda corta): ≥70 amarillo, ≥150 rojo, ≥300 grave.
   let d = 0, cpDec = false;
   if(!rec.isBest && typeof rec.cpBest === "number" && typeof rec.cpMine === "number"){
-    const cap = v => Math.max(-2500, Math.min(2500, v));
-    d = cap(rec.cpBest) - cap(rec.cpMine) - 20;
+    const cap = v => Math.max(-AN_CP.cap, Math.min(AN_CP.cap, v));
+    d = cap(rec.cpBest) - cap(rec.cpMine) - AN_CP.margin;
     cpDec = Math.abs(rec.cpBest) >= 300 || Math.abs(rec.cpMine) >= 300;
-    const eq = d >= 300 ? TR_LIM.grave : d >= 150 ? TR_LIM.red + 1 : d >= 70 ? TR_LIM.yellow + 1 : 0;
+    const eq = d >= AN_CP.blunder ? TR_LIM.grave : d >= AN_CP.error ? TR_LIM.red + 1 : d >= AN_CP.imprecision ? TR_LIM.yellow + 1 : 0;
     if(eq > rec.loss) rec.loss = eq;
     // Si tras tu jugada sigues claramente ganando, perder ventaja es "algo mejor", no un error.
     if(rec.loss >= TR_LIM.red && rec.loss < TR_LIM.grave && rec.cpMine >= 300 && rec.pBest - rec.pMine < TR_LIM.red) rec.loss = TR_LIM.red - 1;
