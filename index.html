@@ -7497,7 +7497,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V182 · 3-oct-2026 · Entrenador: en posiciones decididas también cuenta la pérdida en centipeones (regalar piezas ya no sale verde)";
+const BUILD_ID = "V183 · 3-oct-2026 · Entrenador: aviso único «partida decidida», el semáforo de apertura ya no suaviza posiciones perdidas";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11588,7 +11588,8 @@ function trClassify(rec){
   }
   if(!rec.isBest){
     if(rec.loss >= TR_LIM.red) k = "red"; else if(rec.loss >= TR_LIM.yellow) k = "yellow";
-    if(rec.ply <= TR_OPENING_PLIES){
+    const decided = typeof rec.cpBest === "number" && typeof rec.cpMine === "number" && (Math.abs(rec.cpBest) >= 300 || Math.abs(rec.cpMine) >= 300);
+    if(rec.ply <= TR_OPENING_PLIES && !decided){   // V183: con la partida ya decidida no se afloja el semáforo
       if(k === "yellow") k = "green";
       else if(k === "red" && rec.loss < 20) k = "yellow";
     }
@@ -11599,6 +11600,16 @@ function trFinish(rec){
   const pend = trPend; trPend = null;
   if(rec){
     trClassify(rec);
+    // V183: partida decidida (±5 peones tras tu jugada; se sale por debajo de ±3). El aviso sale solo al entrar.
+    try{
+      if(trSess && typeof rec.cpMine === "number"){
+        const prev = trSess.dec || 0; rec.decPrev = prev;
+        let now = prev;
+        if(rec.cpMine <= -500) now = -1; else if(rec.cpMine >= 500) now = 1;
+        else if(Math.abs(rec.cpMine) < 300) now = 0;
+        trSess.dec = now; rec.dec = now; rec.decEnter = now !== 0 && now !== prev;
+      }
+    }catch(e){}
     try{ if(pend) rec.why = trWhy(pend, rec); }catch(e){ rec.why = ""; }
     if(trSess){ trSess.moves.push(rec); trSess.last = rec; trSess.revealed = rec.kind !== "red"; }
     trGate = rec.kind === "red" ? { ply: rec.ply } : null;
@@ -11612,6 +11623,7 @@ function trRetry(){
   if(!trGate || !trSess || !trSess.last || trSess.last.kind !== "red" || game.sans.length !== trGate.ply) return;
   game.states.pop(); game.sans.pop(); game.ucis.pop(); game.moves.pop();
   game.cursor = game.states.length - 1;
+  trSess.dec = trSess.last.decPrev || 0;
   trSess.retried.push(trSess.last);
   trSess.moves = trSess.moves.filter(m => m !== trSess.last);
   trSess.retries++;
@@ -11842,12 +11854,17 @@ function renderTrCard(){
   if(trPend){
     h += '<div class="tr-title">Evaluando tu jugada…</div>';
   } else if(kind){
-    const title = kind === "green" ? (last.isBest ? "¡Excelente!" : "Buena jugada")
+    const title = kind === "green" ? (last.dec === -1 ? (last.isBest ? "La mejor defensa" : "Sigues resistiendo") : last.isBest ? "¡Excelente!" : "Buena jugada")
       : kind === "yellow" ? "Hay algo mejor" : (last.loss >= TR_LIM.grave ? "Error grave" : "Error");
     h += '<div class="tr-title"><span class="tr-bullet"></span>' + title + '</div>';
     if(last.why) h += '<p class="tr-line tr-why">' + last.why + '</p>';
     if(kind !== "green" && (kind === "yellow" || trSess.revealed) && last.bestSan && last.bestSan !== last.san){
       h += '<p class="tr-line">Yo hubiera movido ' + last.bestSan.replace(/[+#]+$/, "") + '.</p>';
+    }
+    if(last.decEnter && !(kind === "red" && trGate && !trSess.revealed)){
+      h += '<p class="tr-line tr-decided">' + (last.dec === -1
+        ? "La partida ya está muy cuesta arriba. Busca la defensa más tenaz y las trampas que aún queden; yo seguiré señalando cada regalo."
+        : "Tienes la partida ganada. Ahora toca técnica: simplifica y no regales la ventaja.") + '</p>';
     }
     if(kind === "red" && trGate && !trSess.revealed){
       h += '<div class="tr-btns"><button class="btn mini" data-tr="retry">Deshacer y reintentar</button><button class="btn mini" data-tr="go">Seguir adelante</button></div>';
