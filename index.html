@@ -6949,7 +6949,7 @@ async function retoStart(){
   persist(); render();
   retoSave();
   // V185: al empezar el reto se despliega «La Partida» (controles, Abandonar reto y jugadas); acordeón: cierra el que estuviera abierto.
-  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) expandPanelExclusive(pn); }catch(e){}
+  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
   showGlobalToast("claudIA eligió " + RETO_TABLE[variant].label + ": tú llevas " + (color === "w" ? "blancas" : "negras") + ". ¡Suerte!");
 }
 function retoRestore(){
@@ -7532,7 +7532,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V185 · 4-oct-2026 · El reto abre «La Partida»; análisis e informe con la misma regla que el entrenador (70/150/300 cp, sin margen de apertura que oculte errores)";
+const BUILD_ID = "V185b · 4-oct-2026 · El reto abre «La Partida» alineada con el borde del tablero; análisis e informe con la misma regla que el entrenador";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9158,6 +9158,8 @@ setClubKind("live");
 
 // Acordeón: expande UN panel y cierra los demás (lo usa también la pastilla de turno).
 var expandPanelExclusive = function(panel){ if(panel) panel.classList.remove("collapsed"); };
+// V185b: igual que un clic en el título del panel (acordeón + deslizar para alinear su borde con el del tablero). Lo usa el reto de claudIA.
+var openPanelAligned = function(panel){ if(panel) panel.classList.remove("collapsed"); };
 
 function machineMovetimeFor(level){
   if(level <= 0) return 300;
@@ -10825,6 +10827,7 @@ function initCollapsiblePanels(){
     setCollapsed(panel, false, true);
   };
   expandPanelExclusive = expandExclusive;
+  openPanelAligned = (panel) => { clearAlignSpacer(); expandExclusive(panel); alignPanelToBoard(panel); };
   panels.forEach(panel => {
     const h2 = panel.querySelector(":scope > h2");
     h2.setAttribute("role", "button");
