@@ -598,6 +598,9 @@
 
   /* ---------- Tablero ---------- */
   .board-area{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+  /* V184c: escritorio con claudIA a la izquierda -- el JS (trReserve) corre el tablero a la derecha con este relleno si hace falta sitio. */
+  .board-area{ margin-left:var(--tr-pad, 0px); }   /* margin (no padding): syncGraveyardLayout ya usa el padding inline */
+  body.zen-mode .board-area{ margin-left:0; }
   .board-frame{
     position:relative;
     width:100%;
@@ -7504,7 +7507,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V184b · 4-oct-2026 · Pantalla completa en vertical: tablero, claudIA y La partida apilados; panel de la partida compacto";
+const BUILD_ID = "V184c · 4-oct-2026 · Escritorio con zoom: el tablero se corre a la derecha para que claudIA quepa a su izquierda sin encimarse";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11980,9 +11983,42 @@ function trDock(el){
   el.classList.add("tr-float");
   el.style.left = "8px"; el.style.width = "min(300px, calc(100vw - 16px))"; el.style.top = "auto"; el.style.bottom = "8px"; el.style.maxHeight = "40vh";
 }
+/* V184c: en escritorio (sobre todo con zoom del navegador) la tarjeta de claudIA no cabía a la izquierda y se encimaba al tablero.
+   Se reserva un margen izquierdo (corriendo el tablero a la derecha, sin tocar los paneles) hasta que quepa la tarjeta;
+   si hace falta, el tablero se achica un poco, pero nunca por debajo de un mínimo. */
+var TR_CARD_W = 230;
+function trLeftEdge(){
+  const r = boardFrameEl.getBoundingClientRect(); let L = r.left;
+  [graveyardTopEl, graveyardBottomEl].forEach(n => {
+    if(!n) return; const q = n.getBoundingClientRect();
+    if(q.width > 0 && q.height > 0 && q.right <= r.left + 4 && q.left < L && q.bottom > r.top - 4) L = q.left;
+  });
+  return L;
+}
+function trReserve(want){
+  const area = document.querySelector(".board-area"); if(!area || !boardFrameEl) return;
+  const had = area.style.getPropertyValue("--tr-pad");
+  const set = v => area.style.setProperty("--tr-pad", Math.max(0, Math.round(v)) + "px");
+  if(!want){ if(had && had !== "0px") set(0); return; }
+  set(0);
+  const L0 = trLeftEdge(), W0 = boardFrameEl.getBoundingClientRect().width;
+  const need = TR_CARD_W + 20;
+  if(L0 >= need || W0 <= 0) return;
+  const minW = Math.max(340, Math.round(W0 * 0.78));
+  let pad = need - L0; set(pad);
+  let L1 = trLeftEdge();
+  if(L1 < need - 1){ const slope = Math.max(.3, (L1 - L0) / Math.max(1, pad)); pad += (need - L1) / slope; set(pad); L1 = trLeftEdge(); }
+  const W1 = boardFrameEl.getBoundingClientRect().width;
+  if(W1 < minW - 1){ pad -= (minW - W1); set(pad); }
+}
 function trPlaceInner(){
   const el = document.getElementById("tr-card");
   if(!el || !boardFrameEl) return;
+  try{
+    const isZenNow = zenMode || document.body.classList.contains("zen-mode");
+    const desk = window.matchMedia("(hover:hover) and (pointer:fine)").matches;
+    trReserve(!el.hidden && !isZenNow && desk && window.innerWidth >= 900);
+  }catch(e){}
   const sideEl = document.getElementById("side-panels");
   trHome = { parent: sideEl, next: sideEl ? sideEl.firstChild : null };
   let float = false, r = null, zen = null, dock = false;
