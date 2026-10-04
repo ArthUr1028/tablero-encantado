@@ -1791,6 +1791,12 @@
   .zen-game.zg-side #match-controls .btn{ white-space:normal; line-height:1.15; padding:6px 4px; font-size:.8rem; text-align:center; }
   .zen-game.zg-side .nav{ gap:3px; }
   .zen-game.zg-side .nav .btn.icon{ padding:6px 0; font-size:.78rem; }
+  /* V185c: si la columna no cabe entre el botón de salir y el nombre/reloj del jugador, se compacta aún más. */
+  .zen-game.zg-tiny{ padding:4px; gap:4px; border-radius:10px; }
+  .zen-game.zg-tiny #match-controls{ gap:3px; }
+  .zen-game.zg-tiny #match-controls .btn{ padding:3px 3px; font-size:.7rem; }
+  .zen-game.zg-tiny .nav{ gap:2px; }
+  .zen-game.zg-tiny .nav .btn.icon{ padding:3px 0; font-size:.7rem; }
   .zen-game.zg-stack .nav .btn.icon{ flex:0 0 auto; max-width:none; }
   .zen-game .moves{ margin:0; max-height:none; flex:1 1 auto; min-height:48px; }
   .zen-game.zg-min .moves, .zen-game.zg-min .zg-title{ display:none; }
@@ -7532,7 +7538,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V185b · 4-oct-2026 · El reto abre «La Partida» alineada con el borde del tablero; análisis e informe con la misma regla que el entrenador";
+const BUILD_ID = "V185c · 4-oct-2026 · Pantalla completa: el panel de la partida ya no tapa el nombre ni el reloj del jugador";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11760,6 +11766,27 @@ var zgNodes = null, zgTitle = null;
 function zgPlace(){
   try{ zgPlaceInner(); }catch(e){}
 }
+/* V185c: coloca la columna de La partida en la franja derecha SIN tapar el botón de salir ni el nombre/reloj de nadie:
+   se busca el hueco vertical libre entre lo que hay arriba (botón de salir, nombre y reloj de arriba) y lo que hay abajo
+   (nombre y reloj de abajo) dentro de esa franja; si no cabe se compacta, y como último recurso se vuelve desplazable. */
+function zgRightSlot(box, left, width){
+  const H = window.innerHeight;
+  let topLim = 8, botLim = H - 8;
+  const obst = [document.getElementById("zen-toggle-exit"), nameplateTopEl, nameplateBottomEl].concat([].slice.call(document.querySelectorAll(".clock-badge")));
+  obst.forEach(n => {
+    if(!n) return;
+    const q = n.getBoundingClientRect();
+    if(!(q.width > 0 && q.height > 0)) return;
+    if(q.right <= left + 1 || q.left >= left + width - 1) return;   // no cruza la franja del panel
+    if(q.bottom <= 0 || q.top >= H) return;
+    if((q.top + q.bottom) / 2 < H / 2) topLim = Math.max(topLim, q.bottom + 8);
+    else botLim = Math.min(botLim, q.top - 8);
+  });
+  box.style.top = Math.round(topLim) + "px"; box.style.bottom = "auto"; box.style.height = "auto"; box.style.maxHeight = ""; box.style.overflowY = "";
+  let h = box.offsetHeight;
+  if(topLim + h > botLim && !box.classList.contains("zg-tiny")){ box.classList.add("zg-tiny"); h = box.offsetHeight; }
+  if(topLim + h > botLim){ box.style.maxHeight = Math.max(60, Math.round(botLim - topLim)) + "px"; box.style.overflowY = "auto"; }
+}
 function zgPlaceInner(){
   const box = document.getElementById("zen-game");
   if(!box || !boardFrameEl) return;
@@ -11786,6 +11813,7 @@ function zgPlaceInner(){
     box.appendChild(zgTitle);
     zgNodes.forEach(n => box.appendChild(n.el));
   }
+  box.classList.remove("zg-tiny"); box.style.maxHeight = ""; box.style.overflowY = "";   // V185c: se recalculan en cada colocación
   const r = boardFrameEl.getBoundingClientRect();
   let R = r.right;
   [graveyardTopEl, graveyardBottomEl].forEach(n => {
@@ -11816,12 +11844,15 @@ function zgPlaceInner(){
     top = Math.min(top, window.innerHeight - box.offsetHeight - 8);
     box.style.top = Math.max(8, Math.round(top)) + "px";
   } else if(window.innerWidth - 8 - (R + 8) >= 96 || (document.getElementById("reto-abandon") && !document.getElementById("reto-abandon").hidden)){
-    // V184f: queda un hueco angosto a la derecha del tablero: botones en columna ahí, abajo, sin tapar casillas.
-    // Con «Abandonar reto» visible (tres botones) la tira ancha ya no cabe: se usa la columna aunque el hueco sea más estrecho (mín. 100 px).
-    const gw = Math.max(100, Math.min(160, Math.floor(window.innerWidth - 8 - (R + 8))));
+    // V184f: queda un hueco angosto a la derecha del tablero: botones en columna ahí, sin tapar casillas.
+    // Con «Abandonar reto» visible (tres botones) la tira ancha ya no cabe: se usa la columna aunque el hueco sea más estrecho.
+    // V185c: ya no va pegada abajo (tapaba el nombre y el reloj de ese jugador): busca el hueco libre de la franja (zgRightSlot).
+    const gw = Math.max(76, Math.min(160, Math.floor(window.innerWidth - 8 - (R + 8))));
     box.classList.remove("zg-stack"); box.classList.add("zg-min"); box.classList.add("zg-side");
-    box.style.left = Math.round(window.innerWidth - 8 - gw) + "px"; box.style.right = "auto"; box.style.top = "auto"; box.style.bottom = "8px";
-    box.style.width = gw + "px"; box.style.height = "auto";
+    if(gw < 110) box.classList.add("zg-tiny");
+    box.style.left = Math.round(window.innerWidth - 8 - gw) + "px"; box.style.right = "auto";
+    box.style.width = gw + "px";
+    zgRightSlot(box, window.innerWidth - 8 - gw, gw);
   } else {
     // Sin espacio al costado: solo Iniciar/Pausa y navegación, en una tira abajo a la derecha.
     box.classList.remove("zg-stack"); box.classList.remove("zg-side");
