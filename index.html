@@ -1781,6 +1781,7 @@
   .zen-game .moves{ margin:0; max-height:none; flex:1 1 auto; min-height:48px; }
   .zen-game.zg-min .moves, .zen-game.zg-min .zg-title{ display:none; }
   .tr-card .tr-name{ font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember-soft, #eab070); margin:0 0 4px; opacity:.9; }
+  .tr-card .tr-name .tr-ia{ font-size:1.16em; letter-spacing:.2em; }
   .tr-card.tr-compact{ font-size:.8rem; padding:8px 10px; line-height:1.35; }
   .tr-card.tr-compact .btn.mini{ padding:3px 7px; }
   .tr-card.tr-in{ animation:trIn .9s ease both; }
@@ -7496,7 +7497,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V180 · 3-oct-2026 · claudIA alterna frases en la primera pista";
+const BUILD_ID = "V181 · 3-oct-2026 · Panel de claudIA con cambios de tamaño y contenido animados; «IA» un poco más grande";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11804,13 +11805,14 @@ function trSummaryHTML(){
     : cnt.yellow >= 3 ? "Sin errores graves, pero te faltaron jugadas precisas: antes de mover, compara dos candidatas."
     : "Partida limpia: sigue así.";
   const res = trResultText();
-  return '<div class="tr-name">claudIA</div><div class="tr-title">Resumen del entrenador' + (res ? " · " + res : "") + '</div>' +
+  return TR_NAME_HTML + '<div class="tr-title">Resumen del entrenador' + (res ? " · " + res : "") + '</div>' +
     '<p class="tr-line">' + ms.length + ' jugadas tuyas: <b>' + cnt.green + '</b> verdes · <b>' + cnt.yellow + '</b> amarillas · <b>' + cnt.red + '</b> rojas · precisión ≈ ' + Math.round(acc / ms.length) + '%.</p>' +
     (worst ? '<p class="tr-line">Jugada más costosa: ' + trMoveName(worst) + (worst.bestSan && worst.bestSan !== worst.san ? " (yo hubiera movido " + worst.bestSan.replace(/[+#]+$/, "") + ")" : "") + '.</p>' : '') +
     '<p class="tr-line">Pistas pedidas: ' + trSess.hints + ' · Reintentos: ' + trSess.retries + '.</p>' +
     '<p class="tr-line">' + tip + '</p>' +
     '<div class="tr-btns"><button class="btn mini" data-tr="analyze">Analizar partida a fondo</button></div>';
 }
+var TR_NAME_HTML = '<div class="tr-name">Claud<span class="tr-ia">IA</span></div>';
 var TR_BULB = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2v.1h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>';
 function trCls(el, extra){
   const keep = (el.classList.contains("tr-in") ? " tr-in" : "") + (el.classList.contains("tr-float") ? " tr-float" : "") + (el.classList.contains("tr-compact") ? " tr-compact" : "");
@@ -11819,13 +11821,13 @@ function trCls(el, extra){
 function renderTrCard(){
   const el = document.getElementById("tr-card");
   if(!el) return;
-  if(!trCan() || !trSess){ el.classList.remove("tr-in"); el.hidden = true; el.innerHTML = ""; trPlace(); return; }
+  if(!trCan() || !trSess){ el.classList.remove("tr-in"); el.hidden = true; el.innerHTML = ""; el.__lastHtml = null; trPlace(); return; }
   if(el.hidden){ el.hidden = false; el.classList.add("tr-in"); }
-  if(trEnded() && trSess.moves.length){ trCls(el, ""); el.innerHTML = trSummaryHTML(); trPlace(); return; }
+  if(trEnded() && trSess.moves.length){ trCls(el, ""); el.innerHTML = trSummaryHTML(); el.__lastHtml = null; trPlace(); return; }
   const last = trSess.last;
   const kind = last && last.kind && ["green", "yellow", "red"].includes(last.kind) ? last.kind : "";
   trCls(el, kind ? "tr-" + kind : "");
-  let h = '<div class="tr-name">claudIA</div>';
+  let h = TR_NAME_HTML;
   const pct = x => Math.round(x) + "%";
   if(trPend){
     h += '<div class="tr-title">Evaluando tu jugada…</div>';
@@ -11860,8 +11862,35 @@ function renderTrCard(){
         ' aria-label="Pista" title="' + (b ? (trHint >= 3 ? "Ya te propuse la jugada" : trHint === 2 ? "Pista: te propongo la jugada" : "Pista: resalto la pieza") : "Pensando…") + '">' + TR_BULB + '</button></div>';
     }
   }
-  el.innerHTML = h;
+  trSwap(el, h);
   trPlace();
+}
+/* V181: el contenido cambia con un fundido lento y el panel crece o se encoge con suavidad (solo lo nuevo se funde) */
+function trSwap(el, html){
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const visible = !el.hidden && el.offsetParent !== null || el.classList.contains("tr-float");
+  const firstShow = el.classList.contains("tr-in");
+  const oldH = visible ? el.getBoundingClientRect().height : 0;
+  const prev = new Set(Array.prototype.map.call(el.children, c => c.outerHTML));
+  if(el.__lastHtml === html) return;
+  if(el.__heightAnim){ try{ el.__heightAnim.cancel(); }catch(e){} el.__heightAnim = null; }
+  el.innerHTML = html;
+  el.__lastHtml = html;
+  if(reduce || !oldH || firstShow || typeof el.animate !== "function") return;
+  Array.prototype.forEach.call(el.children, (c, i) => {
+    if(prev.has(c.outerHTML)) return;
+    c.animate([{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }],
+      { duration: 750, delay: 90 + i * 70, easing: "cubic-bezier(.22,.61,.36,1)", fill: "backwards" });
+  });
+  try{ trPlace(); }catch(e){}
+  const newH = el.getBoundingClientRect().height;
+  if(Math.abs(newH - oldH) < 3) return;
+  const prevOverflow = el.style.overflow;
+  el.style.overflow = "hidden";
+  const a = el.animate([{ height: oldH + "px" }, { height: newH + "px" }], { duration: 700, easing: "cubic-bezier(.22,.61,.36,1)" });
+  el.__heightAnim = a;
+  const done = () => { if(el.__heightAnim === a) el.__heightAnim = null; el.style.overflow = prevOverflow; };
+  a.onfinish = done; a.oncancel = done;
 }
 
 /* ---- V173: ubicación a la izquierda del tablero + comentarios de aperturas y tácticas ---- */
