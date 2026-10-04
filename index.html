@@ -2767,9 +2767,8 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
             <option value="15">4 · Fuerte</option>
           </select>
           <p class="free-hint" id="machine-note" style="margin-top:8px"></p>
-          <div class="seg" role="group" aria-label="Modo entrenador" style="margin-top:8px">
-            <button id="trainer-off" aria-pressed="true">Sin entrenador</button>
-            <button id="trainer-on" aria-pressed="false">Modo entrenador</button>
+          <div class="seg" role="group" aria-label="Entrenamiento" style="margin-top:8px">
+            <button id="trainer-toggle" aria-pressed="false">Entrenamiento</button>
           </div>
           <p class="free-hint" id="trainer-note" style="margin-top:0"></p>
         </div>
@@ -2782,7 +2781,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
              Máquina "piensa" su reloj también corre, igual que el de un
              humano pensando su jugada. Ver resetClock()/clockTick() en el
              script para la mecánica completa. -->
-        <div class="seg" role="group" aria-label="Reloj" style="margin-top:6px">
+        <div class="seg" role="group" aria-label="Reloj" id="clock-seg" style="margin-top:6px">
           <button id="clock-off" aria-pressed="true">Sin reloj</button>
           <button id="clock-on" aria-pressed="false">Con reloj</button>
         </div>
@@ -5152,6 +5151,7 @@ function setZenMode(active){
   // siempre, al salir) -- una sola llamada cubre ambos.
   syncBoardMetrics();
   try{ updateZenLiveMenu(); }catch(e){} // V149
+  try{ trPlace(); setTimeout(trPlace, 250); setTimeout(trPlace, 800); }catch(e){}
 }
 zenToggleEnterEl.addEventListener("click", () => setZenMode(true));
 zenToggleExitEl.addEventListener("click", () => setZenMode(false));
@@ -7480,7 +7480,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V173 · 3-oct-2026 · Entrenador a la izquierda del tablero (también en pantalla completa) y comentarios de aperturas, defensas y tácticas";
+const BUILD_ID = "V174 · 3-oct-2026 · Entrenamiento: un solo botón (sin reloj), tarjeta de cristal, pista 1 siempre visible, botón con bombilla y voz en primera persona";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11336,7 +11336,7 @@ function trReason(){
   if(!vsMachine) return "";
   if(retoActive) return "No está disponible en el reto de claudIA.";
   if(liveGame) return "No está disponible en partidas en vivo.";
-  if(clockEnabled) return "Apaga el reloj para usar el modo entrenador.";
+  if(clockEnabled) return "El entrenamiento se juega sin reloj.";
   try{ if(variantOf(liveState().board) !== "clasico") return "El modo entrenador solo funciona en ajedrez clásico."; }catch(e){}
   return "";
 }
@@ -11356,12 +11356,18 @@ function trCp(info){
 }
 function trMoveName(rec){ return Math.ceil(rec.ply / 2) + (rec.ply % 2 ? "." : "…") + rec.san; }
 function trSyncToggle(){
-  const on = document.getElementById("trainer-on"), off = document.getElementById("trainer-off"), note = document.getElementById("trainer-note");
-  if(!on || !off || !note) return;
-  on.setAttribute("aria-pressed", String(!!trOn)); off.setAttribute("aria-pressed", String(!trOn));
+  const tg = document.getElementById("trainer-toggle"), note = document.getElementById("trainer-note");
+  if(!tg || !note) return;
+  tg.setAttribute("aria-pressed", String(!!trOn));
+  // Con el entrenamiento activo contra claudIA se juega sin reloj: se apagan y se ocultan los botones del reloj.
+  const noClock = !!trOn && !!vsMachine && !retoActive && !liveGame;
+  const seg = document.getElementById("clock-seg"), cfg = document.getElementById("clock-config");
+  if(noClock && clockEnabled){ try{ setClockEnabled(false); }catch(e){} }
+  if(seg) seg.style.display = noClock ? "none" : "";
+  if(cfg && noClock) cfg.hidden = true;
   const why = trOn ? trReason() : "";
-  note.textContent = !trOn ? "Apagado. Con el modo entrenador, cada jugada tuya recibe un semáforo y puedes pedir pistas."
-    : (why || "Tras cada jugada verás un semáforo (verde, amarillo o rojo). En rojo puedes reintentar. Pista en 3 escalones. Al terminar, un resumen.");
+  note.textContent = !trOn ? "Apagado: juegas contra claudIA sin entrenamiento."
+    : (why || "Activo, sin reloj. Cada jugada tuya recibe un semáforo (verde, amarillo o rojo); en rojo puedes reintentar. Dos ayudas por jugada con la bombilla. Al terminar, un resumen.");
 }
 function trSync(){
   trSyncToggle();
@@ -11530,7 +11536,7 @@ function trBestMove(){
 function trHintNext(){
   if(!trHumanTurn() || trGate || trPend || !trSess) return;
   const b = trBestMove(); if(!b) return;
-  trHint = Math.min(3, trHint + 1);
+  trHint = trHint < 2 ? 2 : 3;
   trHintFen = toFEN(liveState());
   trSess.hints++;
   trHintSq = trHint === 2 ? [b.mv.from] : (trHint === 3 ? [b.mv.from, b.mv.to] : null);
@@ -11567,11 +11573,12 @@ function trSummaryHTML(){
   const res = trResultText();
   return '<div class="tr-title">Resumen del entrenador' + (res ? " · " + res : "") + '</div>' +
     '<p class="tr-line">' + ms.length + ' jugadas tuyas: <b>' + cnt.green + '</b> verdes · <b>' + cnt.yellow + '</b> amarillas · <b>' + cnt.red + '</b> rojas · precisión ≈ ' + Math.round(acc / ms.length) + '%.</p>' +
-    (worst ? '<p class="tr-line">Jugada más costosa: ' + trMoveName(worst) + (worst.bestSan && worst.bestSan !== worst.san ? " (el motor prefería " + worst.bestSan + ")" : "") + '.</p>' : '') +
+    (worst ? '<p class="tr-line">Jugada más costosa: ' + trMoveName(worst) + (worst.bestSan && worst.bestSan !== worst.san ? " (yo te proponía " + worst.bestSan + ")" : "") + '.</p>' : '') +
     '<p class="tr-line">Pistas pedidas: ' + trSess.hints + ' · Reintentos: ' + trSess.retries + '.</p>' +
     '<p class="tr-line">' + tip + '</p>' +
     '<div class="tr-btns"><button class="btn mini" data-tr="analyze">Analizar partida a fondo</button></div>';
 }
+var TR_BULB = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2v.1h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>';
 function trCls(el, extra){
   const keep = (el.classList.contains("tr-in") ? " tr-in" : "") + (el.classList.contains("tr-float") ? " tr-float" : "");
   el.className = "tr-card" + (extra ? " " + extra : "") + keep;
@@ -11595,7 +11602,7 @@ function renderTrCard(){
     h += '<div class="tr-title"><span class="tr-bullet"></span>' + title + ' · ' + trMoveName(last) + '</div>';
     if(kind !== "green"){
       h += '<p class="tr-line">Tu probabilidad de ganar pasó de ' + pct(last.pBest) + ' a ' + pct(last.pMine) + '.' +
-        ((kind === "yellow" || trSess.revealed) && last.bestSan && last.bestSan !== last.san ? " El motor prefería " + last.bestSan + "." : "") + '</p>';
+        ((kind === "yellow" || trSess.revealed) && last.bestSan && last.bestSan !== last.san ? " Yo te proponía " + last.bestSan + "." : "") + '</p>';
     }
     if(kind === "red" && trGate && !trSess.revealed){
       h += '<div class="tr-btns"><button class="btn mini" data-tr="retry">Deshacer y reintentar</button><button class="btn mini" data-tr="go">Seguir adelante</button></div>';
@@ -11609,13 +11616,14 @@ function renderTrCard(){
     if(!matchStarted) h += '<p class="tr-line">Pulsa «Iniciar partida» para empezar.</p>';
     else if(trHumanTurn()){
       const b = trBestMove();
-      if(trHint > 0 && b){
-        h += '<p class="tr-line">' + (trHint === 1 ? "Pista 1 de 3: piensa en mover " + (TR_PIECE[b.piece[1]] || "una pieza") + "."
-          : trHint === 2 ? "Pista 2 de 3: fíjate en la pieza resaltada en el tablero."
-          : "Pista 3 de 3: el motor propone " + b.san + ".") + '</p>';
+      if(b){
+        h += '<p class="tr-line">Piensa en mover ' + (TR_PIECE[b.piece[1]] || "una pieza") + '.' +
+          (trHint === 2 ? " Mira la pieza resaltada en el tablero." : "") +
+          (trHint >= 3 ? " Te propongo mover " + b.san + "." : "") + '</p>';
       } else if(!kind && !last) h += '<p class="tr-line">Tu turno.</p>';
-      if(trHint === 0) h += trCoachHTML();
-      h += '<div class="tr-btns"><button class="btn mini" data-tr="hint"' + (b && trHint < 3 ? "" : " disabled") + '>' + (b ? (trHint >= 3 ? "Pista (ya la viste)" : "Pista") : "Pista (pensando…)") + '</button></div>';
+      h += trCoachHTML();
+      h += '<div class="tr-btns"><button class="btn mini tr-hintbtn" data-tr="hint" type="button"' + (b && trHint < 3 ? "" : " disabled") +
+        ' aria-label="Pista" title="' + (b ? (trHint >= 3 ? "Ya te propuse la jugada" : trHint === 2 ? "Pista: te propongo la jugada" : "Pista: resalto la pieza") : "Pensando…") + '">' + TR_BULB + '</button></div>';
     }
   }
   el.innerHTML = h;
@@ -11625,6 +11633,16 @@ function renderTrCard(){
 /* ---- V173: ubicación a la izquierda del tablero + comentarios de aperturas y tácticas ---- */
 var trHome = null;
 function trPlace(){
+  try{ trPlaceInner(); }catch(e){
+    try{ const el = document.getElementById("tr-card"); if(el && !el.hidden && (zenMode || document.body.classList.contains("zen-mode"))) trDock(el); }catch(e2){}
+  }
+}
+function trDock(el){
+  if(el.parentNode !== document.body) document.body.appendChild(el);
+  el.classList.add("tr-float");
+  el.style.left = "8px"; el.style.width = "min(300px, calc(100vw - 16px))"; el.style.top = "auto"; el.style.bottom = "8px"; el.style.maxHeight = "40vh";
+}
+function trPlaceInner(){
   const el = document.getElementById("tr-card");
   if(!el || !boardFrameEl) return;
   const sideEl = document.getElementById("side-panels");
@@ -11638,7 +11656,7 @@ function trPlace(){
       if(!n) return; const q = n.getBoundingClientRect();
       if(q.width > 0 && q.height > 0 && q.right <= r.left + 4 && q.left < L && q.bottom > r.top - 4) L = q.left;
     });
-    if(document.body.classList.contains("zen-mode")){
+    if(zenMode || document.body.classList.contains("zen-mode")){
       // Pantalla completa: al borde izquierdo de la pantalla, sin pisar el texto del nombre.
       const np = nameplateTopEl, q = np ? np.getBoundingClientRect() : null;
       let tl = L;
@@ -11662,11 +11680,8 @@ function trPlace(){
     el.style.width = Math.round(w) + "px";
     el.style.top = Math.round(top) + "px"; el.style.bottom = "";
     el.style.maxHeight = Math.max(120, window.innerHeight - top - 12) + "px";
-  } else if(!el.hidden && document.body.classList.contains("zen-mode")){
-    // Pantalla completa sin espacio a la izquierda (teléfono): tarjeta anclada abajo.
-    if(el.parentNode !== document.body) document.body.appendChild(el);
-    el.classList.add("tr-float");
-    el.style.left = "8px"; el.style.width = "calc(100vw - 16px)"; el.style.top = "auto"; el.style.bottom = "8px"; el.style.maxHeight = "40vh";
+  } else if(!el.hidden && (zenMode || document.body.classList.contains("zen-mode"))){
+    trDock(el);
     return;
   } else {
     el.classList.remove("tr-float");
@@ -11771,7 +11786,7 @@ function trCoachHTML(){
         const c1 = trCp(i1), c2 = i2 ? trCp(i2) : null;
         const mate = i1.mate !== null && i1.mate !== undefined && i1.mate > 0 && i1.mate <= 4;
         const clear = c2 !== null && c1 - c2 >= 80 && c1 > -150;
-        if(mate) t = "El motor ve un mate forzado en " + i1.mate + (i1.mate === 1 ? " jugada" : " jugadas") + ". Busca jaques.";
+        if(mate) t = "Veo un mate forzado en " + i1.mate + (i1.mate === 1 ? " jugada" : " jugadas") + ". Busca jaques.";
         else if(clear){
           const mv = matchUci(pos, i1.pv[0]);
           const k = mv ? trTacticOf(pos, mv) : null;
@@ -11803,10 +11818,9 @@ function trCoachHTML(){
       if(typeof anStartRun === "function") anStartRun();
     }
   });
-  const on = document.getElementById("trainer-on"), off = document.getElementById("trainer-off");
+  const tg = document.getElementById("trainer-toggle");
   const set = v => { trOn = v; try{ localStorage.setItem(TR_KEY, v ? "1" : "0"); }catch(e){} render(); };
-  if(on) on.onclick = () => set(true);
-  if(off) off.onclick = () => set(false);
+  if(tg) tg.onclick = () => set(!trOn);
 })();
 
 async function anCopyReport(){
