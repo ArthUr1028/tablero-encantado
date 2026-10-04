@@ -7497,7 +7497,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V181 · 3-oct-2026 · Panel de claudIA con cambios de tamaño y contenido animados; «IA» un poco más grande";
+const BUILD_ID = "V182 · 3-oct-2026 · Entrenador: en posiciones decididas también cuenta la pérdida en centipeones (regalar piezas ya no sale verde)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11547,11 +11547,12 @@ function trEvaluate(){
   if(!pend || !best || !best.pv || !best.pv.length){ trFinish(null); return; }
   const maxD = Math.max.apply(null, Object.keys(infos).map(k => infos[k].depth || 0));
   const pBest = anWinPct(trCp(best));
-  const rec = { ply: pend.ply, san: pend.san, uci: pend.uci, bestUci: best.pv[0], bestSan: (pvToSAN(pend.posBefore, [best.pv[0]], 1) || [])[0] || best.pv[0], pBest: pBest, pMine: pBest, loss: 0, isBest: false, bestMate: (best.mate !== null && best.mate !== undefined && best.mate > 0) ? best.mate : null };
+  const cpBest = trCp(best);
+  const rec = { ply: pend.ply, san: pend.san, uci: pend.uci, bestUci: best.pv[0], bestSan: (pvToSAN(pend.posBefore, [best.pv[0]], 1) || [])[0] || best.pv[0], pBest: pBest, pMine: pBest, cpBest: cpBest, cpMine: cpBest, loss: 0, isBest: false, bestMate: (best.mate !== null && best.mate !== undefined && best.mate > 0) ? best.mate : null };
   if(pend.uci === best.pv[0]){ rec.isBest = true; trFinish(rec); return; }
   let found = null;
   Object.keys(infos).forEach(k => { const o = infos[k]; if(o && o.pv && o.pv[0] === pend.uci && (o.depth || 0) >= maxD - 1) found = o; });
-  if(found){ rec.pMine = anWinPct(trCp(found)); rec.loss = Math.max(0, pBest - rec.pMine); trFinish(rec); return; }
+  if(found){ rec.cpMine = trCp(found); rec.pMine = anWinPct(trCp(found)); rec.loss = Math.max(0, pBest - rec.pMine); trFinish(rec); return; }
   // Fuera de las 4 mejores: segunda búsqueda de la posición resultante (desde el punto de vista del rival).
   pend.rec = rec;
   sfBusy = true; sfInfos = {}; sfDepthSeen = 0; sfRequestKind = "train-after";
@@ -11570,12 +11571,21 @@ function trAfterDone(){
   if(!pend || !pend.rec){ maybeMachineMove(); return; }
   const info = sfInfos[1], rec = pend.rec;
   if(!info){ trFinish(null); return; }
+  rec.cpMine = -trCp(info);
   rec.pMine = anWinPct(-trCp(info));
   rec.loss = Math.max(0, rec.pBest - rec.pMine - TR_BIAS);
   trFinish(rec);
 }
 function trClassify(rec){
   let k = "green";
+  // V182: con la partida ya decidida la probabilidad de ganar se aplana (1% da igual que 0%) y regalar piezas
+  // "no costaba nada". En esas posiciones se mide también la pérdida en centipeones (acotada a ±15 peones).
+  if(!rec.isBest && typeof rec.cpBest === "number" && typeof rec.cpMine === "number" && (Math.abs(rec.cpBest) >= 300 || Math.abs(rec.cpMine) >= 300)){
+    const cap = v => Math.max(-1500, Math.min(1500, v));
+    const d = cap(rec.cpBest) - cap(rec.cpMine);
+    const eq = d >= 500 ? TR_LIM.grave : d >= 250 ? TR_LIM.red + 2 : d >= 100 ? TR_LIM.yellow + 1 : 0;
+    if(eq > rec.loss) rec.loss = eq;
+  }
   if(!rec.isBest){
     if(rec.loss >= TR_LIM.red) k = "red"; else if(rec.loss >= TR_LIM.yellow) k = "yellow";
     if(rec.ply <= TR_OPENING_PLIES){
