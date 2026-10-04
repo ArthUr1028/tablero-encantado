@@ -1781,6 +1781,11 @@
   .zen-game .zg-title{ font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember-soft, #eab070); opacity:.9; }
   .zen-game #match-controls{ margin:0; }
   .zen-game .nav{ margin:0; }
+  /* V184d: los 4 botones de navegación se reparten el ancho del panel (antes no se encogían y el último se salía). */
+  .zen-game .nav{ width:100%; min-width:0; }
+  .zen-game .nav .btn.icon{ flex:1 1 0; min-width:0; max-width:56px; padding:6px 0; font-size:.85rem; }
+  .zen-game.zg-stack .nav{ width:auto; }
+  .zen-game.zg-stack .nav .btn.icon{ flex:0 0 auto; max-width:none; }
   .zen-game .moves{ margin:0; max-height:none; flex:1 1 auto; min-height:48px; }
   .zen-game.zg-min .moves, .zen-game.zg-min .zg-title{ display:none; }
   /* V184b: pantalla completa en vertical angosto -- tablero, claudIA y La partida apilados (en ese orden) bajo el tablero.
@@ -7507,7 +7512,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V184c · 4-oct-2026 · Escritorio con zoom: el tablero se corre a la derecha para que claudIA quepa a su izquierda sin encimarse";
+const BUILD_ID = "V184d · 4-oct-2026 · Pantalla completa: botones de navegación de La partida se ajustan al ancho del panel";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
