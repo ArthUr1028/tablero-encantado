@@ -6009,9 +6009,7 @@ const VARIANT_START = { clasico: START, capablanca: CAPABLANCA_START, maharaja: 
 function switchVariant(target){
   stopAuto();
   const keepMeta = { white: game.white, black: game.black, result: "", resultNote: "" };
-  if(currentMode !== "play") currentMode = "play";
-  document.getElementById("mode-play").setAttribute("aria-pressed", true);
-  document.getElementById("mode-free").setAttribute("aria-pressed", false);
+  // V177: cambiar de modalidad también es posible en Modo Libre, y ahí se queda en Libre.
   newGame(VARIANT_START[target], keepMeta);
   renderPalette();
   persist(); render();
@@ -6048,9 +6046,10 @@ function updateModalitySelectorsUI(){
     "clock-off", "clock-on", "clock-preset", "clock-custom-min", "clock-custom-inc",
     "btn-reset", "btn-clear", "fen-load", "pgn-import"
   ];
+  const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveGame && !retoActive;
   for(const id of ids){
     const el = document.getElementById(id);
-    if(el) el.disabled = !inPlay;
+    if(el) el.disabled = id.indexOf("variant-") === 0 ? !inVariantOk : !inPlay;
   }
   for(const id of ["mode-play", "mode-free"]){
     const el = document.getElementById(id);
@@ -7482,7 +7481,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V176 · 3-oct-2026 · Entrenamiento: sin porcentajes, consejos debajo, «yo hubiera movido»; Modalidad en modo libre y módulos que se alinean al tablero";
+const BUILD_ID = "V177 · 3-oct-2026 · Cambio de modalidad también en Modo Libre y deslizamiento de módulos más suave";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10663,34 +10662,58 @@ function initCollapsiblePanels(){
   };
   const clearAlignSpacer = () => { spacerPx = 0; const side = document.getElementById("side-panels"); if(side) side.style.paddingBottom = ""; };
   const alignPanelToBoard = (panel) => {
-    const run = () => {
-      if(!panel.isConnected || panel.hidden || panel.classList.contains("collapsed")) return;
+    // Posición de arriba a la que debe quedar el borde del módulo (borde del tablero fijo, o el tope).
+    const wantTop = () => {
       let top = 12;
       try{
         if(boardAreaEl && boardFrameEl){
           const cs = getComputedStyle(boardAreaEl);
-          // Con el tablero fijo, su posición final es el "top" de la regla sticky + lo que hay encima del marco (nombre).
           if(cs.position === "sticky") top = (parseFloat(cs.top) || 0) + (boardFrameEl.getBoundingClientRect().top - boardAreaEl.getBoundingClientRect().top);
         }
       }catch(e){}
-      const delta = panel.getBoundingClientRect().top - top;
-      if(Math.abs(delta) < 6) return;
-      const want = Math.max(0, window.scrollY + delta);
-      // Si la página no es lo bastante larga para llegar hasta ahí (panel corto al final), se añade
-      // el espacio justo debajo; se quita al cerrar el panel.
+      return top;
+    };
+    const absTarget = () => {
+      const top = wantTop();
+      const want = Math.max(0, window.scrollY + panel.getBoundingClientRect().top - top);
+      // Espacio justo para poder llegar (y para que el tablero fijo siga pegado); se quita al cerrar el panel.
       const maxY = document.documentElement.scrollHeight - window.innerHeight;
       if(want > maxY - 2) alignSpacer(Math.ceil(want - maxY) + 24);
-      // Y que el tablero fijo siga pegado: el .stage debe llegar al menos hasta donde termina el tablero.
       if(stageEl && boardAreaEl && getComputedStyle(boardAreaEl).position === "sticky"){
         const stageBottom = stageEl.getBoundingClientRect().bottom + window.scrollY;
         const needBottom = want + top + boardAreaEl.getBoundingClientRect().height;
         if(stageBottom < needBottom) alignSpacer(Math.ceil(needBottom - stageBottom) + 8);
       }
-      window.scrollTo({ top: want, behavior: reduceMotion() ? "auto" : "smooth" });
+      return want;
     };
-    let tries = 0;
-    const wait = () => { if(running.size && tries++ < 40) setTimeout(wait, 50); else setTimeout(run, 30); };
-    setTimeout(wait, 60);
+    const easeIO = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    // Deslizamiento suave y lento, como el fundido de la vitrina: arranca casi a la vez que el módulo se
+    // abre, y recalcula el destino en cada cuadro porque los módulos de arriba se están cerrando.
+    const glide = () => {
+      if(!panel.isConnected || panel.hidden || panel.classList.contains("collapsed")) return;
+      const y0 = window.scrollY, d0 = Math.abs(absTarget() - y0);
+      if(d0 < 6) return;
+      if(reduceMotion()){ window.scrollTo({ top: absTarget(), behavior: "auto" }); return; }
+      const dur = Math.max(650, Math.min(1150, 520 + d0 * 0.55));
+      let stop = false;
+      const cancel = () => { stop = true; };
+      ["wheel", "touchstart", "keydown", "mousedown"].forEach(ev => window.addEventListener(ev, cancel, { once: true, passive: true }));
+      const t0 = performance.now();
+      const frame = (now) => {
+        if(stop) return;
+        const p = Math.min(1, (now - t0) / dur);
+        const y = y0 + (absTarget() - y0) * easeIO(p);
+        window.scrollTo({ top: y, behavior: "instant" });
+        if(p < 1) requestAnimationFrame(frame);
+        else {
+          // Ajuste final por si las animaciones de los paneles aún se estaban asentando.
+          const fin = () => { if(stop) return; if(running.size) return setTimeout(fin, 50); const t = absTarget(); if(Math.abs(t - window.scrollY) > 2) window.scrollTo({ top: t, behavior: "instant" }); };
+          setTimeout(fin, 40);
+        }
+      };
+      requestAnimationFrame(frame);
+    };
+    setTimeout(glide, 90);
   };
   const expandExclusive = (panel) => {
     panels.forEach(o => { if(o !== panel) setCollapsed(o, true, true); });
