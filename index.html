@@ -8,6 +8,23 @@
 <meta property="og:title" content="El Tablero Encantado: te invitan al club">
 <meta property="og:description" content="Ajedrez con variantes, retos entre amigos y trofeos. Crea tu cuenta y entra al club.">
 <meta property="og:url" content="https://tablero-encantado.pages.dev/">
+<meta property="og:image" content="https://tablero-encantado.pages.dev/batalla-og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+/* V195 · Entrada dramática. Se decide ANTES de pintar nada, para que el juego no parpadee detrás.
+   Se muestra una vez por sesión del navegador. No se muestra al volver del correo de confirmación
+   (llega con #access_token…) ni con ?intro=0. Con ?intro=1 se fuerza para verla de nuevo. */
+(function(){ try{
+  var K = "tablero-encantado.intro-vista.v1", q = location.search, h = location.hash, d = document.documentElement;
+  var forzar = /[?&]intro=1(&|$)/.test(q);
+  if(forzar){ try{ sessionStorage.removeItem(K); }catch(e){} }
+  var vista = false; try{ vista = !!sessionStorage.getItem(K); }catch(e){}
+  var omitir = /[?&]intro=0(&|$)/.test(q) || /access_token|type=signup|error_description/.test(h) || vista;
+  d.classList.add(omitir && !forzar ? "sin-intro" : "intro-abierta");
+}catch(e){} })();
+</script>
 <title>El Tablero Encantado</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2013,7 +2030,182 @@
   .tour-match{ display:flex; gap:8px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin:3px 0; font-size:.88rem; }
   .tour-match.mine{ font-weight:600; }
   .tour-champ{ padding:8px 10px; border:1px solid var(--line); border-radius:6px; margin:8px 0; }
+
+  /* ============================ V195 · Entrada: la niebla se disipa sobre el campo de batalla ============================
+     Secuencia (todo con animaciones CSS que solo mueven opacity/transform, ligeras en celular):
+       0.0 s  el campo de batalla emerge entre una niebla densa      ·  0.3-3.5 s  la imagen aparece y avanza muy despacio
+       0.5 s  la niebla (dos capas) se adelgaza y se aleja          ·  1.4 s  aparece el título
+       3.2/4.2/5.2 s  las tres líneas de la leyenda                  ·  6.2 s  el botón «Entrar a la batalla»
+     Tocar la pantalla adelanta todo al final (.intro-listo); «Saltar» entra directo. */
+  #intro{ position:fixed; inset:0; z-index:20000; overflow:hidden; background:#040307; color:#e9e1d4;
+    touch-action:none; overscroll-behavior:contain; cursor:default;
+    opacity:1; transition:opacity 1.1s ease, visibility 0s linear 1.1s; }
+  html.sin-intro #intro{ display:none; }
+  #intro.saliendo{ opacity:0; visibility:hidden; pointer-events:none; }
+  #intro *{ animation-play-state:paused; }
+  #intro.intro-go *, #intro.intro-listo *{ animation-play-state:running; }
+  #intro.intro-go .intro-entrar::after, #intro.intro-listo .intro-entrar::after{ animation-play-state:running; }
+
+  .intro-img{ position:absolute; inset:-3%; background:#0a0810 center/cover no-repeat; opacity:0;
+    animation:introImg 3.4s ease-out .3s both, introZoom 18s ease-out .3s both; will-change:opacity, transform; }
+  @keyframes introImg{ from{ opacity:0 } to{ opacity:1 } }
+  @keyframes introZoom{ from{ transform:scale(1.13) } to{ transform:scale(1.02) } }
+
+  .intro-fog{ position:absolute; inset:-35%; background-image:var(--niebla, none); background-repeat:repeat;
+    opacity:0; will-change:opacity, transform; pointer-events:none; }
+  .intro-fog-a{ background-size:80vmax 80vmax; animation:introNieblaA 5.4s ease-in-out .5s both; }
+  .intro-fog-b{ background-size:120vmax 120vmax; animation:introNieblaB 6.4s ease-in-out .2s both; }
+  @keyframes introNieblaA{ 0%{ opacity:.92; transform:translate3d(-7%,2%,0) scale(1) } 35%{ opacity:.86 } 100%{ opacity:0; transform:translate3d(9%,-5%,0) scale(1.3) } }
+  @keyframes introNieblaB{ 0%{ opacity:.88; transform:translate3d(8%,-3%,0) scale(1.1) } 40%{ opacity:.78 } 100%{ opacity:0; transform:translate3d(-10%,4%,0) scale(1.45) } }
+
+  .intro-vineta{ position:absolute; inset:0; pointer-events:none; opacity:0; animation:introImg 3s ease-out .3s both;
+    background:radial-gradient(125% 95% at 50% 42%, transparent 32%, rgba(2,1,6,.74) 100%),
+               linear-gradient(to top, rgba(2,1,6,.80), transparent 58%),
+               linear-gradient(to bottom, rgba(2,1,6,.45), transparent 30%); }
+
+  .intro-velo{ position:absolute; inset:0; pointer-events:none; opacity:0; animation:introImg 2.4s ease-out 1.1s both;
+    background:radial-gradient(54% 48% at 50% 54%, rgba(2,1,6,.72), rgba(2,1,6,.40) 55%, transparent 100%); }
+  .intro-texto{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:max(24px, env(safe-area-inset-top)) 7vw max(24px, env(safe-area-inset-bottom)); text-align:center; }
+  .intro-titulo{ margin:0 0 .55em; font-family:"Cinzel", serif; font-weight:700; text-transform:uppercase;
+    font-size:clamp(1.9rem, 8.2vw, 4.6rem); line-height:1.12; letter-spacing:.28em; text-indent:.28em; color:#f4e8d2; text-wrap:balance;
+    text-shadow:0 2px 0 rgba(0,0,0,.65), 0 0 30px rgba(217,138,61,.5), 0 0 70px rgba(217,138,61,.22);
+    opacity:0; animation:introTitulo 2.4s cubic-bezier(.2,.7,.2,1) 1.4s both; }
+  @keyframes introTitulo{
+    from{ opacity:0; transform:translateY(18px); letter-spacing:.62em; filter:blur(10px) }
+    to{ opacity:1; transform:none; letter-spacing:.28em; filter:blur(0) } }
+  .intro-leyenda{ max-width:36ch; }
+  .intro-leyenda p{ margin:.55em 0; font-family:"Spectral", Georgia, serif; font-style:italic;
+    font-size:clamp(1.04rem, 3.8vw, 1.4rem); line-height:1.5; color:#eee5d6; text-wrap:balance; text-shadow:0 2px 16px #000, 0 0 5px #000, 0 0 2px #000;
+    opacity:0; animation:introLinea 1.5s ease-out both; }
+  .intro-leyenda p:nth-child(1){ animation-delay:3.2s; }
+  .intro-leyenda p:nth-child(2){ animation-delay:4.2s; }
+  .intro-leyenda p:nth-child(3){ animation-delay:5.2s; color:#f6e2bd; }
+  @keyframes introLinea{ from{ opacity:0; transform:translateY(10px) } to{ opacity:1; transform:none } }
+
+  .intro-entrar{ position:relative; margin-top:1.9em; padding:.95em 2.6em; border-radius:999px; cursor:pointer;
+    font-family:"Cinzel", serif; font-weight:700; font-size:clamp(.78rem, 2.8vw, .95rem); letter-spacing:.26em; text-indent:.26em; text-transform:uppercase; white-space:nowrap;
+    color:var(--ember-soft, #eab070); border:1px solid var(--ember, #d98a3d); border-color:color-mix(in srgb, var(--ember, #d98a3d) 70%, transparent);
+    background:linear-gradient(165deg, rgba(255,255,255,.12), rgba(255,255,255,.03) 45%, rgba(0,0,0,.28));
+    background:linear-gradient(165deg, color-mix(in srgb, var(--ember, #d98a3d) 30%, transparent), color-mix(in srgb, var(--ember, #d98a3d) 8%, transparent) 55%, rgba(0,0,0,.3));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 8px 26px rgba(0,0,0,.5);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    opacity:0; visibility:hidden; animation:introBoton 1.3s ease-out 6.2s both;
+    transition:color .2s, border-color .2s, box-shadow .25s; -webkit-tap-highlight-color:transparent; }
+  @keyframes introBoton{ 0%{ opacity:0; visibility:hidden; transform:translateY(10px) } 1%{ visibility:visible } 100%{ opacity:1; visibility:visible; transform:none } }
+  .intro-entrar::after{ content:""; position:absolute; inset:-1px; border-radius:inherit; pointer-events:none; opacity:0;
+    box-shadow:0 0 24px 2px color-mix(in srgb, var(--ember, #d98a3d) 50%, transparent); animation:introLatido 3.6s ease-in-out 8.0s infinite; }
+  @keyframes introLatido{ 0%,100%{ opacity:.12 } 50%{ opacity:.8 } }
+  .intro-entrar:hover, .intro-entrar:focus-visible{ color:#fff; border-color:var(--ember, #d98a3d); outline:none;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 22px color-mix(in srgb, var(--ember, #d98a3d) 55%, transparent), 0 8px 26px rgba(0,0,0,.5); }
+  .intro-saltar{ position:absolute; right:max(14px, env(safe-area-inset-right)); bottom:max(12px, env(safe-area-inset-bottom));
+    padding:12px 10px; border:0; background:none; cursor:pointer; font-family:"Cinzel", serif; font-size:.68rem; letter-spacing:.2em; text-transform:uppercase;
+    color:rgba(233,225,212,.5); opacity:0; animation:introLinea 1.2s ease-out 1.2s both; transition:color .2s; -webkit-tap-highlight-color:transparent; }
+  .intro-saltar:hover, .intro-saltar:focus-visible{ color:rgba(255,236,205,.95); outline:none; }
+
+  /* Adelantar al final: se acorta todo salvo el latido del botón (el pseudoelemento no entra en el selector «*») */
+  #intro.intro-listo *{ animation-duration:.001s !important; animation-delay:0s !important; }
+  #intro.intro-listo .intro-entrar::after{ animation-delay:.2s; }
+  @media (prefers-reduced-motion:reduce){
+    #intro *{ animation-duration:.001s !important; animation-delay:0s !important; }
+    #intro .intro-entrar::after{ animation:none; opacity:.35; }
+  }
+
+  /* Fondo permanente del juego: el mismo campo de batalla, apenas perceptible (ajusta --fondo-batalla). */
+  :root{ --fondo-batalla:.06; }
+  #fondo-batalla{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:var(--fondo-batalla);
+    background:center/cover no-repeat; filter:saturate(.55) blur(1.2px);
+    -webkit-mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%);
+            mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%); }
 </style>
+
+<!-- V195 · Entrada. El HTML viene primero (cubre la pantalla desde el primer pintado); la imagen se carga por CSS/JS. -->
+<div id="intro" role="dialog" aria-modal="true" aria-labelledby="intro-titulo" aria-describedby="intro-leyenda">
+  <div class="intro-img" aria-hidden="true"></div>
+  <div class="intro-fog intro-fog-b" aria-hidden="true"></div>
+  <div class="intro-fog intro-fog-a" aria-hidden="true"></div>
+  <div class="intro-vineta" aria-hidden="true"></div>
+  <div class="intro-velo" aria-hidden="true"></div>
+  <div class="intro-texto">
+    <p class="intro-titulo" id="intro-titulo">El Tablero Encantado</p>
+    <div class="intro-leyenda" id="intro-leyenda">
+      <p>Sesenta y cuatro casillas. Dos ejércitos. Ningún lugar donde esconderse.</p>
+      <p>Aquí se honra a los grandes maestros y se escribe, jugada a jugada, la leyenda de tu club.</p>
+      <p>Elige tu bando. La batalla te espera.</p>
+    </div>
+    <button type="button" class="intro-entrar" id="intro-entrar">Entrar a la batalla</button>
+  </div>
+  <button type="button" class="intro-saltar" id="intro-saltar">Saltar</button>
+</div>
+<div id="fondo-batalla" aria-hidden="true"></div>
+<script>
+(function(){
+  var IMG = "batalla.webp", K = "tablero-encantado.intro-vista.v1";
+  var intro = document.getElementById("intro"), fondo = document.getElementById("fondo-batalla");
+  if(fondo) fondo.style.backgroundImage = "url(" + IMG + ")";
+  if(!intro) return;
+  var d = document.documentElement;
+  if(d.classList.contains("sin-intro")){ intro.parentNode.removeChild(intro); return; }
+  var entrar = document.getElementById("intro-entrar"), saltar = document.getElementById("intro-saltar");
+  var imgEl = intro.querySelector(".intro-img"), abierta = true, listo = false;
+
+  /* Niebla procedural: ruido suave que se repite sin costuras, generado una sola vez (nada que descargar). */
+  try{
+    var N = 256, c = document.createElement("canvas"); c.width = c.height = N;
+    var g = c.getContext("2d"), data = g.createImageData(N, N);
+    var grids = [[4,.50],[8,.28],[16,.14],[32,.08]].map(function(o){
+      var a = []; for(var i = 0; i < o[0]*o[0]; i++) a.push(Math.random()); return { n:o[0], a:a, w:o[1] }; });
+    var sm = function(t){ return t*t*(3 - 2*t); };
+    var val = function(G, x, y){
+      var n = G.n, fx = x/N*n, fy = y/N*n, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = sm(fx - x0), ty = sm(fy - y0);
+      var x1 = (x0 + 1) % n, y1 = (y0 + 1) % n; x0 %= n; y0 %= n;
+      var a = G.a[y0*n + x0], b = G.a[y0*n + x1], e = G.a[y1*n + x0], f = G.a[y1*n + x1];
+      return (a + (b - a)*tx)*(1 - ty) + (e + (f - e)*tx)*ty; };
+    for(var y = 0; y < N; y++) for(var x = 0; x < N; x++){
+      var v = 0; for(var k = 0; k < grids.length; k++) v += val(grids[k], x, y)*grids[k].w;
+      v = Math.max(0, (v - .30)/.55); v = Math.pow(Math.min(1, v), 1.35);
+      var p = (y*N + x)*4; data.data[p] = 118; data.data[p+1] = 128; data.data[p+2] = 142; data.data[p+3] = Math.round(v*235); }
+    g.putImageData(data, 0, 0);
+    intro.style.setProperty("--niebla", "url(" + c.toDataURL("image/png") + ")");
+  }catch(e){}
+
+  /* La secuencia arranca cuando la imagen ya cargó (o a los 1.6 s, lo que ocurra primero) para que no aparezca de golpe. */
+  var go = function(){ intro.classList.add("intro-go"); }, started = false;
+  var start = function(){ if(started) return; started = true; go(); };
+  imgEl.style.backgroundImage = "url(" + IMG + ")";
+  var pre = new Image(); pre.onload = start; pre.onerror = start; pre.src = IMG;
+  setTimeout(start, 1600);
+
+  var finish = function(){ if(listo) return; listo = true; intro.classList.add("intro-listo"); setTimeout(function(){ try{ entrar.focus({ preventScroll:true }); }catch(e){} }, 60); };
+  entrar.addEventListener("animationend", function(ev){ if(ev.animationName === "introBoton"){ listo = true; try{ entrar.focus({ preventScroll:true }); }catch(e){} } });
+  var leave = function(){
+    if(!abierta) return; abierta = false;
+    try{ sessionStorage.setItem(K, "1"); }catch(e){}
+    intro.classList.add("saliendo"); d.classList.remove("intro-abierta"); d.classList.add("sin-intro-ya");
+    var quitar = function(){ if(intro.parentNode) intro.parentNode.removeChild(intro); };
+    intro.addEventListener("transitionend", function(ev){ if(ev.propertyName === "opacity") quitar(); });
+    setTimeout(quitar, 1500);
+  };
+  entrar.addEventListener("click", leave);
+  saltar.addEventListener("click", function(ev){ ev.stopPropagation(); leave(); });
+  intro.addEventListener("click", function(ev){ if(ev.target.closest && ev.target.closest("button")) return; if(!listo) finish(); });
+  intro.addEventListener("wheel", function(ev){ ev.preventDefault(); }, { passive:false });
+  intro.addEventListener("touchmove", function(ev){ ev.preventDefault(); }, { passive:false });
+  document.addEventListener("keydown", function(ev){
+    if(!abierta) return;
+    var k = ev.key;
+    if(k === "Escape"){ ev.preventDefault(); ev.stopImmediatePropagation(); leave(); }
+    else if(k === "Enter" || k === " "){
+      if(document.activeElement === entrar && listo) return;       /* deja que el botón haga su clic */
+      if(document.activeElement === saltar) return;
+      ev.preventDefault(); ev.stopImmediatePropagation();
+      if(!listo) finish(); else leave();
+    }
+    else if(k === "Tab"){ ev.preventDefault(); ev.stopImmediatePropagation(); (listo ? entrar : saltar).focus(); }
+    else { ev.stopImmediatePropagation(); }                          /* ningún atajo del juego mientras dura la entrada */
+  }, true);
+})();
+</script>
 
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
   <defs>
@@ -7862,7 +8054,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V194 · 5-oct-2026 · Brillo en títulos de panel plegados y realce de piezas negras sobre casillas oscuras (sin tocar la pieza)";
+const BUILD_ID = "V195 · 5-oct-2026 · Entrada dramática (niebla que se disipa, título, leyenda y «Entrar a la batalla») y fondo sutil del campo de batalla";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
