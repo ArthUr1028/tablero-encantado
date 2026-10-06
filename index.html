@@ -2,6 +2,12 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Ajedrez con variantes, retos entre amigos y trofeos. Únete a nuestro club.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="El Tablero Encantado">
+<meta property="og:title" content="El Tablero Encantado: te invitan al club">
+<meta property="og:description" content="Ajedrez con variantes, retos entre amigos y trofeos. Crea tu cuenta y entra al club.">
+<meta property="og:url" content="https://tablero-encantado.pages.dev/">
 <title>El Tablero Encantado</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -147,7 +153,7 @@
     -webkit-user-select:none; -moz-user-select:none; user-select:none;
   }
   /* El cursor de texto (I) solo debe aparecer donde de verdad se escribe */
-  textarea, input[type="text"]{
+  textarea, input[type="text"], input[type="password"]{
     -webkit-user-select:text; -moz-user-select:text; user-select:text;
   }
   body::after{
@@ -1433,13 +1439,13 @@
 
   .lib-save{ display:flex; gap:6px; margin-bottom:10px; }
   .lib-save input{ flex:1 1 auto; min-width:0; }
-  input[type="text"]{
+  input[type="text"], input[type="password"]{
     padding:8px 10px; border-radius:3px;
     background:rgba(0,0,0,.3); color:var(--text);
     border:1px solid var(--line);
     font-family:"Spectral", serif; font-size:.9rem;
   }
-  input[type="text"]:focus-visible{ outline:2px solid var(--ember); outline-offset:2px; }
+  input[type="text"]:focus-visible, input[type="password"]:focus-visible{ outline:2px solid var(--ember); outline-offset:2px; }
   .lib-label{
     display:block; font-family:"Cinzel", serif;
     font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
@@ -2811,8 +2817,11 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 
             <details id="club-invite-details" class="club-invite">
               <summary>Invitar a alguien al club</summary>
+              <p class="free-hint" style="margin:8px 0 0">Copia un mensaje listo para pegar en WhatsApp, con el enlace y el c&oacute;digo incluidos.</p>
               <div class="btns" style="margin-top:8px">
-                <button class="btn" id="club-invite-btn">Generar c&oacute;digo de invitaci&oacute;n</button>
+                <button class="btn" id="club-invite-copy">Copiar invitaci&oacute;n</button>
+                <button class="btn" id="club-invite-share" style="display:none">Compartir&hellip;</button>
+                <button class="btn" id="club-invite-btn">C&oacute;digo nuevo</button>
               </div>
               <p class="lib-note" id="club-invite-note"></p>
             </details>
@@ -3281,7 +3290,35 @@ var db=[Kw,tp,zp,wq,xq,Hq,Iq,Kw];var eb=[Lw,Dj,Ij,Mj,Wc,Ng,Og,Tg,Vg,zh,Vj,_j,ck,
    por Arthur. Proyecto: tablero-encantado (ArthUr's chess, plan Free). */
 const SUPABASE_URL = "https://imlnszpxeovtvuzrkbkc.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltbG5zenB4ZW92dHZ1enJrYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMjcyMTIsImV4cCI6MjEwNTcwMzIxMn0.VxuQvmF0NnD2FjUdV8p1YEbf7EBDsuYmDpEtp_Tzia8";
+// V192: el enlace de confirmación de Supabase vuelve con #...&type=signup. Se anota ANTES de crear el
+// cliente (que lo procesa y lo borra) para poder dar la bienvenida cuando cargue el perfil.
+window.__tableroConfirmado = /type=signup/.test(location.hash);
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// V192 · invitación por enlace (?invite=CODIGO). El código se guarda en este navegador; al registrarse
+// también viaja en los metadatos de la cuenta, así sobrevive aunque el correo se abra en otro navegador.
+const INVITE_PENDING_KEY = "tablero-encantado.invitacion-pendiente.v1";
+function getPendingInvite(){ try{ return localStorage.getItem(INVITE_PENDING_KEY) || ""; }catch(e){ return ""; } }
+function setPendingInvite(c){ try{ localStorage.setItem(INVITE_PENDING_KEY, c); }catch(e){} }
+function clearPendingInvite(){ try{ localStorage.removeItem(INVITE_PENDING_KEY); }catch(e){} }
+(function readInviteFromUrl(){
+  try{
+    const u = new URL(location.href);
+    const c = (u.searchParams.get("invite") || "").trim();
+    if(!c) return;
+    if(/^[A-Za-z0-9]{4,24}$/.test(c)) setPendingInvite(c.toUpperCase());
+    u.searchParams.delete("invite");
+    history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+  }catch(e){}
+})();
+// Tras confirmar el correo la URL queda con un "#" suelto (o con el token): se limpia.
+function cleanUrlResidue(){
+  try{
+    if(location.href.endsWith("#") || /^#(access_token|refresh_token|error|type)=/.test(location.hash)){
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  }catch(e){}
+}
 
 function initAccountPanel(){
   const elSignedOut = document.getElementById("account-signed-out");
@@ -3309,6 +3346,11 @@ function initAccountPanel(){
   }
 
   sb.auth.getSession().then(({ data }) => showSession(data.session));
+  if(getPendingInvite()){
+    sb.auth.getSession().then(({ data }) => {
+      if(!(data.session && data.session.user)) note("Te invitaron al club de El Tablero Encantado. Crea tu cuenta con tu correo y una contraseña; al confirmar el correo entrarás al club automáticamente.");
+    });
+  }
   sb.auth.onAuthStateChange((_event, session) => showSession(session));
 
   btnSignup.addEventListener("click", async () => {
@@ -3317,10 +3359,15 @@ function initAccountPanel(){
     if(!email || !password){ note("Escribe correo y contraseña.", true); return; }
     if(password.length < 6){ note("La contraseña debe tener al menos 6 caracteres.", true); return; }
     busy(true); note("Creando cuenta…");
-    const { error } = await sb.auth.signUp({ email, password });
+    const invite = getPendingInvite();
+    const signUpOptions = { emailRedirectTo: location.origin + location.pathname };
+    if(invite) signUpOptions.data = { invite_code: invite };
+    const { error } = await sb.auth.signUp({ email, password, options: signUpOptions });
     busy(false);
     if(error){ note(error.message, true); return; }
-    note("Cuenta creada. Revisa tu correo si Supabase pide confirmarlo; si no, ya quedaste dentro.");
+    note(invite
+      ? "Cuenta creada. Te llegó un correo: confírmalo y entrarás al club automáticamente."
+      : "Cuenta creada. Revisa tu correo si Supabase pide confirmarlo; si no, ya quedaste dentro.");
   });
 
   btnSignin.addEventListener("click", async () => {
@@ -6405,6 +6452,10 @@ async function loadAccountProfile(userId){
     ownerNameEl.value = accountProfile.display_name;
     ownerNameEl.dispatchEvent(new Event("input"));
   }
+  if(window.__tableroConfirmado){
+    window.__tableroConfirmado = false;
+    showGlobalToast("¡Correo confirmado! Ya estás dentro.");
+  }
   refreshAccountLibrary();
   refreshClub();
   checkNewAchievements();
@@ -6436,7 +6487,7 @@ ownerNameEl.addEventListener("change", () => {
   if(accountProfile) saveAccountDisplayName(ownerNameEl.value.trim().slice(0, 40));
 });
 sb.auth.onAuthStateChange((_event, session) => {
-  if(session && session.user) loadAccountProfile(session.user.id);
+  if(session && session.user){ loadAccountProfile(session.user.id); setTimeout(cleanUrlResidue, 400); }
   else clearAccountProfile();
 });
 sb.auth.getSession().then(({ data }) => {
@@ -6533,6 +6584,35 @@ function clubBtn(text, onClick){
   return b;
 }
 
+// V192: si la persona llegó por un enlace de invitación (o se registró con un código), se canjea sola.
+let autoRedeemRunning = false;
+async function tryAutoRedeemInvite(){
+  if(autoRedeemRunning) return false;
+  let code = getPendingInvite();
+  let fromMeta = false;
+  if(!code){
+    try{
+      const { data } = await sb.auth.getSession();
+      const meta = data && data.session && data.session.user && data.session.user.user_metadata;
+      if(meta && meta.invite_code){ code = String(meta.invite_code).trim().toUpperCase(); fromMeta = true; }
+    }catch(e){}
+  }
+  if(!code) return false;
+  autoRedeemRunning = true;
+  clubNote("Uniéndote al club con tu invitación…");
+  const { error } = await sb.rpc("redeem_invite", { p_code: code });
+  autoRedeemRunning = false;
+  clearPendingInvite();
+  if(fromMeta){ try{ await sb.auth.updateUser({ data: { invite_code: null } }); }catch(e){} }
+  if(error){
+    clubNote("Tu invitación no se pudo usar (" + error.message + "). Pide un código nuevo y pégalo aquí.", true);
+    return false;
+  }
+  clubNote("¡Listo, ya eres miembro del club!");
+  showGlobalToast("¡Bienvenido al club!");
+  return true;
+}
+
 async function refreshClub(){
   if(!accountProfile){ clubPanelEl.hidden = true; return; }
   clubPanelEl.hidden = false;
@@ -6542,6 +6622,10 @@ async function refreshClub(){
     .select("profile_id").eq("profile_id", accountProfile.id).maybeSingle();
   if(meErr){ clubNote("No se pudo revisar tu membresía: " + meErr.message, true); return; }
   const isMember = !!mine;
+  if(!isMember){
+    const joined = await tryAutoRedeemInvite();
+    if(joined){ return refreshClub(); }
+  }
 
   clubJoinerEl.hidden = isMember;
   clubMemberAreaEl.hidden = !isMember;
@@ -6574,6 +6658,7 @@ function subscribeClubChannel(){
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "games", filter: "black_id=eq." + uid }, () => loadClubActiveGames())
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "white_id=eq." + uid }, handleClubGameUpdate)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: "black_id=eq." + uid }, handleClubGameUpdate)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "club_members" }, handleNewClubMember)
     .subscribe(status => {
       // Tras una caída de red, releer listas por si se perdió algún evento.
       if(status === "SUBSCRIBED"){
@@ -7576,17 +7661,93 @@ document.getElementById("club-join-btn").onclick = async () => {
   refreshClub();
 };
 
-document.getElementById("club-invite-btn").onclick = async () => {
-  clubInviteNoteEl.classList.remove("err");
-  clubInviteNoteEl.textContent = "Generando…";
-  const { data, error } = await sb.rpc("create_invite", { p_max_uses: 5, p_expires_days: null });
-  if(error){
-    clubInviteNoteEl.textContent = "No se pudo generar: " + error.message;
-    clubInviteNoteEl.classList.add("err");
-    return;
+// V192 · invitación lista para WhatsApp. Reutiliza el mismo código (hasta INVITE_MAX_USES usos, sin
+// vencimiento) y solo genera otro si se agotó o si se pide "Código nuevo".
+const INVITE_BASE_URL = "https://tablero-encantado.pages.dev/";
+const INVITE_MAX_USES = 5;
+const INVITE_MINE_KEY = "tablero-encantado.mi-invitacion.v1";
+const clubInviteCopyBtn = document.getElementById("club-invite-copy");
+const clubInviteShareBtn = document.getElementById("club-invite-share");
+function inviteNote(msg, isErr){
+  clubInviteNoteEl.textContent = msg || "";
+  clubInviteNoteEl.classList.toggle("err", !!isErr);
+}
+function inviteMessage(code){
+  const firma = accountProfile && (accountProfile.display_name || accountProfile.username);
+  return "♟️ ¡Te invito a El Tablero Encantado!\n\n" +
+    "Es un tablero de ajedrez con variantes, retos entre amigos y trofeos. Nuestro club es pequeño y me encantaría que juegues con nosotros.\n\n" +
+    "Entra aquí: " + INVITE_BASE_URL + "?invite=" + code + "\n\n" +
+    "1. Crea tu cuenta con tu correo y una contraseña.\n" +
+    "2. Confirma tu correo (te llega un mensaje).\n" +
+    "3. ¡Listo! Entrarás al club automáticamente. Si te pide un código, escribe: " + code +
+    (firma ? "\n\n— " + firma : "");
+}
+async function ensureMyInviteCode(forceNew){
+  let code = "";
+  if(!forceNew){ try{ code = localStorage.getItem(INVITE_MINE_KEY) || ""; }catch(e){} }
+  if(code){
+    // Si ya se agotó, se genera otro. Si no se puede consultar, se reutiliza.
+    const { data: row } = await sb.from("club_invites").select("uses, max_uses").eq("code", code).maybeSingle();
+    if(row && row.max_uses != null && row.uses >= row.max_uses) code = "";
   }
-  clubInviteNoteEl.textContent = "Código: " + data + " (hasta 5 usos, sin vencimiento) — compártelo fuera del Tablero.";
+  if(code) return code;
+  const { data, error } = await sb.rpc("create_invite", { p_max_uses: INVITE_MAX_USES, p_expires_days: null });
+  if(error) throw error;
+  try{ localStorage.setItem(INVITE_MINE_KEY, data); }catch(e){}
+  return data;
+}
+function showInviteFallback(text){
+  let ta = document.getElementById("club-invite-fallback");
+  if(!ta){
+    ta = document.createElement("textarea");
+    ta.id = "club-invite-fallback";
+    ta.readOnly = true;
+    ta.rows = 9;
+    ta.style.cssText = "width:100%;margin-top:8px;box-sizing:border-box";
+    clubInviteNoteEl.parentNode.appendChild(ta);
+  }
+  ta.value = text;
+  ta.hidden = false;
+  ta.focus(); ta.select();
+}
+async function copyInvite(useShare){
+  inviteNote("Preparando la invitación…");
+  let code;
+  try{ code = await ensureMyInviteCode(false); }
+  catch(e){ inviteNote("No se pudo generar el código: " + e.message, true); return; }
+  const text = inviteMessage(code);
+  try{
+    if(useShare && navigator.share){ await navigator.share({ text }); inviteNote("Invitación compartida."); return; }
+    await navigator.clipboard.writeText(text);
+    inviteNote("Invitación copiada: pégala en WhatsApp. Código " + code + " (hasta " + INVITE_MAX_USES + " usos, sin vencimiento).");
+  }catch(e){
+    if(e && e.name === "AbortError") { inviteNote(""); return; }
+    inviteNote("No se pudo copiar solo: selecciona el texto de abajo y cópialo.", true);
+    showInviteFallback(text);
+  }
+}
+clubInviteCopyBtn.onclick = () => copyInvite(false);
+if(navigator.share){
+  clubInviteShareBtn.style.display = "";
+  clubInviteShareBtn.onclick = () => copyInvite(true);
+}
+document.getElementById("club-invite-btn").onclick = async () => {
+  inviteNote("Generando un código nuevo…");
+  try{
+    const code = await ensureMyInviteCode(true);
+    inviteNote("Código nuevo: " + code + " (hasta " + INVITE_MAX_USES + " usos, sin vencimiento). Las próximas invitaciones copiadas ya llevan este código.");
+  }catch(e){ inviteNote("No se pudo generar: " + e.message, true); }
 };
+
+// V192: aviso flotante cuando alguien más entra al club (necesita Realtime activado en club_members).
+async function handleNewClubMember(payload){
+  const row = payload && payload.new;
+  if(!row || !accountProfile || row.profile_id === accountProfile.id) return;
+  const { data: p } = await sb.from("profiles").select("username, display_name").eq("id", row.profile_id).maybeSingle();
+  const who = p ? (p.display_name || p.username) : "Alguien";
+  showGlobalToast("¡" + who + " se unió al club!");
+  loadClubMembers();
+}
 
 /* ============================ Partidas en vivo (Fase 2, paso 4, 2026-09-24) ============================
    Conecta una partida ya creada por un reto aceptado al tablero real:
@@ -7649,7 +7810,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V191 · 5-oct-2026 · Insignia del campeón de torneo (Corona dorada): el rey con corona y brillo dramático (rayos, pulso y destello)";
+const BUILD_ID = "V192 · 5-oct-2026 · Invitación para WhatsApp: enlace con código, unión automática al confirmar el correo, aviso de miembro nuevo y sin # suelto";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
