@@ -939,12 +939,28 @@
   .club-view > .club-group:first-child h3, .club-view > h3:first-child{ margin-top:2px; }
   .club-invite{ margin-top:16px; border-top:1px solid var(--line); padding-top:10px; }
   .club-invite summary{ cursor:pointer; color:var(--text-dim); font-size:.85rem; }
+  /* V193: filas de miembros con el botón "Retar" siempre del mismo tamaño (antes crecía con el nombre) */
+  .btns.club-member-row{ flex-wrap:nowrap; align-items:center; }
+  .club-member-row > span{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .btn.club-retar{ flex:0 0 108px; width:108px; box-sizing:border-box; padding:7px 0; text-align:center;
+    font-family:"Cinzel", serif; font-size:.72rem; font-weight:700; letter-spacing:.2em; text-indent:.2em; text-transform:uppercase;
+    color:var(--ember-soft);
+    background:linear-gradient(165deg, rgba(255,255,255,.12), rgba(255,255,255,.03) 45%, rgba(0,0,0,.22));
+    background:linear-gradient(165deg, color-mix(in srgb, var(--ember) 28%, transparent), color-mix(in srgb, var(--ember) 8%, transparent) 55%, rgba(0,0,0,.22));
+    border:1px solid var(--ember); border-color:color-mix(in srgb, var(--ember) 62%, transparent); border-radius:999px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+    transition:border-color .15s, color .15s, box-shadow .2s, transform .06s; }
+  .btn.club-retar:hover{ color:#fff; border-color:var(--ember);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 0 14px rgba(255,255,255,.12); box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 0 14px color-mix(in srgb, var(--ember) 42%, transparent); }
   #club-compose{ margin:2px 0 6px; }
   .global-toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-8px);
-    z-index:9999; max-width:min(92vw, 420px); padding:11px 16px; border-radius:6px;
-    background:var(--frame, #22252b); border:1px solid var(--ember);
-    color:var(--text); box-shadow:0 6px 18px rgba(0,0,0,.35);
+    z-index:9999; max-width:min(92vw, 420px); padding:11px 18px; border-radius:14px;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.22)), rgba(16,12,22,.34);
+    border:1px solid rgba(255,255,255,.2);
+    box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+    color:var(--text);
     text-align:center; font-size:.95rem; opacity:0; pointer-events:none;
     transition:opacity .6s ease, transform .6s ease;
   }
@@ -958,9 +974,13 @@
   #chat-fab{ position:relative; display:inline-flex; align-items:center; justify-content:center; padding:9px 11px; }
   #chat-fab svg{ display:block; }
   /* Último mensaje entrante: burbuja que se desvanece sola (ver showChatFlash). */
-  #chat-flash{ max-width:min(280px, calc(100vw - 24px)); padding:9px 12px; border-radius:8px; font-size:.92rem; cursor:pointer;
-    background:var(--frame, #241f28); border:1px solid var(--ember); color:var(--text);
-    box-shadow:0 6px 18px rgba(0,0,0,.4); opacity:0; transform:translateY(6px); pointer-events:none; display:none;
+  #chat-flash{ max-width:min(280px, calc(100vw - 24px)); padding:9px 13px; border-radius:14px; font-size:.92rem; cursor:pointer;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.22)), rgba(16,12,22,.34);
+    border:1px solid rgba(255,255,255,.2);
+    box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+    color:var(--text);
+    opacity:0; transform:translateY(6px); pointer-events:none; display:none;
     transition:opacity .6s ease, transform .6s ease; overflow-wrap:anywhere; }
   #chat-flash.show{ display:block; opacity:1; transform:translateY(0); pointer-events:auto; }
   #chat-flash.fading{ opacity:0; }
@@ -6784,7 +6804,13 @@ async function loadClubMembers(){
   }
   members.forEach(p => {
     const name = p.display_name || p.username;
-    clubMembersListEl.appendChild(clubRow(name, [clubBtn("Retar", () => openClubCompose(p.id, name))]));
+    const retar = clubBtn("Retar", () => openClubCompose(p.id, name));
+    retar.classList.add("club-retar");
+    retar.setAttribute("aria-label", "Retar a " + name);
+    const row = clubRow(name, [retar]);
+    row.classList.add("club-member-row");
+    if(row.firstChild) row.firstChild.title = name;
+    clubMembersListEl.appendChild(row);
   });
 }
 
@@ -7810,7 +7836,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V192 · 5-oct-2026 · Invitación para WhatsApp: enlace con código, unión automática al confirmar el correo, aviso de miembro nuevo y sin # suelto";
+const BUILD_ID = "V193 · 5-oct-2026 · Avisos flotantes en cristal (como la tarjeta de claudIA) y botones «Retar» del mismo tamaño";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
