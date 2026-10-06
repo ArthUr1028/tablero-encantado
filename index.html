@@ -683,6 +683,18 @@
   }
   .cell.lgt{ background:linear-gradient(160deg, var(--sq-light), var(--sq-light-2)); }
   .cell.drk{ background:linear-gradient(160deg, var(--sq-dark), var(--sq-dark-2)); }
+  /* V194: una pieza negra sobre casilla oscura se perdía (sobre todo en el celular, donde la pieza se achica y su contorno
+     fino casi desaparece). Se aclara el FONDO de esa casilla con un resplandor del color del contorno del tema
+     (--basalt-edge): la pieza no se toca en absoluto (ni relleno, ni contorno, ni filtros), así que sus transparencias
+     quedan intactas y el resplandor se ve a través de ellas. Lección de la V74/V75: nada de engordar la silueta. */
+  .cell.drk:has(> .piece.b){
+    background:
+      radial-gradient(closest-side at 50% 54%,
+        color-mix(in srgb, var(--basalt-edge) 50%, transparent) 0,
+        color-mix(in srgb, var(--basalt-edge) 31%, transparent) 58%,
+        transparent 100%),
+      linear-gradient(160deg, var(--sq-dark), var(--sq-dark-2));
+  }
   .cell::before{
     /* veta de piedra */
     content:""; position:absolute; inset:0; opacity:.5; pointer-events:none;
@@ -806,6 +818,20 @@
   }
   .panel.collapsed h2::after{ transform:rotate(-90deg); }
   .panel.collapsed h2{ margin-bottom:0; }
+  /* V194: un panel plegado brilla al pasar el cursor (o enfocar con teclado) por su título, igual que el botón «Retar».
+     Plegado = invitación a abrir; desplegado = en calma. Se anima solo borde y sombra, no toca el layout ni la animación de altura. */
+  .panel{ transition:border-color .22s ease, box-shadow .28s ease; }
+  .panel h2{ transition:color .2s ease, text-shadow .25s ease; }
+  .panel.collapsed:has(> h2:hover), .panel.collapsed:has(> h2:focus-visible){
+    border-color:var(--ember);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 16px rgba(255,255,255,.08), 0 0 16px color-mix(in srgb, var(--ember) 42%, transparent), var(--shadow);
+  }
+  .panel.collapsed > h2:hover, .panel.collapsed > h2:focus-visible{
+    color:#fff; text-shadow:0 0 12px color-mix(in srgb, var(--ember) 60%, transparent);
+    outline:none;
+  }
+  .panel.collapsed > h2:hover::after, .panel.collapsed > h2:focus-visible::after{ color:var(--ember); }
+  @media (prefers-reduced-motion:reduce){ .panel, .panel h2{ transition:none; } }
   /* Todo lo que no sea el propio <h2> se oculta -- cubre cualquier panel
      presente y futuro sin tener que listar sus hijos particulares (inputs,
      selects, botones, notas, sub-paneles como #machine-panel/#clock-config
@@ -7836,7 +7862,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V193 · 5-oct-2026 · Avisos flotantes en cristal (como la tarjeta de claudIA) y botones «Retar» del mismo tamaño";
+const BUILD_ID = "V194 · 5-oct-2026 · Brillo en títulos de panel plegados y realce de piezas negras sobre casillas oscuras (sin tocar la pieza)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
