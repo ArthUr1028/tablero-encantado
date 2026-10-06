@@ -2068,12 +2068,13 @@
   .intro-texto{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
     padding:max(24px, env(safe-area-inset-top)) 7vw max(24px, env(safe-area-inset-bottom)); text-align:center; }
   .intro-titulo{ margin:0 0 .55em; font-family:"Cinzel", serif; font-weight:700; text-transform:uppercase;
-    font-size:clamp(1.9rem, 8.2vw, 4.6rem); line-height:1.12; letter-spacing:.28em; text-indent:.28em; color:#f4e8d2; text-wrap:balance;
+    font-size:clamp(1.45rem, 8vw, 4.6rem); line-height:1.12; letter-spacing:.28em; text-indent:.28em; color:#f4e8d2; text-wrap:balance;
     text-shadow:0 2px 0 rgba(0,0,0,.65), 0 0 30px rgba(217,138,61,.5), 0 0 70px rgba(217,138,61,.22);
     opacity:0; animation:introTitulo 2.4s cubic-bezier(.2,.7,.2,1) 1.4s both; }
+  .intro-titulo span{ display:block; white-space:nowrap; }
   @keyframes introTitulo{
-    from{ opacity:0; transform:translateY(18px); letter-spacing:.62em; filter:blur(10px) }
-    to{ opacity:1; transform:none; letter-spacing:.28em; filter:blur(0) } }
+    from{ opacity:0; transform:translateY(16px) scale(1.07); filter:blur(10px) }
+    to{ opacity:1; transform:none; filter:blur(0) } }
   .intro-leyenda{ max-width:36ch; }
   .intro-leyenda p{ margin:.55em 0; font-family:"Spectral", Georgia, serif; font-style:italic;
     font-size:clamp(1.04rem, 3.8vw, 1.4rem); line-height:1.5; color:#eee5d6; text-wrap:balance; text-shadow:0 2px 16px #000, 0 0 5px #000, 0 0 2px #000;
@@ -2127,7 +2128,7 @@
   <div class="intro-vineta" aria-hidden="true"></div>
   <div class="intro-velo" aria-hidden="true"></div>
   <div class="intro-texto">
-    <p class="intro-titulo" id="intro-titulo">El Tablero Encantado</p>
+    <p class="intro-titulo" id="intro-titulo"><span>El Tablero</span> <span>Encantado</span></p>
     <div class="intro-leyenda" id="intro-leyenda">
       <p>Sesenta y cuatro casillas. Dos ejércitos. Ningún lugar donde esconderse.</p>
       <p>Aquí se honra a los grandes maestros y se escribe, jugada a jugada, la leyenda de tu club.</p>
@@ -2169,11 +2170,16 @@
     intro.style.setProperty("--niebla", "url(" + c.toDataURL("image/png") + ")");
   }catch(e){}
 
-  /* La secuencia arranca cuando la imagen ya cargó (o a los 1.6 s, lo que ocurra primero) para que no aparezca de golpe. */
+  /* La secuencia arranca cuando la imagen y las tipografías ya cargaron (o a los 1.6 s, lo que ocurra primero): ni la imagen aparece de golpe ni el texto cambia de fuente a mitad de animación. */
   var go = function(){ intro.classList.add("intro-go"); }, started = false;
   var start = function(){ if(started) return; started = true; go(); };
   imgEl.style.backgroundImage = "url(" + IMG + ")";
-  var pre = new Image(); pre.onload = start; pre.onerror = start; pre.src = IMG;
+  var pend = 2, uno = function(){ if(--pend <= 0) start(); };
+  var pre = new Image(); pre.onload = uno; pre.onerror = uno; pre.src = IMG;
+  try{
+    if(document.fonts && document.fonts.load) Promise.all([document.fonts.load('700 48px "Cinzel"'), document.fonts.load('italic 400 18px "Spectral"')]).then(uno, uno);
+    else uno();
+  }catch(e){ uno(); }
   setTimeout(start, 1600);
 
   var finish = function(){ if(listo) return; listo = true; intro.classList.add("intro-listo"); setTimeout(function(){ try{ entrar.focus({ preventScroll:true }); }catch(e){} }, 60); };
