@@ -2217,11 +2217,11 @@
   }
 
   /* Fondo permanente del juego: el mismo campo de batalla, apenas perceptible (ajusta --fondo-batalla). */
-  :root{ --fondo-batalla:.11; }   /* V198: era .06 (demasiado oscuro) */
+  :root{ --fondo-batalla:.18; }   /* V198: .06 → .11; V205: .18 (se pidió verla un poco más) */
   #fondo-batalla{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:var(--fondo-batalla);
-    background:center/cover no-repeat; filter:saturate(.55) blur(1.2px);
-    -webkit-mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%);
-            mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%); }
+    background:center/cover no-repeat; filter:saturate(.7) blur(1px);
+    -webkit-mask-image:radial-gradient(ellipse 110% 100% at 50% 40%, #000 30%, transparent 96%);
+            mask-image:radial-gradient(ellipse 110% 100% at 50% 40%, #000 30%, transparent 96%); }
 
   /* ================= V204 · Tablillas de piedra =================
      Los paneles siguen el lenguaje del tablero tallado: veta de piedra, remaches en las esquinas, bordes biselados, título grabado
@@ -2266,6 +2266,32 @@
   }
   .seg button:not(:disabled):active, .btn:not(:disabled):active{ transform:translateY(1px); box-shadow:inset 0 2px 6px rgba(0,0,0,.65); }
   .panel select, .panel input[type="text"], .panel input[type="number"], .panel input[type="password"], .panel textarea{ box-shadow:inset 0 2px 5px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.05); }
+
+  /* ================= V205 · Cristal esmerilado =================
+     Los paneles pasan de piedra a cristal esmerilado traslúcido: dejan ver, desenfocada, la batalla del fondo. Se conservan el
+     bisel, el título grabado con su pieza, el divisor y los botones encendidos de la V204; se quitan los remaches (un cristal no los
+     lleva) y la veta queda como el grano fino de la escarcha. */
+  .panel{
+    background:
+      var(--stone-grain),
+      linear-gradient(165deg, rgba(255,255,255,.11), rgba(255,255,255,.035) 38%, transparent 64%),
+      linear-gradient(180deg, color-mix(in srgb, var(--tablet-2) 64%, transparent), color-mix(in srgb, var(--tablet) 56%, transparent));
+    -webkit-backdrop-filter:blur(14px) saturate(1.25); backdrop-filter:blur(14px) saturate(1.25);
+    border-color:color-mix(in srgb, #fff 16%, var(--line));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22), inset 1px 0 0 rgba(255,255,255,.06), inset -1px -1px 0 rgba(0,0,0,.35), 0 10px 30px rgba(0,0,0,.38);
+  }
+  .panel.panel-reto{
+    background:
+      var(--stone-grain),
+      linear-gradient(165deg, rgba(255,255,255,.12), rgba(255,255,255,.04) 38%, transparent 64%),
+      linear-gradient(180deg, color-mix(in srgb, var(--ember) 15%, color-mix(in srgb, var(--tablet-2) 62%, transparent)), color-mix(in srgb, var(--tablet) 54%, transparent));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.24), inset -1px -1px 0 rgba(0,0,0,.35), 0 0 24px color-mix(in srgb, var(--ember) 20%, transparent), 0 10px 30px rgba(0,0,0,.38);
+  }
+  .panel:not(.collapsed){ border-color:color-mix(in srgb, var(--ember) 42%, color-mix(in srgb, #fff 12%, var(--line))); }
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .panel{ background:var(--stone-grain), linear-gradient(180deg, var(--tablet-2), var(--tablet)); }
+    .panel.panel-reto{ background:var(--stone-grain), linear-gradient(180deg, color-mix(in srgb, var(--ember) 10%, var(--tablet-2)), var(--tablet)); }
+  }
 </style>
 
 <!-- V195 · Entrada. El HTML viene primero (cubre la pantalla desde el primer pintado); la imagen se carga por CSS/JS. -->
@@ -8363,7 +8389,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V204 · 7-oct-2026 · Paneles como tablillas de piedra: veta, remaches, títulos grabados con ícono de pieza y botones encendidos";
+const BUILD_ID = "V205 · 7-oct-2026 · Paneles de cristal esmerilado traslúcido y la batalla de fondo se ve un poco más";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
