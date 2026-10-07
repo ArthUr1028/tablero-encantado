@@ -2293,6 +2293,55 @@
     .panel{ background:var(--studs), var(--stone-grain), linear-gradient(180deg, var(--tablet-2), var(--tablet)); }
     .panel.panel-reto{ background:var(--studs), var(--stone-grain), linear-gradient(180deg, color-mix(in srgb, var(--ember) 10%, var(--tablet-2)), var(--tablet)); }
   }
+
+  /* ================= V207 · Cementerios: nichos de piedra, ventaja de material y desmoronamiento =================
+     Solo piel: no se toca ninguna medida ni el acomodo de los cementerios (escritorio, columnas, tira, horizontal, pantalla completa). */
+  .graveyard{
+    background:var(--stone-grain), linear-gradient(160deg, #4a4650, #302d35);
+    box-shadow:inset 1px 1px 0 rgba(255,255,255,.11), inset -1px -1px 0 rgba(0,0,0,.5), inset 0 0 16px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.6);
+  }
+  /* Cada pieza capturada reposa en su nicho con arco, alumbrado por una antorcha (el mismo ascua del tema). */
+  .graveyard .piece.fairy:not(.slot){ position:relative; }
+  .graveyard .piece.fairy:not(.slot)::before{
+    content:""; position:absolute; inset:-2px -3px -2px -3px; z-index:0; pointer-events:none;
+    border-radius:50% 50% 3px 3px / 46% 46% 3px 3px;
+    background:
+      radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--ember) 28%, transparent) 0, transparent 68%),
+      radial-gradient(ellipse at 50% 20%, rgba(0,0,0,.16), rgba(0,0,0,.50) 82%);
+    box-shadow:inset 0 3px 7px rgba(0,0,0,.72), inset 0 0 0 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.08);
+  }
+  .graveyard .piece.fairy:not(.slot) svg{ position:relative; z-index:1; }
+  /* La pieza capturada llega al cementerio DESPUÉS de desmoronarse en su casilla (≈.6 s). */
+  .graveyard .piece.gy-new, .gy-count.gy-new{ animation-delay:.62s; }
+  .gy-count.gy-bump{ animation-delay:.62s; }
+
+  /* Ventaja de material junto al nombre del bando que va ganando. */
+  .nameplate .mat-adv{
+    flex:0 0 auto; font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.72rem; letter-spacing:0; line-height:1.35; padding:0 7px;
+    color:var(--ember-soft); background:color-mix(in srgb, var(--ember) 16%, transparent);
+    border:1px solid color-mix(in srgb, var(--ember) 45%, transparent); border-radius:999px;
+    text-shadow:0 0 6px color-mix(in srgb, var(--ember) 60%, transparent);
+  }
+  .nameplate .mat-adv.adv-bump{ animation:advPop .7s ease .62s both; }
+  @keyframes advPop{ 0%{ transform:scale(.7); opacity:0; } 60%{ transform:scale(1.2); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
+
+  /* Desmoronamiento: la pieza capturada se parte en pedazos que caen y se deshacen en polvo, sobre su propia casilla. La capa es
+     aparte del tablero (que se redibuja en cada jugada) para que un dibujo nuevo no corte la animación. */
+  #crumble-layer{ grid-column:2; grid-row:1; position:relative; z-index:3; pointer-events:none; overflow:visible; }
+  .crumb{ position:absolute; pointer-events:none; }
+  .crumb .frag{ position:absolute; left:50%; top:50%; translate:-50% -50%; animation:crumbFall var(--du, .7s) cubic-bezier(.35,0,.7,.7) var(--dl, .15s) both; }
+  .crumb::after{
+    content:""; position:absolute; left:50%; top:64%; width:130%; height:80%; translate:-50% -50%; opacity:0; filter:blur(3px);
+    background:radial-gradient(ellipse, rgba(214,200,176,.5), transparent 66%); animation:crumbDust .9s ease-out .3s both;
+  }
+  @keyframes crumbFall{
+    0%{ transform:translate(0,0) rotate(0); opacity:1; }
+    14%{ transform:translate(calc(var(--dx) * .12), -1px) rotate(calc(var(--rot) * .1)); opacity:1; }
+    62%{ transform:translate(calc(var(--dx) * .55), calc(var(--dy) * .42)) rotate(calc(var(--rot) * .6)); opacity:.92; }
+    100%{ transform:translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.85); opacity:0; }
+  }
+  @keyframes crumbDust{ 0%{ opacity:0; scale:.5; } 35%{ opacity:.85; } 100%{ opacity:0; scale:1.25; } }
+  @media (prefers-reduced-motion:reduce){ .crumb{ display:none; } .nameplate .mat-adv.adv-bump{ animation:none; } }
 </style>
 
 <!-- V195 · Entrada. El HTML viene primero (cubre la pantalla desde el primer pintado); la imagen se carga por CSS/JS. -->
@@ -5853,6 +5902,60 @@ function fitNameplateOneLine(nm){
     nm.style.fontSize = size.toFixed(2) + "px";
   }
 }
+var matAdvPrev = { w: 0, b: 0 };
+function materialValue(board, color){
+  let v = 0;
+  for(const row of board) for(const cell of row){ if(cell && cell[0] === color) v += PIECE_VALUE[cell[1]] || 0; }
+  return v;
+}
+// Positivo: las blancas van ganando material respecto a la salida de la partida (así las promociones cuentan y una variante
+// asimétrica, como Maharajá, no marca ventaja desde el primer movimiento). 0 en Modo Libre o si algo aún no está listo.
+function materialAdvantage(){
+  try{
+    if(currentMode === "free") return 0;
+    const now = liveState().board, start = game.states[0].board;
+    return (materialValue(now, "w") - materialValue(now, "b")) - (materialValue(start, "w") - materialValue(start, "b"));
+  }catch(e){ return 0; }
+}
+/* V207 · Desmoronamiento de la pieza capturada (ver CSS .crumb). Doce pedazos recortados de la misma figura, que caen de arriba hacia
+   abajo con un poco de deriva y giro, más una nubecita de polvo. Va en una capa propia sobre el tablero. */
+var crumbLayerEl = null;
+function crumbLayer(){
+  if(crumbLayerEl && crumbLayerEl.isConnected) return crumbLayerEl;
+  crumbLayerEl = document.createElement("div");
+  crumbLayerEl.id = "crumble-layer";
+  crumbLayerEl.setAttribute("aria-hidden", "true");
+  boardEl.parentNode.appendChild(crumbLayerEl);
+  return crumbLayerEl;
+}
+function spawnCrumble(ri, ci, nCols, victim){
+  try{
+    if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const color = victim[0], type = victim[1];
+    const COLS = 3, ROWS = 4, OV = 0.8;           // OV: solape en % para que no se vean costuras entre pedazos
+    const g = document.createElement("div");
+    g.className = "crumb";
+    g.style.left = (ci / nCols * 100) + "%"; g.style.top = (ri / 8 * 100) + "%";
+    g.style.width = (100 / nCols) + "%"; g.style.height = (100 / 8) + "%";
+    let html = "";
+    for(let r = 0; r < ROWS; r++){
+      for(let c = 0; c < COLS; c++){
+        const t = Math.max(0, r / ROWS * 100 - OV), b = Math.max(0, (ROWS - r - 1) / ROWS * 100 - OV);
+        const l = Math.max(0, c / COLS * 100 - OV), rt = Math.max(0, (COLS - c - 1) / COLS * 100 - OV);
+        const dx = ((c - 1) * 15 + (Math.random() - .5) * 18).toFixed(1);
+        const dy = (28 + Math.random() * 34 + (ROWS - r) * 3).toFixed(1);
+        const rot = ((Math.random() - .5) * 70).toFixed(0);
+        const dl = (.14 + r * .045 + Math.random() * .07).toFixed(3);
+        const du = (.62 + Math.random() * .3).toFixed(2);
+        html += '<span class="piece ' + color + (FAIRY[type] ? " fairy" : "") + ' frag" style="clip-path:inset(' + t.toFixed(1) + "% " + rt.toFixed(1) + "% " + b.toFixed(1) + "% " + l.toFixed(1) +
+          '%);--dx:' + dx + "px;--dy:" + dy + "px;--rot:" + rot + "deg;--dl:" + dl + "s;--du:" + du + 's">' + pieceMarkup(type) + "</span>";
+      }
+    }
+    g.innerHTML = html;
+    crumbLayer().appendChild(g);
+    setTimeout(() => { try{ g.remove(); }catch(e){} }, 1600);
+  }catch(e){}
+}
 function renderNameplate(el, color){
   // Fase 3: mientras se juega contra la Máquina, su bando se etiqueta solo
   // (sin pisar lo que Arthur haya escrito en el campo de nombre — vuelve a
@@ -5881,6 +5984,16 @@ function renderNameplate(el, color){
   const player = document.createElement("span");
   player.className = "player";
   player.append(dot, nm);
+  // V207: ventaja de material (desde la posición de salida) junto al nombre del bando que va ganando.
+  const adv = materialAdvantage(), mine = color === "w" ? adv : -adv;
+  if(mine > 0){
+    const badge = document.createElement("span");
+    badge.className = "mat-adv" + (mine !== matAdvPrev[color] ? " adv-bump" : "");
+    badge.textContent = "+" + mine;
+    badge.title = "Ventaja de material: +" + mine;
+    player.appendChild(badge);
+  }
+  matAdvPrev[color] = Math.max(0, mine);
   el.appendChild(player);
   fitNameplateOneLine(nm);
   // Ronda "reloj": el badge se identifica por data-color, no por si vive en
@@ -6029,7 +6142,7 @@ function renderGraveyardSide(el, types, color, key, advance){
   clearTimeout(el._gyTimer);
   el._gyTimer = setTimeout(() => {
     el.querySelectorAll(".gy-new, .gy-bump").forEach(n => n.classList.remove("gy-new", "gy-bump"));
-  }, 800);
+  }, 1500);   // V207: la pieza espera ≈.62 s (el desmoronamiento) y luego se funde .6 s
 }
 /* V160/V163/V166: ¿cementerio en UNA columna junto al tablero? Escritorio (sin pantalla táctil): siempre, en las
    dos vistas y con todas las variantes (V163). Celular/tablet: en horizontal, con pantalla completa y columnas
@@ -6242,6 +6355,11 @@ function render(){
       const cell = document.createElement("div");
       cell.className = "cell " + ((r + c) % 2 === 0 ? "lgt" : "drk");
       cell.dataset.r = r; cell.dataset.c = c;
+      // V207: si esta jugada capturó, la pieza capturada se desmorona sobre su casilla (la del destino; en una captura al paso, la del peón).
+      if(animFrom && lastMv && lastMv.capture){
+        const vr = lastMv.ep ? lastMv.from[0] : lastMv.to[0], vc = lastMv.to[1];
+        if(r === vr && c === vc) spawnCrumble(ri, ci, nCols, lastMv.capture);
+      }
 
       if(sameSq(selected, [r,c])) cell.classList.add("sel");
       if(trHintSq && trHintSq.some(t => sameSq(t, [r,c]))) cell.classList.add("hint");
@@ -8390,7 +8508,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V206 · 7-oct-2026 · Los paneles de cristal recuperan los remaches de las esquinas";
+const BUILD_ID = "V207 · 7-oct-2026 · Cementerios: nichos de piedra, ventaja de material (+N) y la pieza capturada se desmorona en su casilla antes de llegar al cementerio";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
