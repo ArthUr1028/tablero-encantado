@@ -804,6 +804,57 @@
      tablero donde esté el puntero en ese momento (así no se voltea al agarrarlo
      y queda como se verá al soltarlo). */
   .piece-float.n-face-r svg{ transform:scaleX(-1); }
+
+  /* ================= V199 · «Piedra tallada» (A), piezas que se levantan (B) y Vista 3D opcional (C) ================= */
+  /* A · Luz desde arriba a la izquierda: biseles finos en cada casilla, tablero hundido en su marco, marco con chaflán,
+     un velo de luz sobre todo el tablero y una sombra de contacto bajo cada pieza. Solo pintura: no toca ninguna medida. */
+  #board .cell.lgt:not(.hint){ box-shadow:inset 1px 1px 0 rgba(255,255,255,.30), inset -1px -1px 0 rgba(0,0,0,.16), inset 0 0 12px rgba(255,255,255,.05); }
+  #board .cell.drk:not(.hint){ box-shadow:inset 1px 1px 0 rgba(255,255,255,.09), inset -1px -1px 0 rgba(0,0,0,.45), inset 0 0 12px rgba(0,0,0,.14); }
+  #board{ box-shadow:inset 0 0 24px rgba(0,0,0,.55), -1px -1px 0 1px rgba(0,0,0,.6), 1px 1px 0 1px rgba(255,255,255,.10); }
+  #board::after{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(135deg, rgba(255,244,220,.07) 0%, rgba(255,244,220,.02) 34%, transparent 55%, rgba(0,0,0,.14) 100%); }
+  .board-frame{ border-top-color:color-mix(in srgb, var(--frame-hi) 78%, #fff); border-left-color:color-mix(in srgb, var(--frame-hi) 78%, #fff);
+    border-bottom-color:rgba(0,0,0,.55); border-right-color:rgba(0,0,0,.55); }
+  #board .piece.fairy{ position:relative; }
+  #board .piece.fairy svg{ position:relative; z-index:1; transform-origin:50% 88%; }
+  #board .piece.fairy::before{ content:""; position:absolute; left:15%; right:5%; bottom:4%; height:15%; border-radius:50%; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.22) 55%, transparent 74%); }
+
+  /* B · Al seleccionar, la pieza se alza y su sombra se separa del suelo; al moverse, la pieza se despega un poco y aterriza
+     con un golpecito; el caballo SALTA en arco. Se usan las propiedades `translate`/`scale` (no `transform`) para no pisar el
+     volteo del caballo hacia el centro. */
+  @keyframes pzLift{ from{ translate:0 0; scale:1 1; } to{ translate:0 -9%; scale:1.07 1.07; } }
+  @keyframes pzSlide{ 0%{ translate:0 0; scale:1 1; } 40%{ translate:0 -5%; scale:1.04 1.04; } 100%{ translate:0 0; scale:1 1; } }
+  @keyframes nHop{
+    0%{ translate:0 0; scale:1 1; } 42%{ translate:0 -30%; scale:1.12 1.12; } 78%{ translate:0 0; scale:1 1; }
+    88%{ translate:0 1.5%; scale:1.06 .93; } 100%{ translate:0 0; scale:1 1; } }
+  @keyframes nShadow{ 0%{ opacity:1; scale:1 1; } 42%{ opacity:.3; scale:.65 .65; } 78%{ opacity:1; scale:1 1; } 88%{ scale:1.12 1; } 100%{ opacity:1; scale:1 1; } }
+  #board .cell.sel > .piece.fairy svg{ animation:pzLift .16s ease-out both; }
+  #board .cell.sel > .piece.fairy::before{ opacity:.55; scale:.8 .8; transition:opacity .16s ease, scale .16s ease; }
+  #board .piece.fairy.slide:not(.n-hop) svg{ animation:pzSlide .24s ease-in-out; }
+  #board .piece.fairy.n-hop.slide{ animation-duration:.32s; }
+  #board .piece.fairy.n-hop svg{ animation:nHop .32s ease; }
+  #board .piece.fairy.n-hop::before{ animation:nShadow .32s ease; }
+  #board .piece.fairy.n-hop.n-turn-to-r svg{ animation:nHop .32s ease, kturn-to-r .32s cubic-bezier(.22,.68,.2,1); }
+  #board .piece.fairy.n-hop.n-turn-to-l svg{ animation:nHop .32s ease, kturn-to-l .32s cubic-bezier(.22,.68,.2,1); }
+  .piece-float{ scale:1.1; }
+  @media (prefers-reduced-motion:reduce){
+    #board .cell.sel > .piece.fairy svg, #board .piece.fairy.slide svg, #board .piece.fairy.n-hop svg, #board .piece.fairy.n-hop::before{ animation:none !important; }
+    #board .cell.sel > .piece.fairy svg{ translate:0 -9%; scale:1.07 1.07; }
+  }
+
+  /* C · Vista 3D (opcional, se enciende en «Modalidad»): el marco se inclina en perspectiva girando desde su centro y achicado un poco (así ni se sale
+     de la pantalla ni deja un hueco grande arriba) y gana grosor de losa. La inclinación va en la variable --tilt: el JS la quita un instante para medir el
+     marco «plano», así ninguna medida del Tablero se entera de la inclinación. No aplica en pantalla completa. */
+  .board-frame{ transform:var(--tilt, none); transform-origin:50% 50%; }
+  body.vista3d:not(.zen-mode) .board-frame{
+    --tilt:perspective(1100px) rotateX(16deg) scale(.94);
+    box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,.5), inset 0 2px 6px rgba(0,0,0,.6),
+      0 2px 0 #151019, 0 4px 0 #130f18, 0 6px 0 #110d16, 0 8px 0 #0f0b14, 0 10px 0 #0d0a12, 0 12px 0 #0b0810,
+      0 0 26px color-mix(in srgb, var(--ember) 17%, transparent),
+      0 26px 40px rgba(0,0,0,.6);
+  }
   .piece-float.n-anim svg{ transition:transform .14s ease; }
 
   .cell.sel::after{
@@ -2223,11 +2274,26 @@
 
   var finish = function(){ if(listo) return; listo = true; intro.classList.add("intro-listo"); setTimeout(function(){ try{ entrar.focus({ preventScroll:true }); }catch(e){} }, 60); };
   entrar.addEventListener("animationend", function(ev){ if(ev.animationName === "introBoton"){ listo = true; try{ entrar.focus({ preventScroll:true }); }catch(e){} } });
-  /* V198: al entrar a la batalla se abre el panel «Modalidad» (mismo despliegue y deslizamiento que al tocar su título), para configurar y empezar de una vez. Solo con «Entrar» (clic o Enter), no con «Saltar» ni Escape. */
+  /* V199: al entrar a la batalla, SIN cuenta activa se va al tope con el panel «Cuenta» desplegado (para que el recién llegado
+     escriba su nombre y se dé de alta); CON cuenta activa se abre «Modalidad» (mismo despliegue y deslizamiento que al tocar su
+     título). Solo con «Entrar» (clic o Enter), no con «Saltar» ni Escape. Si no se logra saber la sesión a tiempo, va a Modalidad. */
   var irAModalidad = function(){
     try{
-      var p = document.getElementById("panel-variant");
-      if(p && p.offsetParent !== null && typeof openPanelAligned === "function" && !document.body.classList.contains("zen-mode")) openPanelAligned(p);
+      if(document.body.classList.contains("zen-mode")) return;
+      var cuenta = document.getElementById("panel-account"), modal = document.getElementById("panel-variant"), hecho = false;
+      var ir = function(conSesion){
+        if(hecho) return; hecho = true;
+        if(!conSesion && cuenta && cuenta.offsetParent !== null && typeof expandPanelExclusive === "function"){
+          expandPanelExclusive(cuenta);
+          var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          window.scrollTo({ top:0, behavior: reduce ? "auto" : "smooth" });
+          return;
+        }
+        if(modal && modal.offsetParent !== null && typeof openPanelAligned === "function") openPanelAligned(modal);
+      };
+      setTimeout(function(){ ir(true); }, 900);
+      if(typeof sb === "undefined" || !sb.auth) ir(true);
+      else sb.auth.getSession().then(function(r){ ir(!!(r && r.data && r.data.session && r.data.session.user)); }, function(){ ir(true); });
     }catch(e){}
   };
   var leave = function(ir){
@@ -3476,6 +3542,11 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <button id="theme-fuego" aria-pressed="false">Fuego</button>
           <button id="theme-aire" aria-pressed="false">Aire</button>
         </div>
+        <!-- V199 · Vista 3D (opcional): inclina el tablero en perspectiva. Se recuerda en este dispositivo. -->
+        <div class="seg" role="group" aria-label="Vista del tablero" style="margin-bottom:0">
+          <button id="vista3d-toggle" aria-pressed="false">Vista 3D</button>
+        </div>
+        <p class="free-hint" id="vista3d-note" style="margin-top:6px; margin-bottom:0">Inclina el tablero en perspectiva. No se usa en pantalla completa.</p>
       </section>
     </div>
   </div>
@@ -6102,6 +6173,7 @@ function render(){
           span.style.setProperty("--fdx", (fromColIdx - ci));
           span.style.setProperty("--fdy", (fromRowIdx - ri));
           span.classList.add("slide");
+          if(p[1] === "n") span.classList.add("n-hop");   // V199: el caballo salta en arco
           if(p[1] === "n" && fromColIdx >= 0 && (fromColIdx < nCols / 2) !== knightOnLeft){
             span.classList.add(knightOnLeft ? "n-turn-to-r" : "n-turn-to-l");
           }
@@ -8127,7 +8199,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V198 · 7-oct-2026 · «Entrar a la batalla» abre Modalidad, título y tablero con brillo, chat de cristal y fondo más claro";
+const BUILD_ID = "V199 · 7-oct-2026 · Tablero en piedra tallada, piezas que se levantan (el caballo salta), Vista 3D opcional, y la entrada lleva a Cuenta o a Modalidad";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -12992,6 +13064,42 @@ anEl.me.addEventListener("click", (e) => {
   anSyncMe();
 });
 // (sin anSyncUI() aquí: `game` todavía no existe; lo llama render() desde restore())
+
+/* V199 · Vista 3D. La inclinación vive en --tilt del marco del tablero. Para que NINGUNA medida existente del Tablero (tamaño del marco,
+   alto de coordenadas, cementerios, panel fijo, pantalla completa…) se entere de la inclinación, mientras la vista 3D está encendida
+   `getBoundingClientRect` de lo que está dentro del marco se mide con la inclinación quitada un instante (sin pintar entre medio).
+   Los clics y arrastres usan `elementFromPoint`, que sí respeta la inclinación, así que siguen acertando la casilla real. */
+(function(){
+  const KEY = "tablero-encantado.vista3d.v1";
+  const frame = document.querySelector(".board-frame");
+  const btn = document.getElementById("vista3d-toggle");
+  if(!frame || !btn) return;
+  const orig = Element.prototype.getBoundingClientRect;
+  let measuring = false;
+  Element.prototype.getBoundingClientRect = function(){
+    if(measuring || !document.body.classList.contains("vista3d") || !(this === frame || frame.contains(this))) return orig.call(this);
+    measuring = true;
+    try{
+      frame.style.setProperty("--tilt", "none");
+      return orig.call(this);
+    }finally{
+      frame.style.removeProperty("--tilt");
+      measuring = false;
+    }
+  };
+  const apply = (on) => {
+    document.body.classList.toggle("vista3d", on);
+    btn.setAttribute("aria-pressed", String(on));
+  };
+  let saved = false;
+  try{ saved = localStorage.getItem(KEY) === "1"; }catch(e){}
+  apply(saved);
+  btn.addEventListener("click", () => {
+    const on = !document.body.classList.contains("vista3d");
+    apply(on);
+    try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
+  });
+})();
 
 initCollapsiblePanels();
 
