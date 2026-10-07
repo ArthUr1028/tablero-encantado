@@ -2222,6 +2222,50 @@
     background:center/cover no-repeat; filter:saturate(.55) blur(1.2px);
     -webkit-mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%);
             mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%); }
+
+  /* ================= V204 · Tablillas de piedra =================
+     Los paneles siguen el lenguaje del tablero tallado: veta de piedra, remaches en las esquinas, bordes biselados, título grabado
+     (y encendido cuando el panel está abierto), un ícono de pieza por panel, divisor grabado bajo el título y botones elegidos
+     «encendidos» que se hunden al pulsarlos. Todo con las variables del tema (ascua/frío/fuego/aire). */
+  :root{
+    --stone-grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --studs:
+      radial-gradient(circle at 9px 9px, rgba(255,255,255,.16) 0 1.4px, rgba(0,0,0,.45) 2.2px, transparent 3.4px),
+      radial-gradient(circle at calc(100% - 9px) 9px, rgba(255,255,255,.16) 0 1.4px, rgba(0,0,0,.45) 2.2px, transparent 3.4px),
+      radial-gradient(circle at 9px calc(100% - 9px), rgba(255,255,255,.16) 0 1.4px, rgba(0,0,0,.45) 2.2px, transparent 3.4px),
+      radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), rgba(255,255,255,.16) 0 1.4px, rgba(0,0,0,.45) 2.2px, transparent 3.4px);
+  }
+  .panel{
+    background:var(--studs), var(--stone-grain), linear-gradient(180deg, var(--tablet-2), var(--tablet));
+    box-shadow:inset 1px 1px 0 rgba(255,255,255,.08), inset -1px -1px 0 rgba(0,0,0,.5), inset 0 0 22px rgba(0,0,0,.22), 0 6px 18px rgba(0,0,0,.35);
+  }
+  .panel.panel-reto{
+    background:var(--studs), var(--stone-grain), linear-gradient(180deg, color-mix(in srgb, var(--ember) 10%, var(--tablet-2)), var(--tablet));
+    box-shadow:inset 1px 1px 0 rgba(255,255,255,.09), inset -1px -1px 0 rgba(0,0,0,.5), 0 0 22px color-mix(in srgb, var(--ember) 17%, transparent), 0 6px 18px rgba(0,0,0,.35);
+  }
+  .panel h2{ text-shadow:0 1px 0 rgba(255,255,255,.10), 0 -1px 0 rgba(0,0,0,.65); }
+  .panel h2.has-ico::before{ display:none; }
+  .panel-ico{ width:22px; height:22px; flex:0 0 auto; margin-right:.05em; color:var(--ember-soft); --piece-edge:rgba(0,0,0,.6);
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.65)); transition:color .25s ease, filter .25s ease; }
+  /* Abierto: borde y título encendidos, y un divisor grabado bajo el título. */
+  .panel:not(.collapsed){ border-color:color-mix(in srgb, var(--ember) 38%, var(--line)); }
+  .panel:not(.collapsed) > h2{
+    color:#f6e7cf; padding-bottom:9px; margin-bottom:14px;
+    border-bottom:1px solid color-mix(in srgb, var(--ember) 22%, var(--line)); box-shadow:0 1px 0 rgba(255,255,255,.04);
+    text-shadow:0 1px 0 rgba(0,0,0,.65), 0 0 10px color-mix(in srgb, var(--ember) 55%, transparent);
+  }
+  .panel:not(.collapsed) > h2 .panel-ico{ color:var(--ember); filter:drop-shadow(0 0 6px color-mix(in srgb, var(--ember) 70%, transparent)) drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  /* Botones: relieve de piedra, el elegido «encendido», y se hunden al pulsar. */
+  .btn{ box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 1px 0 rgba(0,0,0,.45); }
+  .seg button{ box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 rgba(0,0,0,.4);
+    transition:color .15s, border-color .15s, box-shadow .2s, background .2s, text-shadow .2s, transform .06s; }
+  .seg button:not(:disabled):not([aria-pressed="true"]):hover{ border-color:color-mix(in srgb, var(--ember) 50%, var(--line)); color:var(--text); }
+  .seg button[aria-pressed="true"]{
+    box-shadow:inset 0 0 14px color-mix(in srgb, var(--ember) 38%, transparent), inset 0 1px 0 rgba(255,255,255,.16), 0 0 10px color-mix(in srgb, var(--ember) 24%, transparent);
+    text-shadow:0 0 8px color-mix(in srgb, var(--ember) 85%, transparent);
+  }
+  .seg button:not(:disabled):active, .btn:not(:disabled):active{ transform:translateY(1px); box-shadow:inset 0 2px 6px rgba(0,0,0,.65); }
+  .panel select, .panel input[type="text"], .panel input[type="number"], .panel input[type="password"], .panel textarea{ box-shadow:inset 0 2px 5px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.05); }
 </style>
 
 <!-- V195 · Entrada. El HTML viene primero (cubre la pantalla desde el primer pintado); la imagen se carga por CSS/JS. -->
@@ -8319,7 +8363,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V203 · 7-oct-2026 · El reto de claudIA reconoce tu sesión y es independiente de Modalidad; miembros en línea en el Club";
+const BUILD_ID = "V204 · 7-oct-2026 · Paneles como tablillas de piedra: veta, remaches, títulos grabados con ícono de pieza y botones encendidos";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -13185,6 +13229,22 @@ anEl.me.addEventListener("click", (e) => {
 // (sin anSyncUI() aquí: `game` todavía no existe; lo llama render() desde restore())
 
 
+/* V204 · Un ícono de pieza (los mismos dibujos del tablero) en el título de cada panel, en lugar del rombo. */
+function initPanelIcons(){
+  const BY_ID = { "panel-account":"pawn", "panel-club":"rook", "panel-variant":"knight", "panel-reto":"amazon", "panel-partida":"chancellor",
+    "panel-oracle":"bishop", "panel-analysis":"queen", "panel-openings":"archbishop", "panel-free":"pawn", "panel-library":"archbishop",
+    "panel-hof":"king", "panel-theme":"queen" };
+  document.querySelectorAll(".panel").forEach(p => {
+    const h2 = p.querySelector(":scope > h2");
+    if(!h2 || h2.querySelector(".panel-ico")) return;
+    let g = BY_ID[p.id];
+    if(!g && /^\s*Posici/i.test(h2.textContent)) g = "rook";   // «Posición · FEN» (sin id)
+    if(!g || !document.getElementById("glyph-" + g)) return;
+    h2.classList.add("has-ico");
+    h2.insertAdjacentHTML("afterbegin", '<svg class="panel-ico" viewBox="0 0 100 100" aria-hidden="true"><use href="#glyph-' + g + '"></use></svg>');
+  });
+}
+initPanelIcons();
 initCollapsiblePanels();
 
 /* ============================ Arranque ============================ */
