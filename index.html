@@ -214,6 +214,19 @@
     text-shadow:0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(217,138,61,.22);
     text-wrap:balance;
   }
+  /* V198: el título resplandece (ascua del tema) y «respira» muy despacio. */
+  h1{
+    text-shadow:0 2px 0 rgba(0,0,0,.5),
+      0 0 10px color-mix(in srgb, var(--ember-soft) 70%, transparent),
+      0 0 26px color-mix(in srgb, var(--ember) 65%, transparent),
+      0 0 54px color-mix(in srgb, var(--ember) 40%, transparent);
+    animation:tituloBrilla 5.5s ease-in-out infinite;
+  }
+  @keyframes tituloBrilla{
+    0%,100%{ text-shadow:0 2px 0 rgba(0,0,0,.5), 0 0 9px color-mix(in srgb, var(--ember-soft) 60%, transparent), 0 0 22px color-mix(in srgb, var(--ember) 52%, transparent), 0 0 46px color-mix(in srgb, var(--ember) 30%, transparent); }
+    50%{ text-shadow:0 2px 0 rgba(0,0,0,.5), 0 0 12px color-mix(in srgb, var(--ember-soft) 85%, transparent), 0 0 32px color-mix(in srgb, var(--ember) 78%, transparent), 0 0 64px color-mix(in srgb, var(--ember) 48%, transparent); }
+  }
+  @media (prefers-reduced-motion:reduce){ h1{ animation:none; } }
   .lead{
     max-width:60ch; margin:0 auto;
     font-style:italic; color:var(--text-dim);
@@ -636,6 +649,8 @@
     box-shadow:
       inset 0 0 0 1px rgba(0,0,0,.5),
       inset 0 2px 6px rgba(0,0,0,.6),
+      0 0 26px color-mix(in srgb, var(--ember) 17%, transparent),   /* V198: brillo leve del tablero */
+      0 0 70px color-mix(in srgb, var(--ember) 8%, transparent),
       var(--shadow);
     /* Ronda "cementerio en tira horizontal" (V134, 2026-09-27): display:flex
        en columna no cambia nada en escritorio (los cementerios siguen
@@ -1030,6 +1045,9 @@
   #chat-widget{ position:fixed; left:12px; bottom:12px; z-index:900; display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
   #chat-widget[hidden]{ display:none; }
   #chat-fab{ position:relative; display:inline-flex; align-items:center; justify-content:center; padding:9px 11px; }
+  #chat-fab{ background:linear-gradient(165deg, rgba(255,255,255,.12), rgba(255,255,255,.04) 42%, rgba(0,0,0,.2)), rgba(16,12,22,.38);
+    border:1px solid rgba(255,255,255,.2); box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    -webkit-backdrop-filter:blur(12px) saturate(1.2); backdrop-filter:blur(12px) saturate(1.2); }
   #chat-fab svg{ display:block; }
   /* Último mensaje entrante: burbuja que se desvanece sola (ver showChatFlash). */
   #chat-flash{ max-width:min(280px, calc(100vw - 24px)); padding:9px 13px; border-radius:14px; font-size:.92rem; cursor:pointer;
@@ -1043,8 +1061,12 @@
   #chat-flash.show{ display:block; opacity:1; transform:translateY(0); pointer-events:auto; }
   #chat-flash.fading{ opacity:0; }
   #chat-unread{ position:absolute; top:-7px; right:-7px; margin:0; padding:0 6px; border-radius:9px; background:var(--ember); color:#1b1206; font-weight:700; font-size:.8rem; }
-  #chat-panel{ width:min(280px, calc(100vw - 24px)); padding:8px; background:var(--frame, #241f28); border:1px solid var(--frame-hi, #4c4350);
-    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.45);
+  /* V198: el chat es de cristal, como la burbuja de último mensaje (#chat-flash). */
+  #chat-panel{ width:min(280px, calc(100vw - 24px)); padding:8px;
+    background:linear-gradient(165deg, rgba(255,255,255,.12), rgba(255,255,255,.04) 42%, rgba(0,0,0,.2)), rgba(16,12,22,.38);
+    border:1px solid rgba(255,255,255,.2);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+    border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.28);
     opacity:1; transform:translateY(0); transition:opacity .35s ease, transform .35s ease; }
   #chat-panel[hidden]{ display:none; }
   /* Ronda "desvanecido al cerrar" (2026-09-26): mismo efecto que ya tenía
@@ -2130,7 +2152,7 @@
   }
 
   /* Fondo permanente del juego: el mismo campo de batalla, apenas perceptible (ajusta --fondo-batalla). */
-  :root{ --fondo-batalla:.06; }
+  :root{ --fondo-batalla:.11; }   /* V198: era .06 (demasiado oscuro) */
   #fondo-batalla{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:var(--fondo-batalla);
     background:center/cover no-repeat; filter:saturate(.55) blur(1.2px);
     -webkit-mask-image:radial-gradient(ellipse 100% 90% at 50% 38%, #000 18%, transparent 88%);
@@ -2201,15 +2223,23 @@
 
   var finish = function(){ if(listo) return; listo = true; intro.classList.add("intro-listo"); setTimeout(function(){ try{ entrar.focus({ preventScroll:true }); }catch(e){} }, 60); };
   entrar.addEventListener("animationend", function(ev){ if(ev.animationName === "introBoton"){ listo = true; try{ entrar.focus({ preventScroll:true }); }catch(e){} } });
-  var leave = function(){
+  /* V198: al entrar a la batalla se abre el panel «Modalidad» (mismo despliegue y deslizamiento que al tocar su título), para configurar y empezar de una vez. Solo con «Entrar» (clic o Enter), no con «Saltar» ni Escape. */
+  var irAModalidad = function(){
+    try{
+      var p = document.getElementById("panel-variant");
+      if(p && p.offsetParent !== null && typeof openPanelAligned === "function" && !document.body.classList.contains("zen-mode")) openPanelAligned(p);
+    }catch(e){}
+  };
+  var leave = function(ir){
     if(!abierta) return; abierta = false;
+    if(ir === true) setTimeout(irAModalidad, 450);
     try{ sessionStorage.setItem(K, "1"); }catch(e){}
     intro.classList.add("saliendo"); d.classList.remove("intro-abierta"); d.classList.add("sin-intro-ya");
     var quitar = function(){ if(intro.parentNode) intro.parentNode.removeChild(intro); };
     intro.addEventListener("transitionend", function(ev){ if(ev.propertyName === "opacity") quitar(); });
     setTimeout(quitar, 1500);
   };
-  entrar.addEventListener("click", leave);
+  entrar.addEventListener("click", function(){ leave(true); });
   saltar.addEventListener("click", function(ev){ ev.stopPropagation(); leave(); });
   intro.addEventListener("click", function(ev){ if(ev.target.closest && ev.target.closest("button")) return; if(!listo) finish(); });
   intro.addEventListener("wheel", function(ev){ ev.preventDefault(); }, { passive:false });
@@ -2222,7 +2252,7 @@
       if(document.activeElement === entrar && listo) return;       /* deja que el botón haga su clic */
       if(document.activeElement === saltar) return;
       ev.preventDefault(); ev.stopImmediatePropagation();
-      if(!listo) finish(); else leave();
+      if(!listo) finish(); else leave(true);
     }
     else if(k === "Tab"){ ev.preventDefault(); ev.stopImmediatePropagation(); (listo ? entrar : saltar).focus(); }
     else { ev.stopImmediatePropagation(); }                          /* ningún atajo del juego mientras dura la entrada */
@@ -8097,7 +8127,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V197 · 7-oct-2026 · El caballo que arrastras también mira al centro (sin voltearse al agarrarlo)";
+const BUILD_ID = "V198 · 7-oct-2026 · «Entrar a la batalla» abre Modalidad, título y tablero con brillo, chat de cristal y fondo más claro";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
