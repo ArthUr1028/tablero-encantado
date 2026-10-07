@@ -847,6 +847,15 @@
   .btn.btn-iniciar:hover:not(:disabled){ box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 0 24px color-mix(in srgb, var(--ember) 55%, transparent); }
   .btn.btn-iniciar:disabled{ background:rgba(0,0,0,.25); border-color:var(--line); color:var(--text-dim); box-shadow:none; }
   .zen-game #match-controls .btn.btn-iniciar{ margin-top:0; flex:0 1 auto; letter-spacing:.08em; }
+  /* V202 · Apartado especial del Reto de claudIA, y notas vacías fuera de la vista. */
+  #machine-note:empty, #trainer-note:empty{ display:none; }
+  .panel.panel-reto{ border-color:color-mix(in srgb, var(--ember) 55%, var(--line));
+    background:linear-gradient(180deg, color-mix(in srgb, var(--ember) 10%, var(--tablet-2)), var(--tablet));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 0 22px color-mix(in srgb, var(--ember) 17%, transparent), var(--shadow); }
+  .panel-reto h2{ text-shadow:0 0 12px color-mix(in srgb, var(--ember) 55%, transparent); }
+  .reto-legend{ margin:0 0 4px; text-align:center; white-space:pre-line; font-family:"Spectral", serif; font-style:italic;
+    font-size:1rem; line-height:1.55; color:var(--text); text-wrap:balance; }
+  #panel-reto .btns{ margin-top:0; }
   .piece-float{ scale:1.1; }
   @media (prefers-reduced-motion:reduce){
     #board .cell.sel > .piece.fairy svg, #board .piece.fairy.slide svg, #board .piece.fairy.n-hop svg, #board .piece.fairy.n-hop::before{ animation:none !important; }
@@ -3292,8 +3301,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
              humano pensando su jugada. Ver resetClock()/clockTick() en el
              script para la mecánica completa. -->
         <div class="seg free-hide" role="group" aria-label="Reloj" id="clock-seg">
-          <button id="clock-off" aria-pressed="true">Sin reloj</button>
-          <button id="clock-on" aria-pressed="false">Con reloj</button>
+          <button id="clock-toggle" aria-pressed="false">Reloj</button>
         </div>
         <div id="clock-config" class="free-hide" hidden>
           <label class="lib-label" for="clock-preset" style="margin-top:8px">Control de tiempo</label>
@@ -3323,18 +3331,21 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
             <span class="vs" aria-hidden="true">+</span>
             <input id="clock-custom-inc" type="number" min="0" max="60" step="1" value="0" aria-label="Incremento en segundos por jugada">
           </div>
-          <p class="free-hint" id="clock-note" style="margin-top:8px">Cada bando arranca con su propio tiempo; al mover se suma el incremento, si hay. Se acaba el tiempo de un bando y pierde la partida.</p>
         </div>
         <!-- V201: «Iniciar» vuelve a Modalidad, al final de la configuración (en pantalla completa viaja al panel de la partida, ver zgPlaceInner). -->
         <div class="btns free-hide" id="start-box">
           <button class="btn btn-iniciar" id="match-start">Iniciar</button>
         </div>
-        <!-- Reto de claudIA (bloque 3, 2026-09-30): un clic y claudIA sortea
-             modalidad y color; nivel segun modalidad (ver RETO_TABLE). -->
-        <div class="btns free-hide" id="reto-box" style="margin-top:8px">
-          <button class="btn" id="reto-start">Reto de claudIA</button>
+      </section>
+
+      <!-- V202 · Apartado propio para el Reto de claudIA (antes dentro de Modalidad): un clic y claudIA sortea modalidad y color; nivel según
+           modalidad (ver RETO_TABLE). La leyenda (#reto-note) la escribe retoUpdateUI() según el estado. -->
+      <section class="panel panel-reto free-hide" id="panel-reto">
+        <h2>Reto de claudIA</h2>
+        <p class="reto-legend" id="reto-note"></p>
+        <div class="btns" id="reto-box">
+          <button class="btn btn-iniciar btn-reto" id="reto-start">Aceptar el reto</button>
         </div>
-        <p class="free-hint free-hide" id="reto-note" style="margin-top:8px"></p>
       </section>
 
       <section class="panel" id="panel-partida">
@@ -6626,7 +6637,7 @@ function updateModalitySelectorsUI(){
   const ids = [
     "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas",
     "rival-humano", "rival-maquina", "machine-side-w", "machine-side-b", "machine-level",
-    "clock-off", "clock-on", "clock-preset", "clock-custom-min", "clock-custom-inc",
+    "clock-toggle", "clock-preset", "clock-custom-min", "clock-custom-inc",
     "btn-reset", "fen-load", "pgn-import"
   ];
   const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveGame && !retoActive;
@@ -6717,22 +6728,9 @@ function updateMachineUI(variant){
   // (Stockfish clásico) y Capablanca/Maharajá (mismo Fairy-Stockfish sin
   // hilos, compartiendo worker: Capablanca viene compilada de fábrica,
   // Maharajá se registra una vez por partida vía fsf_load_variant_ini).
+  // V202: sin leyendas explicativas bajo el nivel de claudIA; solo queda visible un fallo real al cargar el motor.
   const usesFsf = isCap || isMah || isAmz;
-  if(usesFsf && fsfLoadError){
-    note.textContent = fsfLoadError;
-  } else if(machineThinking){
-    note.textContent = usesFsf ? "El motor de " + (isMah ? "Maharajá" : isAmz ? "Amazonas" : "Capablanca") + " está pensando…" : "La máquina está pensando…";
-  } else if(usesFsf){
-    note.textContent = fsfWorker
-      ? (isMah
-          ? 'Motor de Maharajá (Fairy-Stockfish, un solo hilo) — la Amazona usa todo su alcance (dama+caballo). Los niveles fijan una Elo aproximada real (500-1600); "Aprendiz" es el piso del motor.'
-          : isAmz
-          ? 'Motor de Amazonas (Fairy-Stockfish, un solo hilo) — ambos bandos con la Dama sustituida por la Amazona; coronar sigue dando solo Dama/Torre/Alfil/Caballo. Los niveles fijan una Elo aproximada real (500-1600); "Aprendiz" es el piso del motor.'
-          : 'Motor de Capablanca (Fairy-Stockfish, un solo hilo) — Arzobispo y Canciller incluidos. Los niveles fijan una Elo aproximada real (500-1600); "Aprendiz" es el piso del motor.')
-      : 'Motor de Capablanca/Maharajá/Amazonas (Fairy-Stockfish, un solo hilo) — se descarga la primera vez que juegue (menos de 1 MB), aparte del Tablero.';
-  } else {
-    note.textContent = 'Reutiliza el mismo motor del Oráculo — no gasta tokens de IA. "Aprendiz" mezcla jugadas al azar con el motor para ser un rival de verdad principiante; subí de nivel cuando le empieces a ganar seguido.';
-  }
+  note.textContent = (usesFsf && fsfLoadError) ? fsfLoadError : "";
 }
 const MAQUINA_KEY = "tablero-encantado.maquina.v1";
 function persistMachinePrefs(){
@@ -7501,8 +7499,7 @@ const RETO_TABLE = {
 function retoApplyRuntime(r){
   vsMachine = true; machineHumanColor = r.color; machineLevel = r.level;
   clockEnabled = true; clockPresetKey = "custom"; clockBaseMin = RETO_MIN; clockIncSec = RETO_INC;
-  document.getElementById("clock-off").setAttribute("aria-pressed", "false");
-  document.getElementById("clock-on").setAttribute("aria-pressed", "true");
+  document.getElementById("clock-toggle").setAttribute("aria-pressed", "true");
   document.getElementById("clock-config").hidden = true;
 }
 function retoSave(){
@@ -7633,12 +7630,12 @@ function retoUpdateUI(){
   abBtn.hidden = !retoActive;
   startBtn.disabled = !accountProfile || currentMode !== "play" || !!liveGame;
   if(retoActive){
-    note.textContent = "Reto en curso: " + RETO_TABLE[retoActive.variant].label + " · tú llevas " +
-      (retoActive.color === "w" ? "blancas" : "negras") + " · reloj 30 min + 10 s. Sin deshacer ni ayudas; salirte cuenta como derrota.";
+    note.textContent = "La batalla ha comenzado.\n" + RETO_TABLE[retoActive.variant].label + " · tus " +
+      (retoActive.color === "w" ? "blancas" : "negras") + " · 30 min + 10 s por jugada.\nSin deshacer, sin ayudas. Quien abandona, cae.";
   } else {
     note.textContent = accountProfile
-      ? "claudIA sortea modalidad y color. Sin deshacer, sin ayudas y sin volver atrás; salirte cuenta como derrota."
-      : "Inicia sesión y únete al club para retar a claudIA.";
+      ? "Un solo clic. claudIA elige el campo de batalla y el color de tu ejército.\nSin deshacer. Sin ayudas. Sin marcha atrás.\nQuien abandona, cae."
+      : "Solo quien jura lealtad al club puede desafiarla.\nInicia sesión y únete: la batalla espera.";
   }
   let cover = document.getElementById("reto-cover");
   if(!cover){
@@ -8202,7 +8199,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V201 · 7-oct-2026 · Modalidad ordenada de lo general a lo particular y «Iniciar» de vuelta al final de la configuración";
+const BUILD_ID = "V202 · 7-oct-2026 · Reloj de un solo botón, sin leyendas bajo el nivel de claudIA y apartado propio para el Reto de claudIA";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9158,8 +9155,7 @@ function restoreClockPrefs(){
   clockPresetKey = (saved && saved.preset) || "3+2";
   clockBaseMin = (saved && Number.isFinite(saved.min)) ? saved.min : 3;
   clockIncSec = (saved && Number.isFinite(saved.inc)) ? saved.inc : 2;
-  document.getElementById("clock-off").setAttribute("aria-pressed", String(!clockEnabled));
-  document.getElementById("clock-on").setAttribute("aria-pressed", String(clockEnabled));
+  document.getElementById("clock-toggle").setAttribute("aria-pressed", String(clockEnabled));
   document.getElementById("clock-config").hidden = !clockEnabled;
   const presetSel = document.getElementById("clock-preset");
   if(clockPresetKey !== "custom" && CLOCK_PRESETS[clockPresetKey]){
@@ -9174,15 +9170,13 @@ function restoreClockPrefs(){
 }
 function setClockEnabled(on){
   clockEnabled = on;
-  document.getElementById("clock-off").setAttribute("aria-pressed", String(!on));
-  document.getElementById("clock-on").setAttribute("aria-pressed", String(on));
+  document.getElementById("clock-toggle").setAttribute("aria-pressed", String(on));
   document.getElementById("clock-config").hidden = !on;
   persistClockPrefs();
   resetClock();
   persist(); render();
 }
-document.getElementById("clock-off").onclick = () => setClockEnabled(false);
-document.getElementById("clock-on").onclick = () => setClockEnabled(true);
+document.getElementById("clock-toggle").onclick = () => setClockEnabled(!clockEnabled);   // V202: un solo botón enciende y apaga el reloj
 document.getElementById("match-start").onclick = () => {
   if(currentMode !== "play" || matchStarted) return;
   matchStarted = true;
@@ -12237,8 +12231,7 @@ function trSyncToggle(){
   if(seg) seg.style.display = noClock ? "none" : "";
   if(cfg && noClock) cfg.hidden = true;
   const why = trOn ? trReason() : "";
-  note.textContent = !trOn ? "Apagado: juegas contra claudIA sin entrenamiento."
-    : (why || "Activo, sin reloj. Cada jugada tuya recibe un semáforo (verde, amarillo o rojo); en rojo puedes reintentar. Dos ayudas por jugada con la bombilla. Al terminar, un resumen.");
+  note.textContent = (trOn && why) ? why : "";   // V202: solo el motivo cuando el entrenamiento NO se puede usar; sin leyenda explicativa
 }
 function trSync(){
   trSyncToggle();
