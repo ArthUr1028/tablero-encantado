@@ -745,6 +745,16 @@
     from{ transform:translate(calc(var(--fdx,0) * 100%), calc(var(--fdy,0) * 100%)); }
     to{ transform:none; }
   }
+  /* V196: los caballos siempre miran al centro del tablero. El ícono mira a la
+     IZQUIERDA de fábrica: en la mitad derecha queda tal cual y en la mitad
+     izquierda se voltea. El volteo va en el <svg> (no en el .piece) para no
+     chocar con la animación de deslizamiento, que usa transform en el .piece.
+     Si el salto cruza de mitad, el caballo gira durante el brinco. */
+  .piece.n-face-r svg{ transform:scaleX(-1); }
+  .piece.n-turn-to-r svg{ animation:kturn-to-r .24s cubic-bezier(.22,.68,.2,1); }
+  .piece.n-turn-to-l svg{ animation:kturn-to-l .24s cubic-bezier(.22,.68,.2,1); }
+  @keyframes kturn-to-r{ from{ transform:scaleX(1); } to{ transform:scaleX(-1); } }
+  @keyframes kturn-to-l{ from{ transform:scaleX(-1); } to{ transform:scaleX(1); } }
   /* Arzobispo y Canciller (Modo Capablanca) no tienen glifo de ajedrez
      Unicode propio y fiable entre dispositivos (el bloque "Chess Symbols"
      de Unicode 12 que sí los define apenas tiene soporte de fuentes, sobre
@@ -1869,6 +1879,7 @@
 
   @media (prefers-reduced-motion: reduce){
     .piece.slide{ animation:none; }
+    .piece.n-turn-to-r svg, .piece.n-turn-to-l svg{ animation:none; }
     body::after{ animation:none; }
     .cell.check::after{ animation:none; opacity:.8; }
   }
@@ -6045,12 +6056,19 @@ function render(){
         const span = document.createElement("span");
         span.className = "piece " + p[0] + (FAIRY[p[1]] ? " fairy" : "");
         span.innerHTML = pieceMarkup(p[1]);
+        // V196: el caballo mira al centro. `ci` es la columna VISUAL (ya cuenta el
+        // tablero girado), así que "mitad izquierda/derecha" es la de la pantalla.
+        const knightOnLeft = (ci < nCols / 2);
+        if(p[1] === "n" && knightOnLeft) span.classList.add("n-face-r");
         if(lastMv && sameSq(lastMv.to,[r,c]) && animFrom){
           const fromColIdx = cols.indexOf(animFrom[1]);
           const fromRowIdx = rows.indexOf(animFrom[0]);
           span.style.setProperty("--fdx", (fromColIdx - ci));
           span.style.setProperty("--fdy", (fromRowIdx - ri));
           span.classList.add("slide");
+          if(p[1] === "n" && fromColIdx >= 0 && (fromColIdx < nCols / 2) !== knightOnLeft){
+            span.classList.add(knightOnLeft ? "n-turn-to-r" : "n-turn-to-l");
+          }
         }
         cell.appendChild(span);
       }
@@ -8060,7 +8078,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V195 · 5-oct-2026 · Entrada dramática (niebla que se disipa, título, leyenda y «Entrar a la batalla») y fondo sutil del campo de batalla";
+const BUILD_ID = "V196 · 7-oct-2026 · Los caballos siempre miran al centro del tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
