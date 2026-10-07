@@ -805,7 +805,7 @@
      y queda como se verá al soltarlo). */
   .piece-float.n-face-r svg{ transform:scaleX(-1); }
 
-  /* ================= V199 · «Piedra tallada» (A), piezas que se levantan (B) y Vista 3D opcional (C) ================= */
+  /* ================= V199 · «Piedra tallada» (A) y piezas que se levantan (B) ================= */
   /* A · Luz desde arriba a la izquierda: biseles finos en cada casilla, tablero hundido en su marco, marco con chaflán,
      un velo de luz sobre todo el tablero y una sombra de contacto bajo cada pieza. Solo pintura: no toca ninguna medida. */
   #board .cell.lgt:not(.hint){ box-shadow:inset 1px 1px 0 rgba(255,255,255,.30), inset -1px -1px 0 rgba(0,0,0,.16), inset 0 0 12px rgba(255,255,255,.05); }
@@ -843,18 +843,6 @@
     #board .cell.sel > .piece.fairy svg{ translate:0 -9%; scale:1.07 1.07; }
   }
 
-  /* C · Vista 3D (opcional, se enciende en «Modalidad»): el marco se inclina en perspectiva girando desde su centro y achicado un poco (así ni se sale
-     de la pantalla ni deja un hueco grande arriba) y gana grosor de losa. La inclinación va en la variable --tilt: el JS la quita un instante para medir el
-     marco «plano», así ninguna medida del Tablero se entera de la inclinación. No aplica en pantalla completa. */
-  .board-frame{ transform:var(--tilt, none); transform-origin:50% 50%; }
-  body.vista3d:not(.zen-mode) .board-frame{
-    --tilt:perspective(1100px) rotateX(16deg) scale(.94);
-    box-shadow:
-      inset 0 0 0 1px rgba(0,0,0,.5), inset 0 2px 6px rgba(0,0,0,.6),
-      0 2px 0 #151019, 0 4px 0 #130f18, 0 6px 0 #110d16, 0 8px 0 #0f0b14, 0 10px 0 #0d0a12, 0 12px 0 #0b0810,
-      0 0 26px color-mix(in srgb, var(--ember) 17%, transparent),
-      0 26px 40px rgba(0,0,0,.6);
-  }
   .piece-float.n-anim svg{ transition:transform .14s ease; }
 
   .cell.sel::after{
@@ -3542,11 +3530,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <button id="theme-fuego" aria-pressed="false">Fuego</button>
           <button id="theme-aire" aria-pressed="false">Aire</button>
         </div>
-        <!-- V199 · Vista 3D (opcional): inclina el tablero en perspectiva. Se recuerda en este dispositivo. -->
-        <div class="seg" role="group" aria-label="Vista del tablero" style="margin-bottom:0">
-          <button id="vista3d-toggle" aria-pressed="false">Vista 3D</button>
-        </div>
-        <p class="free-hint" id="vista3d-note" style="margin-top:6px; margin-bottom:0">Inclina el tablero en perspectiva. No se usa en pantalla completa.</p>
       </section>
     </div>
   </div>
@@ -8199,7 +8182,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V199 · 7-oct-2026 · Tablero en piedra tallada, piezas que se levantan (el caballo salta), Vista 3D opcional, y la entrada lleva a Cuenta o a Modalidad";
+const BUILD_ID = "V200 · 7-oct-2026 · Se quita la Vista 3D (quedan la piedra tallada, las piezas que se levantan y la entrada inteligente)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -13065,41 +13048,6 @@ anEl.me.addEventListener("click", (e) => {
 });
 // (sin anSyncUI() aquí: `game` todavía no existe; lo llama render() desde restore())
 
-/* V199 · Vista 3D. La inclinación vive en --tilt del marco del tablero. Para que NINGUNA medida existente del Tablero (tamaño del marco,
-   alto de coordenadas, cementerios, panel fijo, pantalla completa…) se entere de la inclinación, mientras la vista 3D está encendida
-   `getBoundingClientRect` de lo que está dentro del marco se mide con la inclinación quitada un instante (sin pintar entre medio).
-   Los clics y arrastres usan `elementFromPoint`, que sí respeta la inclinación, así que siguen acertando la casilla real. */
-(function(){
-  const KEY = "tablero-encantado.vista3d.v1";
-  const frame = document.querySelector(".board-frame");
-  const btn = document.getElementById("vista3d-toggle");
-  if(!frame || !btn) return;
-  const orig = Element.prototype.getBoundingClientRect;
-  let measuring = false;
-  Element.prototype.getBoundingClientRect = function(){
-    if(measuring || !document.body.classList.contains("vista3d") || !(this === frame || frame.contains(this))) return orig.call(this);
-    measuring = true;
-    try{
-      frame.style.setProperty("--tilt", "none");
-      return orig.call(this);
-    }finally{
-      frame.style.removeProperty("--tilt");
-      measuring = false;
-    }
-  };
-  const apply = (on) => {
-    document.body.classList.toggle("vista3d", on);
-    btn.setAttribute("aria-pressed", String(on));
-  };
-  let saved = false;
-  try{ saved = localStorage.getItem(KEY) === "1"; }catch(e){}
-  apply(saved);
-  btn.addEventListener("click", () => {
-    const on = !document.body.classList.contains("vista3d");
-    apply(on);
-    try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
-  });
-})();
 
 initCollapsiblePanels();
 
