@@ -2294,23 +2294,12 @@
     .panel.panel-reto{ background:var(--studs), var(--stone-grain), linear-gradient(180deg, color-mix(in srgb, var(--ember) 10%, var(--tablet-2)), var(--tablet)); }
   }
 
-  /* ================= V207 · Cementerios: nichos de piedra, ventaja de material y desmoronamiento =================
+  /* ================= V207 · Cementerios: ventaja de material y desmoronamiento (los nichos se quitaron en la V208) =================
      Solo piel: no se toca ninguna medida ni el acomodo de los cementerios (escritorio, columnas, tira, horizontal, pantalla completa). */
   .graveyard{
     background:var(--stone-grain), linear-gradient(160deg, #4a4650, #302d35);
     box-shadow:inset 1px 1px 0 rgba(255,255,255,.11), inset -1px -1px 0 rgba(0,0,0,.5), inset 0 0 16px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.6);
   }
-  /* Cada pieza capturada reposa en su nicho con arco, alumbrado por una antorcha (el mismo ascua del tema). */
-  .graveyard .piece.fairy:not(.slot){ position:relative; }
-  .graveyard .piece.fairy:not(.slot)::before{
-    content:""; position:absolute; inset:-2px -3px -2px -3px; z-index:0; pointer-events:none;
-    border-radius:50% 50% 3px 3px / 46% 46% 3px 3px;
-    background:
-      radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--ember) 28%, transparent) 0, transparent 68%),
-      radial-gradient(ellipse at 50% 20%, rgba(0,0,0,.16), rgba(0,0,0,.50) 82%);
-    box-shadow:inset 0 3px 7px rgba(0,0,0,.72), inset 0 0 0 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.08);
-  }
-  .graveyard .piece.fairy:not(.slot) svg{ position:relative; z-index:1; }
   /* La pieza capturada llega al cementerio DESPUÉS de desmoronarse en su casilla (≈.6 s). */
   .graveyard .piece.gy-new, .gy-count.gy-new{ animation-delay:.62s; }
   .gy-count.gy-bump{ animation-delay:.62s; }
@@ -2432,7 +2421,7 @@
   };
   var leave = function(ir){
     if(!abierta) return; abierta = false;
-    if(ir === true) setTimeout(irAModalidad, 450);
+    if(ir === true){ try{ if(typeof startFreshClassic === "function") startFreshClassic(); }catch(e){} setTimeout(irAModalidad, 450); }
     try{ sessionStorage.setItem(K, "1"); }catch(e){}
     intro.classList.add("saliendo"); d.classList.remove("intro-abierta"); d.classList.add("sin-intro-ya");
     var quitar = function(){ if(intro.parentNode) intro.parentNode.removeChild(intro); };
@@ -6799,6 +6788,16 @@ document.getElementById("mode-free").onclick = () => setMode("free");
    del Salón de la Fama cambia de variante sola. Aquí solo arrancamos una
    posición inicial nueva en el ancho pedido. */
 const VARIANT_START = { clasico: START, capablanca: CAPABLANCA_START, maharaja: MAHARAJA_START, amazonas: AMAZONAS_START };
+/* V208 · «Entrar a la batalla» empieza SIEMPRE con ajedrez clásico en su posición inicial (en Partida), sin importar lo que hubiera quedado
+   guardado de la visita anterior. Única excepción: un reto de claudIA o una partida en vivo en curso, que no se deben pisar. */
+function startFreshClassic(){
+  try{
+    if(retoActive || liveGame) return false;
+    if(currentMode !== "play") setMode("play");
+    switchVariant("clasico");
+    return true;
+  }catch(e){ return false; }
+}
 function switchVariant(target){
   stopAuto();
   const keepMeta = { white: game.white, black: game.black, result: "", resultNote: "" };
@@ -8508,7 +8507,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V207 · 7-oct-2026 · Cementerios: nichos de piedra, ventaja de material (+N) y la pieza capturada se desmorona en su casilla antes de llegar al cementerio";
+const BUILD_ID = "V208 · 7-oct-2026 · Sin nichos en los cementerios; «Entrar a la batalla» empieza en ajedrez clásico y «Iniciar» abre La Partida";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9491,6 +9490,8 @@ document.getElementById("match-start").onclick = () => {
   matchStarted = true;
   matchPaused = false;
   persist(); render();
+  // V208: al iniciar se abre «La Partida» (notación y botones a la mano); acordeón: cierra Modalidad. En pantalla completa ese panel no existe.
+  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
 };
 document.getElementById("match-pause").onclick = () => {
   if(currentMode !== "play" || !matchStarted || game.result) return;
