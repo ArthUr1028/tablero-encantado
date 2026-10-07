@@ -856,6 +856,13 @@
   .reto-legend{ margin:0 0 4px; text-align:center; white-space:pre-line; font-family:"Spectral", serif; font-style:italic;
     font-size:1rem; line-height:1.55; color:var(--text); text-wrap:balance; }
   #panel-reto .btns{ margin-top:0; }
+  /* V203 · Presencia: punto y texto de estado en la lista de miembros. */
+  .pres-dot{ display:inline-block; width:9px; height:9px; margin-right:7px; border-radius:50%; background:#5c5560; vertical-align:baseline; position:relative; top:-1px; }
+  .club-member-row.pres-on .pres-dot{ background:#4ade80; box-shadow:0 0 8px #4ade80; }
+  .club-member-row.pres-busy .pres-dot{ background:var(--ember); box-shadow:0 0 8px var(--ember); }
+  .pres-txt{ color:var(--text-dim); font-style:italic; font-size:.78rem; }
+  .club-member-row.pres-on .pres-txt{ color:#7ee6a1; }
+  .pres-count, .pres-line{ font-style:italic; }
   .piece-float{ scale:1.1; }
   @media (prefers-reduced-motion:reduce){
     #board .cell.sel > .piece.fairy svg, #board .piece.fairy.slide svg, #board .piece.fairy.n-hop svg, #board .piece.fairy.n-hop::before{ animation:none !important; }
@@ -3123,11 +3130,13 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <div id="club-view-challenge" class="club-view" role="tabpanel" aria-labelledby="club-tab-challenge" hidden>
             <div id="club-members-wrap">
               <p class="free-hint" style="margin:0 0 6px">Elige a quién retar:</p>
+              <p class="free-hint pres-count" id="club-presence-count" style="margin:0 0 6px" hidden></p>
               <div id="club-members-list"></div>
             </div>
 
             <div id="club-compose" hidden>
               <p class="free-hint" style="margin:0 0 8px">Retando a <strong id="club-compose-name"></strong></p>
+              <p class="free-hint pres-line" id="club-compose-pres" style="margin:-4px 0 8px" hidden></p>
               <div class="seg" role="group" aria-label="Tipo de partida">
                 <button type="button" id="club-kind-live" aria-pressed="true">En vivo</button>
                 <button type="button" id="club-kind-async" aria-pressed="false">Asíncrona</button>
@@ -3340,7 +3349,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 
       <!-- V202 · Apartado propio para el Reto de claudIA (antes dentro de Modalidad): un clic y claudIA sortea modalidad y color; nivel según
            modalidad (ver RETO_TABLE). La leyenda (#reto-note) la escribe retoUpdateUI() según el estado. -->
-      <section class="panel panel-reto free-hide" id="panel-reto">
+      <section class="panel panel-reto" id="panel-reto">
         <h2>Reto de claudIA</h2>
         <p class="reto-legend" id="reto-note"></p>
         <div class="btns" id="reto-box">
@@ -6210,6 +6219,7 @@ function render(){
   updateVariantUI(variantOf(pos.board));
   updateModalitySelectorsUI();
   if(typeof updateLiveBanner === "function") updateLiveBanner();
+  if(typeof presenceSync === "function") presenceSync();
   fenEl.value = toFEN(pos);
   // Ronda "sin deshacer en multijugador" (2026-09-25): deshacer solo existe
   // en Solitario/entrenamiento; en partida en vivo queda bloqueado.
@@ -6817,6 +6827,7 @@ ownerNameEl.addEventListener("input", () => {
 // mostrar cualquier error o confirmación de este sistema también, en vez
 // de tragárselo.
 let accountProfile = null; // {id, username, display_name} o null si no hay sesión
+let clubIsMember = null;   // V203: null = aún no se sabe; true/false tras revisar la membresía (lo usa el reto de claudIA)
 const accountNoteEl = document.getElementById("account-note");
 function noteOwnerSync(msg, isErr){
   if(!accountNoteEl) return;
@@ -6829,9 +6840,11 @@ async function loadAccountProfile(userId){
   if(error){
     accountProfile = null;
     noteOwnerSync("No se pudo cargar tu perfil: " + error.message, true);
+    try{ retoUpdateUI(); }catch(e){}
     return;
   }
   accountProfile = data;
+  try{ retoUpdateUI(); }catch(e){}   // V203: el perfil carga DESPUÉS del primer dibujo; sin esto el reto seguía diciendo «inicia sesión»
   if(accountProfile.display_name && accountProfile.display_name !== ownerNameEl.value){
     ownerNameEl.value = accountProfile.display_name;
     ownerNameEl.dispatchEvent(new Event("input"));
@@ -6846,6 +6859,9 @@ async function loadAccountProfile(userId){
 }
 function clearAccountProfile(){
   accountProfile = null;
+  clubIsMember = null;
+  try{ retoUpdateUI(); }catch(e){}
+  if(typeof unsubscribePresence === "function") unsubscribePresence();
   switchToLocalLibrary();
   const panelClub = document.getElementById("panel-club");
   if(panelClub) panelClub.hidden = true;
@@ -7006,6 +7022,8 @@ async function refreshClub(){
     .select("profile_id").eq("profile_id", accountProfile.id).maybeSingle();
   if(meErr){ clubNote("No se pudo revisar tu membresía: " + meErr.message, true); return; }
   const isMember = !!mine;
+  clubIsMember = isMember;
+  try{ retoUpdateUI(); }catch(e){}
   if(!isMember){
     const joined = await tryAutoRedeemInvite();
     if(joined){ return refreshClub(); }
@@ -7017,6 +7035,7 @@ async function refreshClub(){
 
   await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments()]);
   subscribeClubChannel();
+  subscribePresence();
   autoReconnectLive();
 }
 
@@ -7135,6 +7154,94 @@ function unsubscribeClubChannel(){
   if(clubChannel){ sb.removeChannel(clubChannel); clubChannel = null; }
 }
 
+/* V203 · Presencia del club: quién tiene el Tablero abierto ahora.
+   Canal PRIVADO «club-presencia» de Supabase Realtime (policies en 14_presencia.sql: solo miembros del club pueden anunciarse y ver a
+   los demás). Cada cliente se anuncia con su id y un estado: «libre» (en línea) o «en_partida» (partida en vivo o reto de claudIA).
+   «En línea» = tiene el Tablero abierto; si cierra o minimiza la pestaña, desaparece en unos segundos. Si el canal falla (por ejemplo
+   si aún no se corrió la migración), simplemente no se muestran puntos: nada más se rompe. */
+let presenceChannel = null, presenceReady = false, presenceLast = "";
+const clubOnline = new Map();   // profile_id -> "libre" | "en_partida"
+function presenceMyStatus(){ return (liveGame || retoActive) ? "en_partida" : "libre"; }
+function presenceTrack(force){
+  if(!presenceChannel || !presenceReady) return;
+  const st = presenceMyStatus();
+  if(!force && st === presenceLast) return;
+  presenceLast = st;
+  try{ presenceChannel.track({ estado: st, t: Date.now() }); }catch(e){}
+}
+function presenceSync(){ presenceTrack(false); }
+function subscribePresence(){
+  if(presenceChannel || !accountProfile) return;
+  try{ sb.realtime.setAuth(); }catch(e){}
+  const ch = sb.channel("club-presencia", { config: { private: true, presence: { key: accountProfile.id } } });
+  ch.on("presence", { event: "sync" }, () => {
+    clubOnline.clear();
+    const st = ch.presenceState();
+    Object.keys(st).forEach(k => {
+      const metas = st[k];
+      if(metas && metas.length) clubOnline.set(k, metas[metas.length - 1].estado === "en_partida" ? "en_partida" : "libre");
+    });
+    applyPresenceToRows();
+  }).subscribe(status => {
+    if(status === "SUBSCRIBED"){ presenceReady = true; presenceTrack(true); applyPresenceToRows(); }
+    else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED"){
+      presenceReady = false; clubOnline.clear(); applyPresenceToRows();
+    }
+  });
+  presenceChannel = ch;
+}
+function unsubscribePresence(){
+  if(presenceChannel){ try{ presenceChannel.untrack(); }catch(e){} try{ sb.removeChannel(presenceChannel); }catch(e){} presenceChannel = null; }
+  presenceReady = false; presenceLast = ""; clubOnline.clear();
+  applyPresenceToRows();
+}
+const PRES_LABEL = { libre: "En línea", en_partida: "En partida" };
+function applyPresenceToRows(){
+  const list = document.getElementById("club-members-list");
+  if(!list) return;
+  const rows = [].slice.call(list.querySelectorAll(".club-member-row"));
+  rows.forEach(r => {
+    const st = presenceReady ? (clubOnline.get(r.dataset.pid) || "") : "";
+    r.dataset.pres = st;
+    r.classList.toggle("pres-on", st === "libre");
+    r.classList.toggle("pres-busy", st === "en_partida");
+    const label = r.firstElementChild;
+    if(label){
+      let dot = label.querySelector(".pres-dot");
+      if(!dot){ dot = document.createElement("i"); dot.className = "pres-dot"; dot.setAttribute("aria-hidden", "true"); label.insertBefore(dot, label.firstChild); }
+      let txt = label.querySelector(".pres-txt");
+      if(!txt){ txt = document.createElement("small"); txt.className = "pres-txt"; label.appendChild(txt); }
+      dot.hidden = !presenceReady;
+      txt.textContent = st ? " · " + PRES_LABEL[st].toLowerCase() : "";
+    }
+    const retar = r.querySelector(".club-retar");
+    if(retar) retar.setAttribute("aria-label", "Retar a " + (r.dataset.name || "") + (st ? " (" + PRES_LABEL[st].toLowerCase() + ")" : ""));
+  });
+  const rank = r => r.dataset.pres === "libre" ? 0 : r.dataset.pres === "en_partida" ? 1 : 2;
+  rows.slice().sort((a, b) => rank(a) - rank(b) || (a.dataset.name || "").localeCompare(b.dataset.name || "", "es"))
+      .forEach(r => list.appendChild(r));
+  const cnt = document.getElementById("club-presence-count");
+  if(cnt){
+    const n = rows.filter(r => r.dataset.pres).length;
+    cnt.hidden = !presenceReady || !rows.length;
+    cnt.textContent = n === 0 ? "Nadie más está en línea ahora." : (n === 1 ? "1 miembro en línea ahora." : n + " miembros en línea ahora.");
+  }
+}
+function presenceHintForCompose(id){
+  const line = document.getElementById("club-compose-pres");
+  if(!line) return;
+  if(!presenceReady){ line.hidden = true; return; }
+  const st = clubOnline.get(id) || "";
+  if(st === "libre") setClubKind("live");
+  else if(!st) setClubKind("async");
+  line.textContent = st === "libre" ? "En línea ahora: puede aceptar tu reto de inmediato."
+    : st === "en_partida" ? "Está en otra partida en este momento."
+    : "No está en línea: una partida asíncrona le llegará cuando abra el Tablero.";
+  line.hidden = false;
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") presenceTrack(true); });
+window.addEventListener("pagehide", () => { try{ if(presenceChannel) presenceChannel.untrack(); }catch(e){} });
+
 // Fase 2 · paso 4 (ronda "listas duplicadas", 2026-09-24): estas tres
 // funciones se disparan tanto a mano (refreshClub) como desde varios
 // listeners de Realtime a la vez — aceptar un reto, por ejemplo, dispara
@@ -7173,15 +7280,18 @@ async function loadClubMembers(){
     retar.setAttribute("aria-label", "Retar a " + name);
     const row = clubRow(name, [retar]);
     row.classList.add("club-member-row");
+    row.dataset.pid = p.id; row.dataset.name = name;
     if(row.firstChild) row.firstChild.title = name;
     clubMembersListEl.appendChild(row);
   });
+  applyPresenceToRows();
 }
 
 function openClubCompose(id, name){
   clubComposeTarget = { id, name };
   clubComposeNameEl.textContent = name;
   setClubKind(clubComposeKind);
+  presenceHintForCompose(id);
   document.getElementById("club-members-wrap").hidden = true;   // V152: el formulario reemplaza a la lista
   clubComposeEl.hidden = false;
 }
@@ -7512,11 +7622,16 @@ function retoSave(){
   }catch(e){}
 }
 async function retoStart(){
-  if(retoActive || currentMode !== "play" || liveGame) return;
+  if(retoActive) return;
+  if(liveGame){ showGlobalToast("Sal de la partida en vivo (panel Club) para aceptar el reto de claudIA."); return; }
   if(!accountProfile){ showGlobalToast("Inicia sesión para retar a claudIA."); return; }
   const { data, error } = await sb.from("club_members").select("profile_id").eq("profile_id", accountProfile.id).limit(1);
   if(error || !data || !data.length){ showGlobalToast("El reto de claudIA es solo para miembros del club."); return; }
-  if(retoActive) return;
+  if(retoActive || liveGame) return;
+  // V203: el reto no depende del modo ni del rival elegidos en Modalidad; empieza una partida nueva y reemplaza lo que haya en el tablero.
+  const hayPartida = !!(game && game.ucis && game.ucis.length > 0 && !game.result);
+  if((currentMode !== "play" || hayPartida) && !confirm("El reto empieza una partida nueva y reemplaza lo que hay en el tablero. ¿Aceptar el reto?")) return;
+  if(currentMode !== "play") setMode("play");
   const keys = Object.keys(RETO_TABLE);
   const variant = keys[Math.floor(Math.random() * keys.length)];
   const color = variant === "maharaja" ? "b" : (Math.random() < 0.5 ? "w" : "b");
@@ -7628,14 +7743,19 @@ function retoUpdateUI(){
   document.body.classList.toggle("reto-on", !!retoActive);
   startBtn.hidden = !!retoActive;
   abBtn.hidden = !retoActive;
-  startBtn.disabled = !accountProfile || currentMode !== "play" || !!liveGame;
+  // V203: el reto es independiente de Modalidad (rival, modo y reloj no importan); solo lo frena no tener cuenta/club o estar en una partida en vivo.
+  startBtn.disabled = !accountProfile || !!liveGame || clubIsMember === false;
   if(retoActive){
     note.textContent = "La batalla ha comenzado.\n" + RETO_TABLE[retoActive.variant].label + " · tus " +
       (retoActive.color === "w" ? "blancas" : "negras") + " · 30 min + 10 s por jugada.\nSin deshacer, sin ayudas. Quien abandona, cae.";
+  } else if(!accountProfile){
+    note.textContent = "Solo quien jura lealtad al club puede desafiarla.\nInicia sesión y únete: la batalla espera.";
+  } else if(clubIsMember === false){
+    note.textContent = "claudIA solo se mide con quienes pertenecen al club.\nPide tu código de invitación y únete a la batalla.";
+  } else if(liveGame){
+    note.textContent = "Estás en plena batalla en vivo.\nSal de esa partida para aceptar el reto de claudIA.";
   } else {
-    note.textContent = accountProfile
-      ? "Un solo clic. claudIA elige el campo de batalla y el color de tu ejército.\nSin deshacer. Sin ayudas. Sin marcha atrás.\nQuien abandona, cae."
-      : "Solo quien jura lealtad al club puede desafiarla.\nInicia sesión y únete: la batalla espera.";
+    note.textContent = "Un solo clic. claudIA elige el campo de batalla y el color de tu ejército.\nSin deshacer. Sin ayudas. Sin marcha atrás.\nQuien abandona, cae.";
   }
   let cover = document.getElementById("reto-cover");
   if(!cover){
@@ -8199,7 +8319,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V202 · 7-oct-2026 · Reloj de un solo botón, sin leyendas bajo el nivel de claudIA y apartado propio para el Reto de claudIA";
+const BUILD_ID = "V203 · 7-oct-2026 · El reto de claudIA reconoce tu sesión y es independiente de Modalidad; miembros en línea en el Club";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
