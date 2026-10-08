@@ -4512,7 +4512,11 @@ function L(){ return branch || game; }
 // botón por separado. enterLiveGame()/reloadLiveGame() llaman a newGame()
 // ANTES de fijar `liveGame`, así que a ellos esta guarda no les aplica.
 let liveGame = null;
+// V210: «bloqueada» = hay una partida en vivo EN CURSO. Terminada (mate, tablas, rendición o tiempo) ya no bloquea nada: el tablero se queda
+// para estudiarla y, en cuanto se hace algo nuevo (Reiniciar, otra modalidad, cargar una partida...), newGame() sale de ella sola.
+function liveLocked(){ return !!liveGame && !(game && game.result); }
 function newGame(fen, meta){
+  if(liveGame && game && game.result) exitLiveGame();   // V210: partida en vivo terminada -> se sale sola (antes había que pulsar «Salir»)
   if(liveGame){
     statusEl.className = "status mate";
     statusEl.textContent = "Estás en una partida en vivo — sal de ella primero (panel Club) para cargar otra posición.";
@@ -6845,7 +6849,7 @@ movesEl.addEventListener("click", e => {
 /* ============================ Controles ============================ */
 function setMode(mode){
   if(mode === currentMode) return;
-  if(liveGame) return; // V148: en una partida en vivo no se cambia a Modo Libre
+  if(liveLocked()) return; // V148: en una partida en vivo (en curso) no se cambia a Modo Libre; terminada, newGame() sale de ella
   stopAuto();
   const pos = cloneState(liveState());
   const keepMeta = { white: game.white, black: game.black, result: game.result, resultNote: game.resultNote };
@@ -6910,24 +6914,24 @@ function updateModalitySelectorsUI(){
   // Fase 2 · paso 4: una partida en vivo tampoco admite tocar variante,
   // rival, Máquina ni reloj — se suma a la condición ya existente de "Modo
   // Libre" en vez de tener su propia lista aparte.
-  const inPlay = currentMode === "play" && !liveGame && !retoActive;
+  const inPlay = currentMode === "play" && !liveLocked() && !retoActive;
   const ids = [
     "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas",
     "rival-humano", "rival-maquina", "machine-side-w", "machine-side-b", "machine-level",
     "clock-toggle", "clock-preset", "clock-custom-min", "clock-custom-inc",
     "fen-load", "pgn-import"
   ];
-  const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveGame && !retoActive;
+  const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveLocked() && !retoActive;
   for(const id of ids){
     const el = document.getElementById(id);
     if(el) el.disabled = id.indexOf("variant-") === 0 ? !inVariantOk : !inPlay;
   }
   for(const id of ["mode-play", "mode-free"]){
     const el = document.getElementById(id);
-    if(el) el.disabled = !!retoActive || !!liveGame;
+    if(el) el.disabled = !!retoActive || liveLocked();
   }
   const clr = document.getElementById("btn-clear");   // V187: Vaciar tablero vive solo en modo libre
-  if(clr) clr.disabled = currentMode !== "free" || !!liveGame || !!retoActive;
+  if(clr) clr.disabled = currentMode !== "free" || liveLocked() || !!retoActive;
 }
 function updatePanelVisibility(variant){
   const showPlayPanels = currentMode === "play";
@@ -7890,11 +7894,12 @@ function retoSave(){
 }
 async function retoStart(){
   if(retoActive) return;
-  if(liveGame){ showGlobalToast("Sal de la partida en vivo (panel Club) para aceptar el reto de claudIA."); return; }
+  if(liveLocked()){ showGlobalToast("Termina primero la partida en vivo para aceptar el reto de claudIA."); return; }
   if(!accountProfile){ showGlobalToast("Inicia sesión para retar a claudIA."); return; }
   const { data, error } = await sb.from("club_members").select("profile_id").eq("profile_id", accountProfile.id).limit(1);
   if(error || !data || !data.length){ showGlobalToast("El reto de claudIA es solo para miembros del club."); return; }
-  if(retoActive || liveGame) return;
+  if(retoActive || liveLocked()) return;
+  if(liveGame) exitLiveGame();   // V210: la partida en vivo ya había terminado
   // V203: el reto no depende del modo ni del rival elegidos en Modalidad; empieza una partida nueva y reemplaza lo que haya en el tablero.
   const hayPartida = !!(game && game.ucis && game.ucis.length > 0 && !game.result);
   if((currentMode !== "play" || hayPartida) && !confirm("El reto empieza una partida nueva y reemplaza lo que hay en el tablero. ¿Aceptar el reto?")) return;
@@ -8011,7 +8016,7 @@ function retoUpdateUI(){
   startBtn.hidden = !!retoActive;
   abBtn.hidden = !retoActive;
   // V203: el reto es independiente de Modalidad (rival, modo y reloj no importan); solo lo frena no tener cuenta/club o estar en una partida en vivo.
-  startBtn.disabled = !accountProfile || !!liveGame || clubIsMember === false;
+  startBtn.disabled = !accountProfile || liveLocked() || clubIsMember === false;
   if(retoActive){
     note.textContent = "La batalla ha comenzado.\n" + RETO_TABLE[retoActive.variant].label + " · tus " +
       (retoActive.color === "w" ? "blancas" : "negras") + " · 30 min + 10 s por jugada.\nSin deshacer, sin ayudas. Quien abandona, cae.";
@@ -8071,7 +8076,7 @@ document.addEventListener("keydown", e => {
 });
 
 async function museumLoadGame(g, names, btn){
-  if(liveGame){ showGlobalToast("Sal de la partida en vivo (panel Club) para cargar otra."); return; }
+  if(liveLocked()){ showGlobalToast("Termina primero la partida en vivo para cargar otra."); return; }
   btn.disabled = true;
   const { data, error } = await sb.from("game_moves").select("ply, san").eq("game_id", g.id).order("ply", { ascending: true });
   btn.disabled = false;
@@ -8586,7 +8591,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V210 · 8-oct-2026 · Un solo botón «Iniciar/Reiniciar»; al cargar una partida desde El Santuario se abre La Partida";
+const BUILD_ID = "V211 · 8-oct-2026 · Una partida de club terminada ya no bloquea Modalidad; un solo botón «Iniciar/Reiniciar»; El Santuario abre La Partida al cargar";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9510,8 +9515,8 @@ function updateMatchControlsUI(){
   // terminarla, por mate, tablas o rendición.
   const reiniciar = !!matchStarted || !!(game && ((game.sans && game.sans.length > 0) || game.result));   // guarda: al arrancar la página aún no hay partida
   startBtn.textContent = reiniciar ? "Reiniciar" : "Iniciar";
-  startBtn.disabled = !inPlay || !!liveGame || !!retoActive;
-  startBtn.title = liveGame ? "Termina primero la partida del club (mate, tablas o rendición)"
+  startBtn.disabled = !inPlay || liveLocked() || !!retoActive;
+  startBtn.title = liveLocked() ? "Termina primero la partida del club (mate, tablas o rendición)"
     : (retoActive ? "Termina primero el reto de claudIA" : (reiniciar ? "Empezar de nuevo en la misma modalidad" : ""));
   // Fase 2 · paso 4: Pausa queda deshabilitada en partida en vivo — "pausar"
   // ahí solo congelaría el tablero de este lado (matchPaused es puramente
@@ -9572,7 +9577,7 @@ function setClockEnabled(on){
 }
 document.getElementById("clock-toggle").onclick = () => setClockEnabled(!clockEnabled);   // V202: un solo botón enciende y apaga el reloj
 document.getElementById("match-start").onclick = () => {
-  if(currentMode !== "play" || liveGame || retoActive) return;
+  if(currentMode !== "play" || liveLocked() || retoActive) return;
   if(matchStarted || game.sans.length > 0 || game.result){
     // V209 · «Reiniciar» (antes el botón «Posición inicial» de La Partida): empieza de cero en la MISMA modalidad y arranca de una vez.
     if(game.sans.length > 0 && !confirm("Se borrará la partida actual y el tablero volverá a empezar. ¿Continuar?")) return;
