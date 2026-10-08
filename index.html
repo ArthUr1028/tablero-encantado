@@ -3606,7 +3606,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <button class="btn" id="btn-flip">Girar</button>
         </div>
         <div class="btns" style="margin-top:6px">
-          <button class="btn free-hide" id="btn-reset">Posición inicial</button>
           <button class="btn play-hide" id="btn-clear">Vaciar tablero</button>
         </div>
         <div class="nav free-hide">
@@ -6916,7 +6915,7 @@ function updateModalitySelectorsUI(){
     "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas",
     "rival-humano", "rival-maquina", "machine-side-w", "machine-side-b", "machine-level",
     "clock-toggle", "clock-preset", "clock-custom-min", "clock-custom-inc",
-    "btn-reset", "fen-load", "pgn-import"
+    "fen-load", "pgn-import"
   ];
   const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveGame && !retoActive;
   for(const id of ids){
@@ -8587,7 +8586,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V209 · 8-oct-2026 · El Santuario: nuevo nombre, proemio y apertura de cristal; nueve maestros más (Nimzowitsch a Nepomniachtchi)";
+const BUILD_ID = "V210 · 8-oct-2026 · Un solo botón «Iniciar/Reiniciar»; al cargar una partida desde El Santuario se abre La Partida";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9506,7 +9505,14 @@ function updateMatchControlsUI(){
   const pauseBtn = document.getElementById("match-pause");
   if(!startBtn || !pauseBtn) return;
   const inPlay = currentMode === "play";
-  startBtn.disabled = !inPlay || matchStarted;
+  // V209: «Iniciar» y «Reiniciar» son un solo botón. «Iniciar» mientras no haya partida en marcha ni jugadas (al abrir el Tablero, o tras
+  // cambiar de modalidad); «Reiniciar» en cuanto la hay. Durante una partida de club (o el reto de claudIA) queda apagado: primero hay que
+  // terminarla, por mate, tablas o rendición.
+  const reiniciar = !!matchStarted || !!(game && ((game.sans && game.sans.length > 0) || game.result));   // guarda: al arrancar la página aún no hay partida
+  startBtn.textContent = reiniciar ? "Reiniciar" : "Iniciar";
+  startBtn.disabled = !inPlay || !!liveGame || !!retoActive;
+  startBtn.title = liveGame ? "Termina primero la partida del club (mate, tablas o rendición)"
+    : (retoActive ? "Termina primero el reto de claudIA" : (reiniciar ? "Empezar de nuevo en la misma modalidad" : ""));
   // Fase 2 · paso 4: Pausa queda deshabilitada en partida en vivo — "pausar"
   // ahí solo congelaría el tablero de este lado (matchPaused es puramente
   // local), sin avisarle nada al rival ni a Supabase; mejor que ni se
@@ -9566,7 +9572,13 @@ function setClockEnabled(on){
 }
 document.getElementById("clock-toggle").onclick = () => setClockEnabled(!clockEnabled);   // V202: un solo botón enciende y apaga el reloj
 document.getElementById("match-start").onclick = () => {
-  if(currentMode !== "play" || matchStarted) return;
+  if(currentMode !== "play" || liveGame || retoActive) return;
+  if(matchStarted || game.sans.length > 0 || game.result){
+    // V209 · «Reiniciar» (antes el botón «Posición inicial» de La Partida): empieza de cero en la MISMA modalidad y arranca de una vez.
+    if(game.sans.length > 0 && !confirm("Se borrará la partida actual y el tablero volverá a empezar. ¿Continuar?")) return;
+    stopAuto();
+    newGame(VARIANT_START[variantOf(liveState().board)]);   // newGame() también reinicia el reloj y apaga matchStarted
+  }
   matchStarted = true;
   matchPaused = false;
   persist(); render();
@@ -10366,14 +10378,6 @@ document.getElementById("btn-undo").onclick = () => {
   selected = null; persist(); render();
 };
 document.getElementById("btn-flip").onclick = () => { flipped = !flipped; persist(); render(); };
-document.getElementById("btn-reset").onclick = () => {
-  stopAuto();
-  // Respeta la variante en curso: "Posición inicial" en pleno Modo
-  // Capablanca (o Maharajá) reinicia esa misma variante, no te devuelve al
-  // ajedrez clásico sin avisar.
-  newGame(VARIANT_START[variantOf(liveState().board)]);
-  if(currentMode !== "play") setMode("play"); else { persist(); render(); }
-};
 document.getElementById("btn-clear").onclick = () => {
   stopAuto();
   const curBoard = liveState().board;
@@ -11668,6 +11672,8 @@ function hofLoadGame(g){
   if(currentMode !== "play") setMode("play");
   importPGN(g.pgn);
   closeHallOfFame();
+  // V209: al cargar una partida desde El Santuario se abre «La Partida» para que se vea la notación (en pantalla completa ese panel no existe).
+  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
 }
 let hofSeen = false, hofCloseT = 0;
 function openHallOfFame(){   // V209: mismo fundido que la vitrina (.6 s, desenfoque y ascenso suave) + proemio
