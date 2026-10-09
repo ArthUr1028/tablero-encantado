@@ -2165,6 +2165,9 @@
   .tr-card.tr-float{ position:fixed; z-index:45; margin:0; overflow:auto; }
   .tr-card .tr-coach{ margin:6px 0 0; color:var(--text); }
   .tr-card .tr-coach.tr-tactic{ color:#eab070; }
+  .tr-card .tr-coach.tr-advice{ color:#a9c7e8; }
+  .tr-card .tr-coach.tr-history{ color:#c9b3e6; font-style:italic; }
+  .tr-card .tr-swing{ opacity:.85; }
   .tr-card.tr-green{ border-color:rgba(127,176,138,.6); }
   .tr-card.tr-yellow{ border-color:rgba(234,176,112,.6); }
   .tr-card.tr-red{ border-color:rgba(195,74,60,.75); }
@@ -12860,7 +12863,7 @@ function trEvaluate(){
   if(pend.uci === best.pv[0]){ rec.isBest = true; trFinish(rec); return; }
   let found = null;
   Object.keys(infos).forEach(k => { const o = infos[k]; if(o && o.pv && o.pv[0] === pend.uci && (o.depth || 0) >= maxD - 1) found = o; });
-  if(found){ rec.cpMine = trCp(found); rec.pMine = anWinPct(trCp(found)); rec.loss = Math.max(0, pBest - rec.pMine); trFinish(rec); return; }
+  if(found){ rec.cpMine = trCp(found); rec.pMine = anWinPct(trCp(found)); rec.loss = Math.max(0, pBest - rec.pMine); rec.replyUci = (found.pv && found.pv[1]) || null; trFinish(rec); return; }
   // Fuera de las 4 mejores: segunda búsqueda de la posición resultante (desde el punto de vista del rival).
   pend.rec = rec;
   sfBusy = true; sfInfos = {}; sfDepthSeen = 0; sfRequestKind = "train-after";
@@ -12879,6 +12882,7 @@ function trAfterDone(){
   if(!pend || !pend.rec){ maybeMachineMove(); return; }
   const info = sfInfos[1], rec = pend.rec;
   if(!info){ trFinish(null); return; }
+  rec.replyUci = (info.pv && info.pv[0]) || null;
   rec.cpMine = -trCp(info);
   rec.pMine = anWinPct(-trCp(info));
   rec.loss = Math.max(0, rec.pBest - rec.pMine - TR_BIAS);
@@ -12923,6 +12927,8 @@ function trFinish(rec){
       }
     }catch(e){}
     try{ if(pend) rec.why = trWhy(pend, rec); }catch(e){ rec.why = ""; }
+    try{ if(pend && !rec.why) rec.why = trWhyMore(pend, rec); }catch(e){}
+    try{ if(rec.kind !== "green") rec.swing = trSwing(rec); }catch(e){}
     if(trSess){ trSess.moves.push(rec); trSess.last = rec; trSess.revealed = rec.kind !== "red"; }
     trGate = rec.kind === "red" ? { ply: rec.ply } : null;
   } else {
@@ -13220,6 +13226,7 @@ function renderTrCard(){
       : kind === "yellow" ? "Hay algo mejor" : (last.loss >= TR_LIM.grave ? "Error grave" : "Error");
     h += '<div class="tr-title"><span class="tr-bullet"></span>' + title + '</div>';
     if(last.why) h += '<p class="tr-line tr-why">' + last.why + '</p>';
+    if(last.swing && kind !== "green") h += '<p class="tr-line tr-swing">' + last.swing + '</p>';
     if(kind !== "green" && (kind === "yellow" || trSess.revealed) && last.bestSan && last.bestSan !== last.san){
       h += '<p class="tr-line">Yo hubiera movido ' + last.bestSan.replace(/[+#]+$/, "") + '.</p>';
     }
@@ -13465,6 +13472,236 @@ function trTacticOf(pos, mv){
   }
   return null;
 }
+/* ---- V213 (2026-10-09): claudIA habla como una entrenadora ----
+   (1) Cuando fallas, además del semáforo explica POR QUÉ: la réplica que te castiga (la que el motor ya calculó),
+       la idea de la jugada que se perdió y cuánto cuesta. (2) Consejos de plan: cambio de damas, sacrificio de peón
+       para ganar un tempo, enroque, columna abierta, simplificar con ventaja; y qué responder en cada apertura.
+   (3) Referencias a las partidas del Santuario cuando la posición ya se jugó en una de ellas.
+   Todo sale del motor y de reglas, en el dispositivo; solo se dice lo que se comprueba y, si no hay nada que valga, calla. */
+function trDescCp(cp){
+  if(cp >= AN_MATE - 1000) return "un mate forzado a tu favor";
+  if(cp <= -AN_MATE + 1000) return "un mate forzado en contra";
+  return cp >= 500 ? "una ventaja decisiva" : cp >= 250 ? "una ventaja clara" : cp >= 100 ? "ventaja" : cp >= 40 ? "una ligera ventaja"
+    : cp > -40 ? "igualdad" : cp > -100 ? "una ligera desventaja" : cp > -250 ? "desventaja" : cp > -500 ? "una desventaja clara" : "una posición perdida";
+}
+function trSwing(rec){
+  if(typeof rec.cpBest !== "number" || typeof rec.cpMine !== "number") return "";
+  const a = trDescCp(rec.cpBest), b = trDescCp(rec.cpMine);
+  if(a === b) return "Cedes parte de lo que tenías: sigues con " + b + ", pero menos.";
+  return "Con la mejor jugada tendrías " + a + "; con la tuya, " + b + ".";
+}
+// Idea de una jugada, en una frase corta (sin nombrarla), para explicar qué se perdió.
+function trIdeaOf(pos, mv){
+  const me = pos.turn, foe = me === "w" ? "b" : "w";
+  const p = pos.board[mv.from[0]][mv.from[1]], t = p[1];
+  const tgt = pos.board[mv.to[0]][mv.to[1]];
+  const pos2 = applyMove(pos, mv);
+  if(t === "k" && Math.abs(mv.to[1] - mv.from[1]) === 2) return "enrocaba y ponía tu rey a salvo";
+  if(outcome(pos2) === "checkmate") return "daba mate";
+  if(tgt && tgt[0] === foe){
+    if(t === "q" && tgt[1] === "q") return "cambiaba las damas";
+    let rec = false; try{ rec = legalMoves(pos2).some(q => sameSq(q.to, mv.to)); }catch(e){}
+    return "capturaba " + trNm(tgt[1], true) + " rival" + (rec ? "" : ", que estaba sin defensa");
+  }
+  if(inCheck(pos2, foe)) return "daba jaque y ganaba un tempo";
+  const tac = trTacticOf(pos, mv);
+  if(tac) return "preparaba " + (tac === "horquilla" ? "una horquilla" : tac === "clavada" ? "una clavada" : tac === "griego" ? "el sacrificio griego" : "un jaque a la descubierta");
+  try{
+    const before = trThreatsOn(pos, foe).map(x => x.sq);
+    const th = trThreatsOn(pos2, foe).filter(x => before.indexOf(x.sq) < 0);
+    if(th.length) return "amenazaba " + trNm(th[0].piece, true) + " rival en " + th[0].sq;
+  }catch(e){}
+  const n = game.sans.length;
+  if(n <= 20 && (t === "n" || t === "b") && mv.from[0] === (me === "w" ? 7 : 0)) return "desarrollaba una pieza hacia el centro";
+  if(n <= 20 && t === "p" && (mv.to[1] === 3 || mv.to[1] === 4)) return "ocupaba el centro con un peón";
+  if(t === "r"){
+    const f = mv.to[1];
+    let open = true;
+    for(let r = 0; r < 8; r++){ const q = pos.board[r][f]; if(q && q[1] === "p") { open = false; break; } }
+    if(open) return "llevaba la torre a una columna abierta";
+  }
+  return "";
+}
+// ¿Por qué fue mala tu jugada? Usa la réplica que el motor ya calculó; si no hay nada que decir con seguridad, calla.
+function trWhyMore(pend, rec){
+  if(rec.kind === "green") return "";
+  const pos0 = pend.posBefore, pos1 = parseFEN(pend.fenAfter);
+  const me = pos0.turn;
+  if(rec.replyUci){
+    const rm = matchUci(pos1, rec.replyUci);
+    if(rm){
+      const pos2 = applyMove(pos1, rm);
+      const rsan = (pvToSAN(pos1, [rec.replyUci], 1) || [])[0] || rec.replyUci;
+      if(outcome(pos2) === "checkmate") return "Permite " + rsan + ", que es mate.";
+      const cap = pos1.board[rm.to[0]][rm.to[1]], att = pos1.board[rm.from[0]][rm.from[1]];
+      if(cap && cap[0] === me && cap[1] !== "k"){
+        let rcp = false; try{ rcp = legalMoves(pos2).some(q => sameSq(q.to, rm.to)); }catch(e){}
+        const gain = (TR_VAL[cap[1]] || 0) - (rcp ? (TR_VAL[att[1]] || 0) : 0);
+        if(gain >= 1) return "Después de tu jugada, " + rsan + " gana " + trNm(cap[1], true) + (rcp ? " con ventaja de material, aunque puedas recapturar." : " sin que puedas recuperarl" + (TRN[cap[1]][1] === "f" ? "a." : "o."));
+      }
+      const tac = trTacticOf(pos1, rm);
+      if(tac === "horquilla") return "Permite " + rsan + ", una horquilla: una sola pieza ataca a dos de las tuyas.";
+      if(tac === "clavada") return "Permite " + rsan + ", que deja clavada una de tus piezas.";
+      if(inCheck(pos2, me)) return "Permite " + rsan + " con jaque y toma la iniciativa.";
+    }
+  }
+  try{
+    const mvB = matchUci(pos0, rec.bestUci);
+    const idea = mvB ? trIdeaOf(pos0, mvB) : "";
+    if(idea) return "Había una jugada que " + idea + ".";
+  }catch(e){}
+  return "";
+}
+
+/* ---- consejos de plan (cuando el motor los confirma) ---- */
+function trHasQueen(pos, color){ return pos.board.some(row => row.some(p => p === color + "q")); }
+function trAdvice(pos, mv, c1, c2){
+  if(!mv || !trSess) return "";
+  const me = pos.turn, foe = me === "w" ? "b" : "w", n = game.sans.length;
+  const p = pos.board[mv.from[0]][mv.from[1]], t = p[1], tgt = pos.board[mv.to[0]][mv.to[1]];
+  const gap = c2 === null ? 0 : c1 - c2;
+  const pos2 = applyMove(pos, mv);
+  let type = "", txt = "";
+  if(t === "k" && Math.abs(mv.to[1] - mv.from[1]) === 2 && n >= 6 && gap >= 25){
+    type = "enroque"; txt = "Tu rey sigue en el centro: enrocar sería lo más sensato ahora.";
+  } else if(t === "q" && trHasQueen(pos, me) && trHasQueen(pos, foe)){
+    let trade = !!(tgt && tgt[1] === "q");
+    if(!trade){
+      try{
+        const caps = legalMoves(pos2).filter(q => sameSq(q.to, mv.to) && pos2.board[q.from[0]][q.from[1]][1] === "q");
+        trade = caps.some(q => legalMoves(applyMove(pos2, q)).some(r => sameSq(r.to, mv.to)));
+      }catch(e){}
+    }
+    if(trade && (c1 >= 150 || c1 <= -150 || gap >= 40)){
+      type = "damas";
+      txt = c1 >= 150 ? "Vas por delante: un intercambio de damas sería lo apropiado, porque con menos material la ventaja pesa más."
+        : c1 <= -150 ? "Estás con problemas: cambiar damas te quitaría la presión sobre el rey."
+        : "Un intercambio de damas sería lo más preciso aquí.";
+    }
+  } else if(t === "p" && !tgt && mv.from[1] === mv.to[1] && c1 >= -60 && (gap >= 30 || c1 >= 0)){
+    let sac = false;
+    try{
+      const caps = legalMoves(pos2).filter(q => sameSq(q.to, mv.to));
+      sac = caps.length > 0 && caps.every(q => !legalMoves(applyMove(pos2, q)).some(r => sameSq(r.to, mv.to)));
+    }catch(e){}
+    if(sac){
+      type = "peon";
+      txt = n <= 24 ? "Si sacrificas un peón ganarás un tempo para desarrollar tus piezas."
+        : "Un sacrificio de peón aquí te daría la iniciativa: la actividad vale más que el material.";
+    }
+  } else if(t === "r" && gap >= 30){
+    const f = mv.to[1], fc = "abcdefgh"[f];
+    let open = true;
+    for(let r = 0; r < 8; r++){ const q = pos.board[r][f]; if(q && q[1] === "p"){ open = false; break; } }
+    if(open && mv.from[1] !== f){ type = "columna"; txt = "La columna " + fc + " está abierta y tu torre rendiría mucho allí."; }
+  } else if(tgt && tgt[0] === foe && t !== "p" && t !== "q" && tgt[1] !== "p" && (TR_VAL[tgt[1]] || 0) === (TR_VAL[t] || 0) && c1 >= 300){
+    let rcp = false; try{ rcp = legalMoves(pos2).some(q => sameSq(q.to, mv.to)); }catch(e){}
+    if(rcp){ type = "cambio"; txt = "Con tanta ventaja conviene simplificar: cada cambio de piezas te acerca a la victoria."; }
+  }
+  if(!type) return "";
+  const adv = trSess.adv || (trSess.adv = { ply: -99, type: "" });
+  if(n - adv.ply < 6 && !(adv.type !== type && n - adv.ply >= 4)) return "";
+  adv.ply = n; adv.type = type;
+  return txt;
+}
+
+/* ---- qué responder / qué abrir (se dice una vez por posición de libro, solo en las primeras jugadas) ---- */
+var TR_REPLY = [
+  { pre: "e4", side: "b", msg: "Te propongo responder con la Defensa Francesa (…e6): cadena de peones sólida y contrajuego contra el centro blanco. Si prefieres más lucha, la Siciliana (…c5); si quieres solidez, la Caro-Kann (…c6)." },
+  { pre: "d4", side: "b", msg: "Contra 1.d4 son clásicas la Defensa Eslava (…d5 y …c6) y la India de Rey (…Nf6 y …g6) si buscas contraataque." },
+  { pre: "c4", side: "b", msg: "Contra la Inglesa, …e5 toma el centro de inmediato y devuelve la iniciativa." },
+  { pre: "Nf3", side: "b", msg: "Contra 1.Nf3 lo natural es ocupar el centro: …d5 o …Nf6." },
+  { pre: "e4 e5 Nf3", side: "b", msg: "…Nc6 es la respuesta natural: defiende e5 y desarrolla una pieza." },
+  { pre: "e4 e5 Nf3 Nc6 Bb5", side: "b", msg: "Estamos en la Ruy López. La respuesta clásica es la Defensa Morphy (…a6); si buscas un juego sólido, la Berlinesa (…Nf6)." },
+  { pre: "e4 e5 Nf3 Nc6 Bc4", side: "b", msg: "En la Italiana, …Bc5 lleva a la partida clásica; …Nf6 (Dos Caballos) es más combativa." },
+  { pre: "e4 e5 Nf3 Nc6 d4", side: "b", msg: "En la Escocesa conviene capturar con …exd4 y recuperar el peón con calma." },
+  { pre: "e4 e5 f4", side: "b", msg: "Ante el Gambito de Rey, …exf4 acepta el peón; luego …d5 para devolverlo en buen momento." },
+  { pre: "d4 d5 c4", side: "b", msg: "Ante el Gambito de Dama, …c6 (Eslava) sostiene d5 con solidez; …e6 es la vía ortodoxa." },
+  { pre: "e4 e5", side: "w", msg: "Lo natural es 2.Nf3: ataca e5 y desarrolla una pieza." },
+  { pre: "e4 e5 Nf3 Nc6", side: "w", msg: "Aquí 3.Bb5 (Ruy López) o 3.Bc4 (Italiana) son las rutas clásicas." },
+  { pre: "e4 c5", side: "w", msg: "Contra la Siciliana, 2.Nf3 seguida de 3.d4 (la Siciliana abierta) es el camino principal; la Alapin (2.c3) exige menos teoría." },
+  { pre: "e4 e6", side: "w", msg: "Contra la Francesa, 2.d4 y ocupar el centro; luego 3.e5 (Avance) te da espacio." },
+  { pre: "e4 c6", side: "w", msg: "Contra la Caro-Kann, 2.d4 d5 y después 3.e5 (Avance) o 3.Nc3." },
+  { pre: "e4 d5", side: "w", msg: "Contra la Escandinava, captura con 2.exd5 y desarrolla con tiempo." },
+  { pre: "d4 d5", side: "w", msg: "2.c4 plantea el Gambito de Dama: presiona el centro negro." },
+  { pre: "d4 Nf6", side: "w", msg: "2.c4 te da espacio en el centro y mantiene opciones abiertas." }
+];
+function trReplyHTML(threat){
+  if(threat || game.startFEN !== START || branch || !trSess) return "";
+  const sans = game.sans.slice(0, game.cursor == null ? game.sans.length : game.cursor);
+  if(sans.length > 6) return "";
+  const key = sans.join(" ");
+  const r = TR_REPLY.find(x => x.pre === key && x.side === machineHumanColor);
+  return r ? '<p class="tr-coach tr-advice">' + r.msg + '</p>' : "";
+}
+
+/* ---- referencias a las partidas del Santuario ---- */
+var trHist = { map: null, building: false, games: [] };
+function trHistBuild(){
+  if(trHist.map || trHist.building || typeof HOF === "undefined") return;
+  trHist.building = true;
+  const all = [];
+  HOF.masters.forEach(m => (m.games || []).forEach(g => all.push(g)));
+  trHist.games = all;
+  const map = new Map();
+  let gi = 0;
+  const step = () => {
+    const end = Math.min(all.length, gi + 4);
+    for(; gi < end; gi++){
+      try{
+        const g = all[gi];
+        let mt = String(g.pgn || "").replace(/\[[^\]]*\]/g, " ");
+        mt = stripBalanced(mt, "{", "}"); mt = stripBalanced(mt, "(", ")");
+        mt = mt.replace(/\$\d+/g, " ").replace(/\d+\.(\.\.)?/g, " ").replace(/\.\.\./g, " ");
+        const tokens = mt.split(/\s+/).filter(t => SAN_RE.test(t)).slice(0, 56);
+        let pos = parseFEN(START);
+        for(let i = 0; i < tokens.length; i++){
+          const legal = legalMoves(pos), want = normSAN(tokens[i]);
+          const mv = legal.find(x => normSAN(toSAN(pos, x, legal)) === want);
+          if(!mv) break;
+          pos = moveWithSAN(pos, mv).n;
+          if(i + 1 >= 9){
+            const k = toFEN(pos).split(" ").slice(0, 3).join(" ");
+            if(!map.has(k)) map.set(k, { gi: gi, ply: i + 1 });
+          }
+        }
+      }catch(e){}
+    }
+    if(gi < all.length) setTimeout(step, 30);
+    else { trHist.map = map; trHist.building = false; try{ render(); }catch(e){} }
+  };
+  setTimeout(step, 400);
+}
+function trHistHTML(){
+  if(game.startFEN !== START || branch || !trSess) return "";
+  const n = game.sans.length;
+  if(n < 9 || n > 56) return "";
+  trHistBuild();
+  if(!trHist.map) return "";
+  const pos = liveState(), fen = toFEN(pos), key = fen.split(" ").slice(0, 3).join(" ");
+  if(trSess.histMemo && trSess.histMemo.fen === fen) return trSess.histMemo.html;
+  let html = "";
+  const hit = trHist.map.get(key);
+  if(hit){
+    const said = trSess.histSaid || (trSess.histSaid = {});
+    const last = trSess.histPly || -99;
+    if(!said[hit.gi] && n - last >= 8){
+      said[hit.gi] = true; trSess.histPly = n;
+      const g = trHist.games[hit.gi];
+      const side = machineHumanColor === "w" ? g.white : g.black;
+      const variants = [
+        "Esta posición me recuerda a «" + g.title + "» (" + g.white + "–" + g.black + ", " + g.year + "): se llegó a ella en la jugada " + Math.ceil(hit.ply / 2) + ".",
+        "¡Mira! Esta misma posición ya se vio en «" + g.title + "» (" + g.year + "). Vale la pena repasarla en el Santuario.",
+        "Este tablero ya existió en «" + g.title + "», de " + g.year + ", hacia la jugada " + Math.ceil(hit.ply / 2) + "."
+      ];
+      let hsh = 0; for(let i = 0; i < key.length; i++) hsh = (hsh * 31 + key.charCodeAt(i)) >>> 0;
+      html = '<p class="tr-coach tr-history">' + variants[hsh % variants.length] + (side ? " Juegas con el bando de " + side + "." : "") + '</p>';
+    }
+  }
+  trSess.histMemo = { fen: fen, html: html };
+  return html;
+}
+
 var trCoachCache = { fen: "", html: "" };
 function trCoachHTML(part){
   if(!trHumanTurn() || trPend || trGate) return "";
@@ -13499,13 +13736,14 @@ function trCoachHTML(part){
         /* la salida de teoría ya se comentó una vez */
       } else if(m && sans.length - m[2].length <= 2){
         if(trSess && trSess.offbook === undefined) trSess.offbook = sans.length;
-        h += '<p class="tr-coach">Seguimos en terreno conocido de ' + trArt(trOpeningName(m[1])) + ' (' + m[0] + '), aunque ya con jugadas poco habituales.</p>';
+        h += '<p class="tr-coach">Seguimos en terreno conocido ' + trArt(trOpeningName(m[1])).replace(/^el /, 'del ').replace(/^la /, 'de la ') + ' (' + m[0] + '), aunque ya con jugadas poco habituales.</p>';
       } else if(m){
         if(trSess && trSess.offbook === undefined) trSess.offbook = sans.length;
         h += '<p class="tr-coach">Ya salimos de la teoría tras ' + trArt(trOpeningName(m[1])) + '. Desde aquí manda el cálculo.</p>';
       }
     }
   }catch(e){}
+  try{ h += trReplyHTML(threat) + trHistHTML(); }catch(err){}
   if(part === "comment") return h;
   h = "";
   // Táctica (solo si el motor la confirma: mate o ventaja clara de la mejor jugada sobre la 2ª)
@@ -13527,8 +13765,13 @@ function trCoachHTML(part){
             : k === "clavada" ? "Se puede explotar una clavada: una pieza rival no puede moverse sin dejar expuesta a otra más valiosa."
             : k === "descubierta" ? "Mira el jaque a la descubierta: mover una pieza puede destapar el ataque de otra."
             : "";
+          if(k === "griego") t += " Así ganó Lasker a Bauer en 1889.";   // V213: referencia del Santuario
         }
-        trCoachCache = { fen: fen + "|" + (trSess ? trSess.moves.length : 0), html: t ? '<p class="tr-coach tr-tactic">' + t + '</p>' : "" };
+        let cls = "tr-tactic";
+        if(!t){
+          try{ const mvA = matchUci(pos, i1.pv[0]); t = trAdvice(pos, mvA, c1, c2); cls = "tr-advice"; }catch(e2){ t = ""; }
+        }
+        trCoachCache = { fen: fen + "|" + (trSess ? trSess.moves.length : 0), html: t ? '<p class="tr-coach ' + cls + '">' + t + '</p>' : "" };
       }
       h += trCoachCache.html;
     }
