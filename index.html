@@ -7793,6 +7793,20 @@ const ACH_INFO = {
   reto_claudia_fuerte: { icon: "\u{1F9BE}", name: "Reto claudIA · Fuerte", rule: "Vencer a claudIA en el reto (Cl\u00e1sico o Capablanca)", img: RETO_FUERTE_IMG }
 };
 const MUS_VARIANT = { clasico: "Cl\u00e1sico", capablanca: "Capablanca", maharaja: "Maharaj\u00e1", amazonas: "Amazonas" };
+/* V212 \u00b7 Reto de claudIA: cada victoria es una insignia propia (tabla reto_victorias), con su modalidad en el nombre.
+   Mismo arte por nivel que antes (Club = acero azulado, Fuerte = dorado). Las dos insignias antiguas
+   (reto_claudia_club/fuerte) ya pasaron a esa tabla con 14_reto_victorias.sql: si la tabla responde, no se repiten. */
+const RETO_VIC_CODE = "reto_victoria";
+const RETO_LEGACY_CODES = ["reto_claudia_club", "reto_claudia_fuerte"];
+function achInfoFor(a){
+  if(a.code === RETO_VIC_CODE && a.reto){
+    const lbl = MUS_VARIANT[a.reto.variant] || a.reto.variant;
+    const club = a.reto.level === "club";
+    return { icon: club ? "\u{1F916}" : "\u{1F9BE}", name: "Reto claudIA \u00b7 " + lbl,
+      rule: "Vencer a claudIA en el reto de " + lbl, img: club ? RETO_CLUB_IMG : RETO_FUERTE_IMG };
+  }
+  return ACH_INFO[a.code] || { icon: "\u{1F3C5}", name: a.code, rule: "" };
+}
 
 /* ---- Aviso de insignia nueva (bloque 2, 2026-09-30) ----
    Las insignias las escribe el servidor (trigger) un instante despues de que
@@ -7869,7 +7883,7 @@ document.addEventListener("visibilitychange", () => {
    Maquina/Reloj nunca se sobrescriben: se restauran al terminar. */
 var retoActive = null;
 const RETO_KEY = "tablero-encantado.reto.v1";
-const RETO_CLAIM_KEY = "tablero-encantado.reto.reclamo.v1";
+const RETO_CLAIM_KEY = "tablero-encantado.reto.reclamo.v2";   // V212: lista de victorias por registrar (la v1 guardaba una sola, sin la partida)
 const RETO_MIN = 30, RETO_INC = 10;
 const RETO_TABLE = {
   clasico:    { level: 15, label: "Clásico" },
@@ -7935,21 +7949,50 @@ function retoRestore(){
   matchStarted = true; matchPaused = true;   // el tiempo con la pagina cerrada no corre
   setTimeout(() => showGlobalToast("Reto reanudado: pulsa Reanudar cuando estés listo."), 800);
 }
+/* V212: una insignia por CADA victoria sobre claudIA, con su modalidad y la partida guardada.
+   El servidor (registrar_victoria_reto, 14_reto_victorias.sql) guarda la victoria en reto_victorias;
+   claimId la hace idempotente: reintentar sin red nunca duplica. Las victorias aún sin registrar
+   esperan en este dispositivo (lista, no un solo hueco) hasta que haya red. */
+function retoNewClaimId(){
+  try{ if(window.crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID(); }catch(e){}
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 3 | 8)).toString(16);
+  });
+}
+function retoClaimsLoad(){
+  try{ const l = JSON.parse(localStorage.getItem(RETO_CLAIM_KEY) || "[]"); return Array.isArray(l) ? l : []; }catch(e){ return []; }
+}
+function retoClaimsSave(list){
+  try{
+    if(list.length) localStorage.setItem(RETO_CLAIM_KEY, JSON.stringify(list.slice(-20)));
+    else localStorage.removeItem(RETO_CLAIM_KEY);
+  }catch(e){}
+}
+function retoClaimsAdd(claim){ retoClaimsSave(retoClaimsLoad().filter(c => c.claimId !== claim.claimId).concat([claim])); }
+function retoClaimsDrop(claimId){ retoClaimsSave(retoClaimsLoad().filter(c => c.claimId !== claimId)); }
 async function retoClaim(claim){
   try{
-    const { data, error } = await sb.rpc("claim_reto_claudia", { p_variant: claim.variant, p_plies: claim.plies, p_color: claim.color });
+    const { data, error } = await sb.rpc("registrar_victoria_reto", {
+      p_claim_id: claim.claimId, p_variant: claim.variant, p_color: claim.color, p_sans: claim.sans
+    });
     if(error) return null;
-    try{ localStorage.removeItem(RETO_CLAIM_KEY); }catch(e){}
+    retoClaimsDrop(claim.claimId);
     return data;
   }catch(e){ return null; }
 }
 async function retoClaimPending(){
   if(!accountProfile) return;
-  let claim = null;
-  try{ claim = JSON.parse(localStorage.getItem(RETO_CLAIM_KEY) || "null"); }catch(e){}
-  if(!claim || claim.uid !== accountProfile.id) return;
-  const res = await retoClaim(claim);
-  if(res && res !== "sin_efecto" && res !== "ya_tenida") scheduleAchievementCheck();
+  const mine = retoClaimsLoad().filter(c => c && c.uid === accountProfile.id && c.claimId && Array.isArray(c.sans));
+  let registered = false;
+  for(const claim of mine){
+    const res = await retoClaim(claim);
+    if(res === "ok"){
+      registered = true;
+      showGlobalToast("¡Insignia nueva! \u{1F916} Reto claudIA · " + (RETO_TABLE[claim.variant] ? RETO_TABLE[claim.variant].label : claim.variant) + " — mírala en la vitrina del Club.");
+    }
+  }
+  if(registered) scheduleAchievementCheck();
 }
 function retoFinish(kind){
   const r = retoActive;
@@ -7961,14 +8004,15 @@ function retoFinish(kind){
   restoreClockPrefs();
   applyAutoNames();
   if(kind === "won"){
-    const claim = { uid: accountProfile ? accountProfile.id : null, variant: r.variant, plies: game.ucis.length, color: r.color };
+    // V212: cada victoria es una insignia nueva (con su modalidad) y la partida completa queda guardada con ella.
+    const claim = { uid: accountProfile ? accountProfile.id : null, claimId: retoNewClaimId(), variant: r.variant,
+                    color: r.color, plies: game.sans.length, sans: game.sans.slice() };
     showGlobalToast("¡Ganaste el reto contra claudIA! Registrando tu insignia…");
     if(claim.uid){
-      try{ localStorage.setItem(RETO_CLAIM_KEY, JSON.stringify(claim)); }catch(e){}
+      retoClaimsAdd(claim);
       retoClaim(claim).then(res => {
         if(res === "sin_efecto") showGlobalToast("El reto no cuenta: la partida duró menos de 10 jugadas.");
-        else if(res === "ya_tenida") showGlobalToast("¡Ganaste otra vez! Esta insignia ya la tenías.");
-        else if(res) { checkNewAchievements(); scheduleAchievementCheck(); }
+        else if(res === "ok" || res === "ya_registrada") showGlobalToast("¡Insignia nueva! \u{1F916} Reto claudIA · " + (RETO_TABLE[claim.variant] ? RETO_TABLE[claim.variant].label : claim.variant) + " — la partida quedó guardada en la vitrina del Club.");
         else showGlobalToast("Ganaste, pero no pude registrar la insignia (sin conexión). Se reintentará sola.");
       });
     }
@@ -8091,10 +8135,43 @@ async function museumLoadGame(g, names, btn){
   showGlobalToast("Partida cargada \u2014 avanza con \u2192 para estudiarla.");
 }
 
+// V212: carga una victoria del reto (la partida va guardada en la propia fila, no en games/game_moves).
+function museumLoadReto(a, names, btn){
+  if(liveLocked()){ showGlobalToast("Termina primero la partida en vivo para cargar otra."); return; }
+  if(retoActive){ showGlobalToast("No puedes cargar partidas mientras dura el reto de claudIA."); return; }
+  const r = a.reto;
+  if(!r || !r.sans || !r.sans.length){ showGlobalToast("Esa partida no se guardó."); return; }
+  stopAuto();
+  if(vsMachine) setVsMachine(false);
+  if(currentMode !== "play") setMode("play");
+  const me = names[a.user_id] || "Miembro";
+  const humanWhite = r.color === "w";
+  applySanList(VARIANT_START[r.variant], r.sans,
+    { white: humanWhite ? me : "claudIA", black: humanWhite ? "claudIA" : me, result: humanWhite ? "1-0" : "0-1", resultNote: "" });
+  game.cursor = 0; selected = null; persist(); render();
+  closeMuseum();
+  showGlobalToast("Partida cargada — avanza con → para estudiarla.");
+}
+
 function museumDetail(a, info, gamesById, names, box){
   box.innerHTML = "";
   box.appendChild(musEl("b", "", info.name));
   box.appendChild(musEl("p", "", info.rule));
+  if(a.reto){
+    const r = a.reto;
+    box.appendChild(musEl("p", "", "Ganada a claudIA · " + musDate(r.created_at) + " · " + (MUS_VARIANT[r.variant] || r.variant) +
+      (r.plies ? " · " + Math.ceil(r.plies / 2) + " jugadas" : "")));
+    if(r.sans && r.sans.length){
+      const btn = musEl("button", "btn mini", "Cargar partida");
+      btn.type = "button";
+      btn.style.marginTop = "8px";
+      btn.onclick = () => museumLoadReto(a, names, btn);
+      box.appendChild(btn);
+    } else {
+      box.appendChild(musEl("p", "", "La partida de esta insignia no se guardó: se ganó antes de que existiera el guardado."));
+    }
+    return;
+  }
   if(info.crown){
     const meta = a.meta || {};
     box.appendChild(musEl("p", "", (meta.torneo ? "Torneo \u00ab" + meta.torneo + "\u00bb" : "Torneo") +
@@ -8120,9 +8197,10 @@ async function loadMuseum(){
   const mySeq = ++museumSeq;
   museumBody.innerHTML = "";
   museumBody.appendChild(musEl("p", "mus-empty", "Abriendo la vitrina\u2026"));
-  const [achRes, memRes] = await Promise.all([
+  const [achRes, memRes, retoRes] = await Promise.all([
     sb.from("achievements").select("user_id, code, game_id, tournament_id, meta, awarded_at").order("awarded_at", { ascending: false }),
-    sb.from("club_members").select("profile_id, profiles(id, username, display_name)")
+    sb.from("club_members").select("profile_id, profiles(id, username, display_name)"),
+    sb.from("reto_victorias").select("id, user_id, variant, level, color, plies, sans, created_at").order("created_at", { ascending: false })
   ]);
   if(mySeq !== museumSeq) return;
   museumBody.innerHTML = "";
@@ -8132,7 +8210,14 @@ async function loadMuseum(){
   }
   const names = {};
   (memRes.data || []).forEach(r => { if(r.profiles) names[r.profiles.id] = r.profiles.display_name || r.profiles.username; });
-  const ach = achRes.data || [];
+  let ach = achRes.data || [];
+  // V212: si la tabla de victorias del reto responde, ella manda (las insignias antiguas del reto ya pasaron all\u00ed);
+  // si todav\u00eda no existe (falta correr 14_reto_victorias.sql), la vitrina sigue como antes.
+  if(!retoRes.error){
+    ach = ach.filter(a => RETO_LEGACY_CODES.indexOf(a.code) < 0);
+    (retoRes.data || []).forEach(r => ach.push({ user_id: r.user_id, code: RETO_VIC_CODE, game_id: null, tournament_id: null, meta: {}, awarded_at: r.created_at, reto: r }));
+    ach.sort((p, q) => Date.parse(q.awarded_at) - Date.parse(p.awarded_at));
+  }
   const gameIds = [...new Set(ach.filter(a => a.game_id).map(a => a.game_id))];
   const gamesById = {};
   if(gameIds.length){
@@ -8159,7 +8244,7 @@ async function loadMuseum(){
     let open = null;
     if(!list.length) cs.appendChild(musEl("p", "mus-empty", "Vitrina vac\u00eda por ahora."));
     list.forEach((a, i) => {
-      const info = ACH_INFO[a.code] || { icon: "\u{1F3C5}", name: a.code, rule: "" };
+      const info = achInfoFor(a);
       const item = musEl("div", "mus-item");
       const med = musEl("button", "mus-med" + (info.crown ? " crown" + (info.crown === "silver" ? " silver" : "") : "") + (info.img ? " shield" : ""), info.img ? "" : info.icon);
       if(info.img){
