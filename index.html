@@ -4515,6 +4515,18 @@ let liveGame = null;
 // V210: «bloqueada» = hay una partida en vivo EN CURSO. Terminada (mate, tablas, rendición o tiempo) ya no bloquea nada: el tablero se queda
 // para estudiarla y, en cuanto se hace algo nuevo (Reiniciar, otra modalidad, cargar una partida...), newGame() sale de ella sola.
 function liveLocked(){ return !!liveGame && !(game && game.result); }
+/* V212: tras cargar una partida o entrar a una en vivo, se va al tablero con «La Partida» abierta (navegación y notación a la mano).
+   En pantalla completa ese panel no existe. Se espera un instante para que cierre el fundido de la vitrina / Santuario. */
+function openPartidaPanel(){
+  const go = () => {
+    try{
+      const pn = document.getElementById("panel-partida");
+      if(pn && !pn.hidden && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn);
+    }catch(e){}
+  };
+  go();
+  setTimeout(go, 450);   // por si un fundido o el cambio de modo recolocó la página
+}
 function newGame(fen, meta){
   if(liveGame && game && game.result) exitLiveGame();   // V210: partida en vivo terminada -> se sale sola (antes había que pulsar «Salir»)
   if(liveGame){
@@ -8132,6 +8144,7 @@ async function museumLoadGame(g, names, btn){
     { white: names[g.white_id] || "Blancas", black: names[g.black_id] || "Negras", result: g.result || "", resultNote: "" });
   game.cursor = 0; selected = null; persist(); render();
   closeMuseum();
+  openPartidaPanel();
   showGlobalToast("Partida cargada \u2014 avanza con \u2192 para estudiarla.");
 }
 
@@ -8150,6 +8163,7 @@ function museumLoadReto(a, names, btn){
     { white: humanWhite ? me : "claudIA", black: humanWhite ? "claudIA" : me, result: humanWhite ? "1-0" : "0-1", resultNote: "" });
   game.cursor = 0; selected = null; persist(); render();
   closeMuseum();
+  openPartidaPanel();
   showGlobalToast("Partida cargada — avanza con → para estudiarla.");
 }
 
@@ -8742,7 +8756,7 @@ function applyGameRow(row){
   if(row.async_days !== undefined) liveGame.asyncDays = row.async_days || null; // V150
   if(row.result && !game.result){
     game.result = row.result;
-    renderStatus(liveState(), outcome(liveState()));
+    renderStatus(liveState(), outcome(liveState())); updateModalitySelectorsUI(); updateMatchControlsUI();
     scheduleAchievementCheck();
     if(row.status === "abandonada" && row.winner_id === accountProfile.id){
       showGlobalToast(liveGame.opponentName + " se rindió. ¡Ganaste la partida!");
@@ -9029,7 +9043,7 @@ document.getElementById("live-draw-accept").onclick = async () => {
   if(await setDrawState({ status: "finalizada", result: "1/2-1/2", winner_id: null, draw_offered_by: null })){
     game.result = "1/2-1/2";
     liveGame.drawOfferedBy = null;
-    renderStatus(liveState(), outcome(liveState()));
+    renderStatus(liveState(), outcome(liveState())); updateModalitySelectorsUI(); updateMatchControlsUI();
     updateLiveBanner();
     clubNote("Tablas acordadas.");
   }
@@ -9148,6 +9162,7 @@ async function enterLiveGameInner(row){
   persist(); render();
   updateLiveBanner();
   clubNote("");
+  openPartidaPanel();   // V212: al aceptar un reto (ambos lados) o reabrir una partida en vivo, «La Partida» queda abierta
 }
 
 // V150: opts.restore = vuelve a la partida local de antes; opts.keepFrozen = se está cambiando de
@@ -9279,7 +9294,7 @@ async function pushLiveMove(){
   const { error: gameErr } = await sb.from("games").update(patch).eq("id", liveGame.id);
   if(gameErr){ clubNote("Tu jugada se guardó, pero no se pudo actualizar el estado de la partida: " + gameErr.message, true); }
 
-  if(result){ game.result = result; renderStatus(liveState(), outcome(liveState())); scheduleAchievementCheck(); }
+  if(result){ game.result = result; renderStatus(liveState(), outcome(liveState())); updateModalitySelectorsUI(); updateMatchControlsUI(); scheduleAchievementCheck(); }
   updateLiveBanner();
   syncLiveClockRunning();
   announceCheckOrMate(oc, liveGame.myColor);
@@ -9448,7 +9463,7 @@ async function abandonGame(row){
     // soltar el tablero — así no se puede seguir moviendo por accidente.
     game.result = result;
     liveGame.drawOfferedBy = null;
-    renderStatus(liveState(), outcome(liveState()));
+    renderStatus(liveState(), outcome(liveState())); updateModalitySelectorsUI(); updateMatchControlsUI();
     updateLiveBanner();
   }
   clubNote("Te rendiste.");
@@ -11269,6 +11284,7 @@ function loadSavedGame(id){
     result: g.result || "", resultNote: g.resultNote || ""
   });
   libNote("Cargada «" + g.name + "» — avanza con →");
+  openPartidaPanel();
 }
 
 document.getElementById("game-save").onclick = async () => {
@@ -11762,8 +11778,7 @@ function hofLoadGame(g){
   if(currentMode !== "play") setMode("play");
   importPGN(g.pgn);
   closeHallOfFame();
-  // V209: al cargar una partida desde El Santuario se abre «La Partida» para que se vea la notación (en pantalla completa ese panel no existe).
-  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
+  openPartidaPanel();   // V209/V212: notación y botones de navegación a la mano
 }
 let hofSeen = false, hofCloseT = 0;
 function openHallOfFame(){   // V209: mismo fundido que la vitrina (.6 s, desenfoque y ascenso suave) + proemio
