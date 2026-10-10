@@ -2536,7 +2536,8 @@
 
   /* La secuencia arranca cuando la imagen y las tipografías ya cargaron (o a los 1.6 s, lo que ocurra primero): ni la imagen aparece de golpe ni el texto cambia de fuente a mitad de animación. */
   var go = function(){ intro.classList.add("intro-go"); }, started = false;
-  var start = function(){ if(started) return; started = true; go(); };
+  var t0 = null, musica = function(){};
+  var start = function(){ if(started) return; started = true; t0 = performance.now(); go(); musica(); };
   imgEl.style.backgroundImage = "url(" + IMG + ")";
   var pend = 2, uno = function(){ if(--pend <= 0) start(); };
   var pre = new Image(); pre.onload = uno; pre.onerror = uno; pre.src = IMG;
@@ -2547,7 +2548,7 @@
   setTimeout(start, 1600);
 
   /* V220: música de entrada; arranca con el primer toque (los navegadores no dejan sonar antes) y se apaga al salir */
-  var musica = function(){ if(!abierta) return; try{ if(typeof SFX !== "undefined") SFX.intro(true); }catch(e){} };
+  musica = function(){ if(!abierta || t0 === null) return; try{ if(typeof SFX !== "undefined") SFX.intro(true, t0 + 4000); }catch(e){} };   /* la música entra en el segundo 4 de la animación */
   intro.addEventListener("pointerdown", musica, { passive:true });
   document.addEventListener("keydown", musica, true);
   /* Desde el principio, junto con la animación: si el navegador deja sonar sin toque previo, suena de inmediato; si no, queda
@@ -4808,7 +4809,7 @@ var SFX = (function(){
   let capIdx = -1;
   /* música de entrada: empieza con el primer toque mientras la pantalla de entrada está abierta, y se apaga sola al salir */
   let introM = null;
-  function introStart(){
+  function introStart(at){   // at: instante (performance.now) en que debe empezar; si ya pasó, empieza al momento
     if(introM || !on || !samplesOk("intro")) return;
     const me = introM = { bus: null, src: null, cerrado: false };
     const go = () => {
@@ -4816,7 +4817,7 @@ var SFX = (function(){
       const pr = sample("intro"); if(!pr) return;
       pr.then(b => {
         if(introM !== me || me.cerrado || !b || !ctx || ctx.state !== "running") return;
-        const bus = ctx.createGain(), t = ctx.currentTime;
+        const t = ctx.currentTime + Math.max(0, ((at || 0) - performance.now()) / 1000), bus = ctx.createGain();
         bus.gain.setValueAtTime(0.0001, t); bus.gain.linearRampToValueAtTime(0.6, t + 1.5);
         bus.connect(dry);
         const src = ctx.createBufferSource(); src.buffer = b; src.connect(bus); src.start(t);
@@ -4944,7 +4945,7 @@ var SFX = (function(){
       if(mv.promo && oc !== "checkmate") organ(t + 0.1, [73.42, 146.83, 220.0, 293.66, 369.99, 440.0], 1.5, 1);
     }),
     hush: safe(() => { hush(); }),
-    intro: safe((on_) => { if(on_) introStart(); else introStop(); }),
+    intro: safe((on_, at) => { if(on_) introStart(at); else introStop(); }),
     slide: safe((open) => {
       if(!ready()) return;
       const now = performance.now();
@@ -9193,7 +9194,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V221 · 10-oct-2026 · La música de entrada arranca desde el inicio de la animación (o con el primer toque si el navegador no la deja sonar antes)";
+const BUILD_ID = "V222 · 10-oct-2026 · La música de entrada empieza en el segundo 4 de la animación";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
