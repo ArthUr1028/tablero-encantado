@@ -445,6 +445,13 @@
   }
   .zen-toggle-btn:hover{ opacity:1; border-color:transparent; }
   .zen-toggle-btn:active{ transform:translateY(1px); }
+
+  /* V218 · Botón de sonido (altavoz), junto al de pantalla completa. */
+  #snd-toggle .snd-off{ display:none; }
+  #snd-toggle[aria-pressed="false"] .snd-on{ display:none; }
+  #snd-toggle[aria-pressed="false"] .snd-off{ display:inline; }
+  #snd-toggle[aria-pressed="false"]{ opacity:.45; }
+  body.toggle-col:not(.zen-mode) .zen-toggle-row #snd-toggle{ right:var(--snd-off, 44px); }
   /* V145: en zen, el botón mismo se achica más (mismo motivo que el padding
      de arriba: cada píxel de "chrome" fijo resta directo al presupuesto de
      alto del tablero en pantallas horizontales cortas) -- fuera de zen sigue
@@ -3260,6 +3267,9 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
        propio ícono fijo y su propia acción de una sola dirección; el que
        no aplica según el modo actual se oculta entero con `hidden`. -->
   <div class="zen-toggle-row">
+    <button class="btn icon zen-toggle-btn" id="snd-toggle" type="button" aria-pressed="true" aria-label="Sonido activado" title="Sonido activado">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><g class="snd-on"><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></g><g class="snd-off"><path d="M16 9l5 6M21 9l-5 6"/></g></svg>
+    </button>
     <button class="btn icon zen-toggle-btn" id="zen-toggle-enter" type="button" aria-label="Pantalla completa" title="Pantalla completa">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
     </button>
@@ -4544,6 +4554,232 @@ function moveWithSAN(s, mv){
   if(oc === "checkmate") san += "#";
   else if(oc === "check") san += "+";
   return { n, san, oc };
+}
+
+/* ============================ Sonidos (V218) ============================
+   Todo se sintetiza con Web Audio: sin archivos de audio, sin red, nada que cachear. Un solo interruptor (botón del
+   altavoz, junto al de pantalla completa) lo enciende o apaga y recuerda la elección. El contexto de audio se crea y
+   se despierta con el primer toque del usuario (los navegadores no permiten sonar antes), y mientras no esté
+   despierto, simplemente no suena nada: nunca se encola ni se rompe el juego. Cada llamada va envuelta en try/catch.
+   Sonidos: mover = piedra sobre piedra · capturar = choque de espadas · enroque = dos golpes · coronación = órgano ·
+   jaque = campana grave · mate = dos tañidos · tablas = campana apagada · paneles = deslizamiento bajo ·
+   Santuario = canto sacro muy leve mientras está abierto. */
+var SFX = (function(){
+  const KEY = "tablero-encantado.sonido";
+  let on = true;
+  try{ if(localStorage.getItem(KEY) === "0") on = false; }catch(e){}
+  let ctx = null, dry = null, wet = null, noiseBuf = null;
+  let santuarioAbierto = false, chant = null, lastSlide = 0;
+
+  function ensure(){
+    if(ctx) return ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    try{ ctx = new AC(); }catch(e){ return null; }
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -20; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.25;
+    const master = ctx.createGain(); master.gain.value = 0.75;
+    dry = ctx.createGain(); wet = ctx.createGain(); wet.gain.value = 0.42;
+    const conv = ctx.createConvolver(); conv.buffer = makeIR(2.4);
+    dry.connect(master); wet.connect(conv); conv.connect(master);
+    master.connect(comp); comp.connect(ctx.destination);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return ctx;
+  }
+  function makeIR(sec){   // eco de sala de piedra: ruido que se apaga
+    const len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, len, ctx.sampleRate);
+    for(let c = 0; c < 2; c++){
+      const d = b.getChannelData(c);
+      for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.4);
+    }
+    return b;
+  }
+  const ready = () => on && ensure() && ctx.state === "running";
+  function out(node, send, bus){   // bus opcional: otro nodo de entrada (p. ej. el del canto)
+    node.connect(bus || dry);
+    if(send > 0){ const s = ctx.createGain(); s.gain.value = send; node.connect(s); s.connect(wet); }
+  }
+  function noise(){ const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; return s; }
+  function env(g, t, a, peak, d){
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+  }
+  const jit = (x) => 1 + (Math.random() - 0.5) * x;
+
+  /* --- piedra: golpe grave + chasquido corto --- */
+  function stone(t, vol){
+    const r = jit(0.16);
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(190 * r, t); o.frequency.exponentialRampToValueAtTime(75, t + 0.13);
+    const g = ctx.createGain(); env(g, t, 0.004, 0.55 * vol, 0.15);
+    o.connect(g); out(g, 0.16); o.start(t); o.stop(t + 0.22);
+    const n = noise(), bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1100 * r; bp.Q.value = 1.1;
+    const g2 = ctx.createGain(); env(g2, t, 0.002, 0.55 * vol, 0.055);
+    n.connect(bp); bp.connect(g2); out(g2, 0.22); n.start(t, Math.random() * 0.5); n.stop(t + 0.1);
+  }
+  /* --- acero: parciales inarmónicos de barra metálica + roce de ruido agudo --- */
+  function clang(t, vol, base){
+    const r = jit(0.06);
+    [[1, 1], [2.76, 0.7], [5.4, 0.45], [8.93, 0.25]].forEach(([m, a], i) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = base * r * m;
+      const g = ctx.createGain(); env(g, t, 0.002, 0.15 * a * vol, 0.55 / (1 + i * 0.7));
+      o.connect(g); out(g, 0.3); o.start(t); o.stop(t + 0.75);
+    });
+    const n = noise(), hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2800;
+    const g2 = ctx.createGain(); env(g2, t, 0.001, 0.2 * vol, 0.07);
+    n.connect(hp); hp.connect(g2); out(g2, 0.25); n.start(t, Math.random() * 0.5); n.stop(t + 0.12);
+  }
+  /* --- campana grave --- */
+  function bell(t, f, vol, dec){
+    [[0.5, 0.6], [1, 1], [1.2, 0.55], [1.5, 0.4], [2, 0.5], [2.6, 0.2]].forEach(([m, a], i) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f * m;
+      const g = ctx.createGain(); env(g, t, 0.006, 0.17 * a * vol, dec / (1 + i * 0.35));
+      o.connect(g); out(g, 0.55); o.start(t); o.stop(t + dec + 0.2);
+    });
+  }
+  /* --- órgano: armónicos de tubo, ataque suave, cola larga --- */
+  function organ(t, notes, dur, vol){
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2300; lp.Q.value = 0.4;
+    const bus = ctx.createGain(); bus.gain.value = 1; lp.connect(bus); out(bus, 0.7);
+    notes.forEach(f => {
+      [[1, 0.5], [2, 0.34], [3, 0.17], [4, 0.11], [0.5, 0.2]].forEach(([h, a]) => {
+        const o = ctx.createOscillator(); o.type = h === 1 ? "triangle" : "sine";
+        o.frequency.value = f * h * jit(0.004);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.05 * a * vol, t + 0.16);
+        g.gain.setValueAtTime(0.05 * a * vol, t + dur);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 1.7);
+        o.connect(g); g.connect(lp); o.start(t); o.stop(t + dur + 1.8);
+      });
+    });
+  }
+  /* --- deslizamiento bajo de panel --- */
+  function slide(open){
+    const t = ctx.currentTime + 0.01;
+    const n = noise(), lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 2.2;
+    lp.frequency.setValueAtTime(open ? 170 : 400, t); lp.frequency.exponentialRampToValueAtTime(open ? 400 : 150, t + 0.3);
+    const g = ctx.createGain(); env(g, t, 0.07, 0.2, 0.26);
+    n.connect(lp); lp.connect(g); out(g, 0.1); n.start(t, Math.random() * 0.5); n.stop(t + 0.45);
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(75, t + 0.26); o.frequency.exponentialRampToValueAtTime(50, t + 0.4);
+    const g2 = ctx.createGain(); env(g2, t + 0.26, 0.01, 0.11, 0.14);
+    o.connect(g2); out(g2, 0.1); o.start(t + 0.26); o.stop(t + 0.5);
+  }
+
+  /* --- canto sacro: voces de sierra con formantes de «a», entrada y salida muy lentas --- */
+  const CHORDS = [
+    [146.83, 220.0, 293.66, 349.23],     // Re menor
+    [116.54, 174.61, 233.08, 293.66],    // Si bemol
+    [98.0, 146.83, 196.0, 233.08],       // Sol menor
+    [110.0, 164.81, 220.0, 329.63]       // La, quinta abierta
+  ];
+  function startChant(){
+    if(chant || !ready()) return;
+    const bus = ctx.createGain(); bus.gain.setValueAtTime(0.0001, ctx.currentTime);
+    bus.gain.linearRampToValueAtTime(1, ctx.currentTime + 2.5);
+    out(bus, 0.9);
+    chant = { bus, oscs: [], timer: 0, step: 0 };
+    const sing = () => {
+      if(!chant || !ready()) return;
+      const t = ctx.currentTime + 0.05, dur = 8.5, chord = CHORDS[chant.step++ % CHORDS.length];
+      chord.forEach(f => {
+        const vg = ctx.createGain();
+        vg.gain.setValueAtTime(0.0001, t);
+        vg.gain.linearRampToValueAtTime(0.038, t + 2.4);
+        vg.gain.setValueAtTime(0.038, t + dur - 0.5);
+        vg.gain.linearRampToValueAtTime(0.0001, t + dur + 3);
+        const lfo = ctx.createOscillator(); lfo.frequency.value = 4.6 + Math.random() * 1.2;
+        const lg = ctx.createGain(); lg.gain.value = 9; lfo.connect(lg);
+        [-6, 6].forEach(c => {
+          const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = c;
+          lg.connect(o.detune); o.connect(vg); o.start(t); o.stop(t + dur + 3.2); chant.oscs.push(o);
+        });
+        lfo.start(t); lfo.stop(t + dur + 3.2); chant.oscs.push(lfo);
+        [[700, 6, 1], [1150, 8, 0.5], [2600, 10, 0.2]].forEach(([fq, q, a]) => {
+          const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = fq; bp.Q.value = q;
+          const ga = ctx.createGain(); ga.gain.value = a; vg.connect(bp); bp.connect(ga); ga.connect(chant.bus);
+        });
+      });
+      chant.timer = setTimeout(sing, (dur - 1.8) * 1000);
+    };
+    sing();
+  }
+  function stopChant(){
+    if(!chant) return;
+    const c = chant; chant = null;
+    clearTimeout(c.timer);
+    try{
+      const t = ctx.currentTime;
+      c.bus.gain.cancelScheduledValues(t);
+      c.bus.gain.setValueAtTime(Math.max(c.bus.gain.value, 0.0001), t);
+      c.bus.gain.linearRampToValueAtTime(0.0001, t + 1.4);
+      c.oscs.forEach(o => { try{ o.stop(t + 1.5); }catch(e){} });
+      setTimeout(() => { try{ c.bus.disconnect(); }catch(e){} }, 1700);
+    }catch(e){}
+  }
+
+  /* --- el contexto se crea y se despierta con el primer toque --- */
+  function unlock(){
+    if(!on) return;
+    if(ensure() && ctx.state === "suspended"){ try{ ctx.resume().then(() => { if(santuarioAbierto) startChant(); }); }catch(e){} }
+  }
+  ["pointerdown", "touchend", "keydown", "click"].forEach(ev =>
+    window.addEventListener(ev, unlock, { capture: true, passive: true }));
+  document.addEventListener("visibilitychange", () => {
+    if(!ctx) return;
+    try{
+      if(document.hidden){ stopChant(); ctx.suspend(); }
+      else if(on){ ctx.resume().then(() => { if(santuarioAbierto) startChant(); }); }
+    }catch(e){}
+  });
+
+  const safe = (fn) => (...a) => { try{ return fn(...a); }catch(e){} };
+  return {
+    isOn: () => on,
+    toggle: safe(() => {
+      on = !on;
+      try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
+      if(on){ unlock(); if(ctx) ctx.resume().then(() => { if(santuarioAbierto) startChant(); }); }
+      else stopChant();
+      return on;
+    }),
+    /* Sonido de una jugada: mv = la jugada, oc = resultado de outcome() tras ella. */
+    move: safe((mv, oc) => {
+      if(!ready()) return;
+      const t = ctx.currentTime + 0.01;
+      if(mv.capture){ stone(t, 0.55); clang(t, 1, 1500); clang(t + 0.08, 0.65, 1880); }
+      else if(mv.castle){ stone(t, 0.9); stone(t + 0.13, 0.7); }
+      else stone(t, 1);
+      if(oc === "checkmate"){ bell(t + 0.25, 147, 0.95, 3.2); bell(t + 1.7, 147, 0.8, 3.4); }
+      else if(oc === "check"){ bell(t + 0.2, 220, 0.6, 2.2); }
+      else if(oc === "stalemate" || oc === "draw50" || oc === "draw3" || oc === "material"){ bell(t + 0.2, 196, 0.4, 2); }
+      if(mv.promo && oc !== "checkmate") organ(t + 0.1, [73.42, 146.83, 220.0, 293.66, 369.99, 440.0], 1.5, 1);
+    }),
+    slide: safe((open) => {
+      if(!ready()) return;
+      const now = performance.now();
+      if(now - lastSlide < 160) return;   // abrir uno y cerrar otro a la vez: un solo deslizamiento
+      lastSlide = now; slide(open);
+    }),
+    santuario: safe((abierto) => {
+      santuarioAbierto = !!abierto;
+      if(abierto) startChant(); else stopChant();
+    })
+  };
+})();
+/* Un único punto de enganche para las jugadas: se llama desde render() y detecta si, desde el dibujado anterior, la
+   línea activa avanzó exactamente una jugada (propia, de claudIA, del rival en vivo o al repetir la partida) o se
+   acaba de jugar una (animFrom). Cargar una partida o abrir la aplicación no suenan. */
+let sfxPrev = { line: null, cursor: -1 };
+function sfxOnRender(lastMv, oc, hadAnim){
+  const line = L(), cur = line.cursor;
+  const stepped = sfxPrev.line === line && cur === sfxPrev.cursor + 1;
+  sfxPrev = { line, cursor: cur };
+  if(!lastMv || !(stepped || hadAnim)) return;
+  SFX.move(lastMv, oc);
 }
 
 /* ============================ Estado de la app ============================ */
@@ -6543,7 +6779,9 @@ function render(){
       boardEl.appendChild(cell);
     }
   }
+  const sfxAnim = !!animFrom;
   animFrom = null;
+  try{ sfxOnRender(lastMv, oc, sfxAnim); }catch(e){}
   syncPieceSize();
 
   renderNameplates();
@@ -6665,6 +6903,20 @@ function renderVariants(){
 }
 document.getElementById("btn-branch-back").onclick = () => { branch = null; selected = null; persist(); render(); };
 
+
+/* V218 · Interruptor de sonido: el estado vive en SFX (y en localStorage); acá solo el botón. */
+(function(){
+  const b = document.getElementById("snd-toggle");
+  if(!b) return;
+  const paint = () => {
+    const on = SFX.isOn();
+    b.setAttribute("aria-pressed", String(on));
+    const t = on ? "Sonido activado" : "Sonido desactivado";
+    b.setAttribute("aria-label", t); b.title = t;
+  };
+  b.onclick = () => { SFX.toggle(); paint(); };
+  paint();
+})();
 /* ============================ Jugadas ============================ */
 let animFrom = null;
 
@@ -8753,7 +9005,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V217 · 10-oct-2026 · Cementerios envejecidos: piedra más oscura, polvo y hollín en los bordes, a juego con la pátina del tablero";
+const BUILD_ID = "V218 · 10-oct-2026 · Sonidos: piedra al mover, espadas al capturar, órgano al coronar, campana en jaque y mate, deslizamiento en paneles y canto sacro en el Santuario; con interruptor";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11924,6 +12176,7 @@ async function hofLoadGame(g){
 }
 let hofSeen = false, hofCloseT = 0;
 function openHallOfFame(){   // V209: mismo fundido que la vitrina (.6 s, desenfoque y ascenso suave) + proemio
+  try{ SFX.santuario(true); }catch(e){}   // V218: canto sacro leve mientras está abierto
   clearTimeout(hofCloseT);
   hofOv.hidden = false;
   hofOv.classList.remove("listo");
@@ -11935,6 +12188,7 @@ function openHallOfFame(){   // V209: mismo fundido que la vitrina (.6 s, desenf
   hofOv.classList.add("show");
 }
 function closeHallOfFame(){
+  try{ SFX.santuario(false); }catch(e){}
   hofOv.classList.remove("show");
   clearTimeout(hofCloseT);
   hofCloseT = setTimeout(() => { if(!hofOv.classList.contains("show")) hofOv.hidden = true; }, 700);
@@ -12068,6 +12322,7 @@ function initCollapsiblePanels(){
     }
     // Alturas inicial y final reales. Primero se congela `.stage`: la medición temporal fuerza layout y
     // un documento más corto ya dispararía por sí solo el recorte de scroll.
+    try{ SFX.slide(!collapsed); }catch(e){}   // V218: deslizamiento bajo al abrir/cerrar un panel
     holdStage();
     if(boardVisible()) setAnchoring(true);
     const startH = panel.getBoundingClientRect().height;
