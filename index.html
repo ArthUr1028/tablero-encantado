@@ -815,6 +815,28 @@
     background:linear-gradient(135deg, rgba(255,244,220,.07) 0%, rgba(255,244,220,.02) 34%, transparent 55%, rgba(0,0,0,.14) 100%); }
   .board-frame{ border-top-color:color-mix(in srgb, var(--frame-hi) 78%, #fff); border-left-color:color-mix(in srgb, var(--frame-hi) 78%, #fff);
     border-bottom-color:rgba(0,0,0,.55); border-right-color:rgba(0,0,0,.55); }
+
+  /* V216 · «Pátina»: un velo de polvo y mugre muy tenue sobre el tablero y su marco, para acercarlo a lo viejo y medieval.
+     Es solo pintura estática (un SVG de ruido, sin animación ni medidas): manchas grandes y difusas, grano fino, motas de polvo
+     y los bordes algo más sucios. Va por debajo de las piezas (z-index 1; las piezas tienen 2) y no recibe toques.
+     --edad regula todo con un número: 0 = tablero limpio, 1 = pátina completa (por defecto .6). */
+  :root{ --edad:.6; --patina:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='640'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.010 .013' numOctaves='3' seed='11'/><feColorMatrix values='0 0 0 0 .17  0 0 0 0 .10  0 0 0 0 .04  1.5 0 0 0 -.62'/></filter><filter id='b' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .16  0 0 0 0 .10  0 0 0 0 .05  1.0 0 0 0 -.40'/></filter><filter id='c' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='1' seed='9'/><feColorMatrix values='0 0 0 0 .96  0 0 0 0 .90  0 0 0 0 .78  5 0 0 0 -3.55'/></filter><rect width='100%' height='100%' filter='url(%23a)'/><rect width='100%' height='100%' filter='url(%23b)'/><rect width='100%' height='100%' filter='url(%23c)' opacity='.35'/></svg>"); }
+  #board::before{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none; opacity:var(--edad);
+    background:
+      radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(46,28,10,.16) 100%),
+      radial-gradient(40% 30% at 8% 92%, rgba(46,28,10,.12), transparent 70%),
+      radial-gradient(35% 28% at 94% 6%, rgba(46,28,10,.09), transparent 70%),
+      var(--patina) 0 0 / 100% 100%; }
+  .board-frame{ background:
+      var(--patina) 0 0 / 100% 100%,
+      linear-gradient(150deg, var(--tablet-2), var(--tablet) 60%, var(--ground)); }
+  .board-frame{ box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,.5),
+      inset 0 2px 6px rgba(0,0,0,.6),
+      inset 0 0 22px rgba(30,16,4,calc(.34 * var(--edad))),
+      0 0 26px color-mix(in srgb, var(--ember) 17%, transparent),
+      0 0 70px color-mix(in srgb, var(--ember) 8%, transparent),
+      var(--shadow); }
   #board .piece.fairy{ position:relative; }
   #board .piece.fairy svg{ position:relative; z-index:1; transform-origin:50% 88%; }
   #board .piece.fairy::before{ content:""; position:absolute; left:15%; right:5%; bottom:4%; height:15%; border-radius:50%; pointer-events:none;
@@ -8716,7 +8738,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V215 · 10-oct-2026 · Santuario: nueve grandes maestros nuevos (Zukertort, Chigorin, Tarrasch, Pillsbury, Marshall, Maróczy, Schlechter, Rubinstein y Gukesh), con sus partidas verificadas";
+const BUILD_ID = "V216 · 10-oct-2026 · Pátina: un toque muy sutil de polvo y mugre sobre el tablero y su marco (regulable con --edad)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
