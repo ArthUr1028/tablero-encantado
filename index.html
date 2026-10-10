@@ -4620,17 +4620,37 @@ var SFX = (function(){
     const g2 = ctx.createGain(); env(g2, t, 0.002, 0.55 * vol, 0.055);
     n.connect(bp); bp.connect(g2); out(g2, 0.22); n.start(t, Math.random() * 0.5); n.stop(t + 0.1);
   }
-  /* --- acero: parciales inarmónicos de barra metálica + roce de ruido agudo --- */
+  /* --- acero: golpe seco de ruido + roce metálico que sube + parciales inarmónicos muy cortos y torcidos con
+         saturación; nada de cola larga ni de tono limpio (eso era lo que sonaba a campanita) --- */
+  let shaper = null;
+  function metalShaper(){
+    if(shaper) return shaper;
+    shaper = ctx.createWaveShaper();
+    const c = new Float32Array(513);
+    for(let i = 0; i < 513; i++){ const x = i / 256 - 1; c[i] = Math.tanh(3.2 * x); }
+    shaper.curve = c; shaper.oversample = "2x";
+    const g = ctx.createGain(); g.gain.value = 0.9; shaper.connect(g); out(g, 0.07);
+    return shaper;
+  }
   function clang(t, vol, base){
-    const r = jit(0.06);
-    [[1, 1], [2.76, 0.7], [5.4, 0.45], [8.93, 0.25]].forEach(([m, a], i) => {
-      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = base * r * m;
-      const g = ctx.createGain(); env(g, t, 0.002, 0.15 * a * vol, 0.55 / (1 + i * 0.7));
-      o.connect(g); out(g, 0.3); o.start(t); o.stop(t + 0.75);
+    const r = jit(0.08), sh = metalShaper();
+    // (a) impacto: ráfaga de ruido agudo muy corta
+    const n = noise(), hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1600;
+    const g = ctx.createGain(); env(g, t, 0.0008, 0.5 * vol, 0.045);
+    n.connect(hp); hp.connect(g); g.connect(sh); n.start(t, Math.random() * 0.5); n.stop(t + 0.1);
+    // (b) roce: el filo resbala; banda estrecha que sube de 1,6 kHz a 6 kHz en ~90 ms
+    const n2 = noise(), bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 5;
+    bp.frequency.setValueAtTime(1600 * r, t); bp.frequency.exponentialRampToValueAtTime(6000 * r, t + 0.1);
+    const g2 = ctx.createGain(); env(g2, t, 0.004, 0.32 * vol, 0.1);
+    n2.connect(bp); bp.connect(g2); g2.connect(sh); n2.start(t, Math.random() * 0.5); n2.stop(t + 0.18);
+    // (c) resonancia del acero: parciales inarmónicos, de duración corta, por pares desafinados (aspereza)
+    [[1, 1, 0.16], [2.32, 0.8, 0.12], [3.87, 0.6, 0.09], [5.41, 0.45, 0.07], [7.13, 0.3, 0.05]].forEach(([m, a, d]) => {
+      [0, 1].forEach(k => {
+        const o = ctx.createOscillator(); o.type = k ? "triangle" : "sine"; o.frequency.value = base * r * m * (k ? 1.013 : 1);
+        const gg = ctx.createGain(); env(gg, t, 0.0008, 0.07 * a * vol, d);
+        o.connect(gg); gg.connect(sh); o.start(t); o.stop(t + d + 0.1);
+      });
     });
-    const n = noise(), hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2800;
-    const g2 = ctx.createGain(); env(g2, t, 0.001, 0.2 * vol, 0.07);
-    n.connect(hp); hp.connect(g2); out(g2, 0.25); n.start(t, Math.random() * 0.5); n.stop(t + 0.12);
   }
   /* --- campana grave --- */
   function bell(t, f, vol, dec){
@@ -4639,6 +4659,67 @@ var SFX = (function(){
       const g = ctx.createGain(); env(g, t, 0.006, 0.17 * a * vol, dec / (1 + i * 0.35));
       o.connect(g); out(g, 0.55); o.start(t); o.stop(t + dec + 0.2);
     });
+  }
+  /* --- percusión de guerra (jaque): tom grave de piel con ataque de ruido y un poco de saturación para que se oiga también
+         en el altavoz del celular, que casi no reproduce graves --- */
+  function tom(t, vol, f0){
+    const sh = metalShaper2();
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(f0 * 1.9, t); o.frequency.exponentialRampToValueAtTime(f0, t + 0.09);
+    const g = ctx.createGain(); env(g, t, 0.003, 0.9 * vol, 0.34);
+    o.connect(g); g.connect(sh); o.start(t); o.stop(t + 0.5);
+    const n = noise(), bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 520; bp.Q.value = 0.8;
+    const g2 = ctx.createGain(); env(g2, t, 0.001, 0.5 * vol, 0.07);
+    n.connect(bp); bp.connect(g2); g2.connect(sh); n.start(t, Math.random() * 0.5); n.stop(t + 0.12);
+  }
+  let shaper2 = null;
+  function metalShaper2(){
+    if(shaper2) return shaper2;
+    shaper2 = ctx.createWaveShaper();
+    const c = new Float32Array(513);
+    for(let i = 0; i < 513; i++){ const x = i / 256 - 1; c[i] = Math.tanh(1.8 * x); }
+    shaper2.curve = c;
+    const g = ctx.createGain(); g.gain.value = 0.8; shaper2.connect(g); out(g, 0.28);
+    return shaper2;
+  }
+  function alarmDrums(t){   // «dum… DUM» y un breve redoble que crece: riesgo, pulso acelerado
+    tom(t, 0.8, 118);
+    tom(t + 0.19, 1, 98);
+    for(let i = 0; i < 5; i++){   // redoble de caja, cada vez más fuerte
+      const n = noise(), bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1900; bp.Q.value = 0.9;
+      const g = ctx.createGain(), tt = t + 0.4 + i * 0.045; env(g, tt, 0.001, 0.12 + i * 0.05, 0.05);
+      n.connect(bp); bp.connect(g); out(g, 0.2); n.start(tt, Math.random() * 0.5); n.stop(tt + 0.08);
+    }
+  }
+  /* --- requiem de campanas (jaque mate): tañidos lentos y graves con golpe de badajo, y al final un acorde de
+         campanas en re menor que se apaga despacio. Va por su propio canal para poder callarlo si empiezas otra partida. --- */
+  let tail = null;
+  function toll(t, f, vol, dec, bus){
+    const k = jit(0.002);
+    [[0.5, 0.7, 1.15], [1, 1, 1], [1.19, 0.6, 0.8], [1.5, 0.45, 0.6], [2, 0.5, 0.5], [2.5, 0.22, 0.35], [3.2, 0.14, 0.25]].forEach(([m, a, dm], i) => {
+      [0, 1].forEach(j => {   // par ligeramente desafinado: el batido típico del bronce
+        const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f * m * k * (j ? 1.0035 : 1);
+        const g = ctx.createGain(); env(g, t, 0.005, 0.1 * a * vol, dec * dm);
+        o.connect(g); out(g, 0, bus); o.start(t); o.stop(t + dec * dm + 0.3);
+      });
+    });
+    const n = noise(), bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 1.2;
+    const g2 = ctx.createGain(); env(g2, t, 0.001, 0.22 * vol, 0.05);   // golpe del badajo
+    n.connect(bp); bp.connect(g2); out(g2, 0, bus); n.start(t, Math.random() * 0.5); n.stop(t + 0.1);
+  }
+  function requiem(t){
+    const bus = ctx.createGain(); bus.gain.value = 1; bus.connect(dry); tail = bus;
+    const s = ctx.createGain(); s.gain.value = 0.6; bus.connect(s); s.connect(wet);
+    // las voces llegan solo a `bus`; este reparte a la mezcla seca y al eco, así `hush` calla todo de golpe
+    toll(t, 146.83, 1, 4.6, bus);            // re
+    toll(t + 1.5, 110.0, 0.9, 4.6, bus);     // la
+    toll(t + 2.9, 116.54, 0.85, 4.6, bus);   // si bemol
+    [73.42, 110.0, 174.61].forEach((f, i) => toll(t + 4.5 + i * 0.07, f, 1, 6.5, bus));   // re menor, final
+  }
+  function hush(){
+    if(!tail) return;
+    try{ const now = ctx.currentTime; tail.gain.cancelScheduledValues(now); tail.gain.setValueAtTime(tail.gain.value, now); tail.gain.linearRampToValueAtTime(0.0001, now + 0.35); }catch(e){}
+    tail = null;
   }
   /* --- órgano: armónicos de tubo, ataque suave, cola larga --- */
   function organ(t, notes, dur, vol){
@@ -4753,11 +4834,12 @@ var SFX = (function(){
       if(mv.capture){ stone(t, 0.55); clang(t, 1, 1500); clang(t + 0.08, 0.65, 1880); }
       else if(mv.castle){ stone(t, 0.9); stone(t + 0.13, 0.7); }
       else stone(t, 1);
-      if(oc === "checkmate"){ bell(t + 0.25, 147, 0.95, 3.2); bell(t + 1.7, 147, 0.8, 3.4); }
-      else if(oc === "check"){ bell(t + 0.2, 220, 0.6, 2.2); }
+      if(oc === "checkmate"){ requiem(t + 0.3); }
+      else if(oc === "check"){ alarmDrums(t + 0.12); }
       else if(oc === "stalemate" || oc === "draw50" || oc === "draw3" || oc === "material"){ bell(t + 0.2, 196, 0.4, 2); }
       if(mv.promo && oc !== "checkmate") organ(t + 0.1, [73.42, 146.83, 220.0, 293.66, 369.99, 440.0], 1.5, 1);
     }),
+    hush: safe(() => { hush(); }),
     slide: safe((open) => {
       if(!ready()) return;
       const now = performance.now();
@@ -4828,6 +4910,7 @@ function openPartidaPanel(){
   setTimeout(go, 450);   // por si un fundido o el cambio de modo recolocó la página
 }
 function newGame(fen, meta){
+  try{ SFX.hush(); }catch(e){}
   if(liveGame && game && game.result) exitLiveGame();   // V210: partida en vivo terminada -> se sale sola (antes había que pulsar «Salir»)
   if(liveGame){
     statusEl.className = "status mate";
@@ -9005,7 +9088,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V218 · 10-oct-2026 · Sonidos: piedra al mover, espadas al capturar, órgano al coronar, campana en jaque y mate, deslizamiento en paneles y canto sacro en el Santuario; con interruptor";
+const BUILD_ID = "V219 · 10-oct-2026 · Sonido: choque de acero en capturas, percusión de alarma en jaque y requiem de campanas en jaque mate";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
