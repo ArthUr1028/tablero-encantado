@@ -2339,6 +2339,14 @@
   @keyframes introLatido{ 0%,100%{ opacity:.12 } 50%{ opacity:.8 } }
   .intro-entrar:hover, .intro-entrar:focus-visible{ color:#fff; border-color:var(--ember, #d98a3d); outline:none;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 22px color-mix(in srgb, var(--ember, #d98a3d) 55%, transparent), 0 8px 26px rgba(0,0,0,.5); }
+  /* V224: los navegadores no dejan sonar nada hasta el primer toque; si es el caso, la entrada espera ese toque y entonces
+     arrancan juntas la animación y la música. Si el navegador deja sonar solo, esta indicación nunca aparece. */
+  .intro-toca{ display:none; position:absolute; left:0; right:0; bottom:calc(14vh + env(safe-area-inset-bottom)); margin:0; text-align:center;
+    font:600 clamp(.8rem,2.4vw,1rem)/1.4 "Cinzel", Georgia, serif; letter-spacing:.34em; text-transform:uppercase; color:rgba(233,225,212,.8);
+    text-shadow:0 0 14px rgba(0,0,0,.9); pointer-events:none; }
+  #intro.intro-espera .intro-toca{ display:block; animation:introToca 2.6s ease-in-out infinite; }
+  #intro .intro-toca{ animation-play-state:running; }
+  @keyframes introToca{ 0%,100%{ opacity:.25 } 50%{ opacity:.95 } }
   .intro-saltar{ position:absolute; right:max(14px, env(safe-area-inset-right)); bottom:max(12px, env(safe-area-inset-bottom));
     padding:12px 10px; border:0; background:none; cursor:pointer; font-family:"Cinzel", serif; font-size:.68rem; letter-spacing:.2em; text-transform:uppercase;
     color:rgba(233,225,212,.5); opacity:0; animation:introLinea 1.2s ease-out 1.2s both; transition:color .2s; -webkit-tap-highlight-color:transparent; }
@@ -2500,6 +2508,7 @@
     </div>
     <button type="button" class="intro-entrar" id="intro-entrar">Entrar a la batalla</button>
   </div>
+  <p class="intro-toca" id="intro-toca" aria-live="polite">Toca para comenzar</p>
   <button type="button" class="intro-saltar" id="intro-saltar">Saltar</button>
 </div>
 <div id="fondo-batalla" aria-hidden="true"></div>
@@ -2536,8 +2545,21 @@
 
   /* La secuencia arranca cuando la imagen y las tipografías ya cargaron (o a los 1.6 s, lo que ocurra primero): ni la imagen aparece de golpe ni el texto cambia de fuente a mitad de animación. */
   var go = function(){ intro.classList.add("intro-go"); }, started = false;
-  var t0 = null, musica = function(){};
-  var start = function(){ if(started) return; started = true; t0 = performance.now(); go(); musica(); };
+  var t0 = null, musica = function(){}, esperando = false, sondeo = false, tToque = 0;
+  var arrancar = function(){ if(started) return; started = true; esperando = false; intro.classList.remove("intro-espera"); t0 = performance.now(); go(); musica(); };
+  var decidir = function(){
+    if(started || esperando) return;
+    var libre = true;
+    try{ if(typeof SFX !== "undefined" && SFX.isOn()) libre = SFX.puedeSonar(); }catch(e){}
+    if(libre) arrancar(); else { esperando = true; intro.classList.add("intro-espera"); }
+  };
+  var start = function(){
+    if(started || esperando || sondeo) return; sondeo = true;
+    try{ if(typeof SFX !== "undefined") SFX.puedeSonar(); }catch(e){}      /* crea el contexto de audio; unos instantes después se ve si arrancó solo */
+    setTimeout(function(){ sondeo = false; decidir(); }, 160);
+  };
+  var toque = function(){ if(esperando){ tToque = performance.now(); arrancar(); } };
+  intro.addEventListener("pointerdown", toque, { passive:true });
   imgEl.style.backgroundImage = "url(" + IMG + ")";
   var pend = 2, uno = function(){ if(--pend <= 0) start(); };
   var pre = new Image(); pre.onload = uno; pre.onerror = uno; pre.src = IMG;
@@ -2591,12 +2613,13 @@
   };
   entrar.addEventListener("click", function(){ leave(true); });
   saltar.addEventListener("click", function(ev){ ev.stopPropagation(); leave(); });
-  intro.addEventListener("click", function(ev){ if(ev.target.closest && ev.target.closest("button")) return; if(!listo) finish(); });
+  intro.addEventListener("click", function(ev){ if(ev.target.closest && ev.target.closest("button")) return; if(performance.now() - tToque < 700) return; if(!listo) finish(); });
   intro.addEventListener("wheel", function(ev){ ev.preventDefault(); }, { passive:false });
   intro.addEventListener("touchmove", function(ev){ ev.preventDefault(); }, { passive:false });
   document.addEventListener("keydown", function(ev){
     if(!abierta) return;
     var k = ev.key;
+    if(esperando && k !== "Escape" && k !== "Tab"){ ev.preventDefault(); ev.stopImmediatePropagation(); tToque = performance.now(); arrancar(); return; }
     if(k === "Escape"){ ev.preventDefault(); ev.stopImmediatePropagation(); leave(); }
     else if(k === "Enter" || k === " "){
       if(document.activeElement === entrar && listo) return;       /* deja que el botón haga su clic */
@@ -4944,6 +4967,7 @@ var SFX = (function(){
       else if(oc === "stalemate" || oc === "draw50" || oc === "draw3" || oc === "material"){ bell(t + 0.2, 196, 0.4, 2); }
       if(mv.promo && oc !== "checkmate") organ(t + 0.1, [73.42, 146.83, 220.0, 293.66, 369.99, 440.0], 1.5, 1);
     }),
+    puedeSonar: safe(() => { if(!on) return true; ensure(); return !!ctx && ctx.state === "running"; }),
     hush: safe(() => { hush(); }),
     intro: safe((on_, at) => { if(on_) introStart(at); else introStop(); }),
     slide: safe((open) => {
@@ -9194,7 +9218,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V223 · 10-oct-2026 · La música de entrada suena desde el inicio de la animación, empezando en el segundo 4 de la pista";
+const BUILD_ID = "V224 · 10-oct-2026 · Entrada: si el navegador no deja sonar solo, espera un toque («Toca para comenzar») y arrancan juntas la animación y la música";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
