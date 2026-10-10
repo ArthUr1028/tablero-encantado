@@ -2550,6 +2550,10 @@
   var musica = function(){ if(!abierta) return; try{ if(typeof SFX !== "undefined") SFX.intro(true); }catch(e){} };
   intro.addEventListener("pointerdown", musica, { passive:true });
   document.addEventListener("keydown", musica, true);
+  /* Desde el principio, junto con la animación: si el navegador deja sonar sin toque previo, suena de inmediato; si no, queda
+     «en espera» y arranca con el primer toque o tecla (así lo dictan los navegadores; no hay forma de saltárselo). */
+  if(document.readyState === "complete") musica(); else window.addEventListener("load", musica);
+  setTimeout(musica, 700);
   var finish = function(){ if(listo) return; listo = true; intro.classList.add("intro-listo"); setTimeout(function(){ try{ entrar.focus({ preventScroll:true }); }catch(e){} }, 60); };
   entrar.addEventListener("animationend", function(ev){ if(ev.animationName === "introBoton"){ listo = true; try{ entrar.focus({ preventScroll:true }); }catch(e){} } });
   /* V199: al entrar a la batalla, SIN cuenta activa se va al tope con el panel «Cuenta» desplegado (para que el recién llegado
@@ -9189,7 +9193,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V220 · 10-oct-2026 · Sonidos grabados: choque de espadas, percusión en jaque, campanas en jaque mate, canto del Santuario y música de entrada";
+const BUILD_ID = "V221 · 10-oct-2026 · La música de entrada arranca desde el inicio de la animación (o con el primer toque si el navegador no la deja sonar antes)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
