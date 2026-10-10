@@ -105,14 +105,14 @@
      elementos de todos modos): piedra glaciar azul-gris, resplandor cian
      de escarcha. */
   [data-theme="agua"]{
-    --ground:#080b12; --ground-2:#0d1420;
-    --tablet:#111c2c; --tablet-2:#16273a;
+    --ground:#0c0a0f; --ground-2:#151119;   /* V226: fondo y paneles neutros (sin tinte de color) */
+    --tablet:#1a1620; --tablet-2:#211c29;
     --line:#2b4a63; --frame:#1c3348; --frame-hi:#3f6f8c;
     --sq-light:#c9dce6; --sq-light-2:#a9c4d3; --sq-dark:#28394a; --sq-dark-2:#1f2c3a;
     --marble:#eef6fb; --marble-edge:#6f8fa3; --basalt:#131c26; --basalt-edge:#5fa3c9;
     --ember:#5fc9e8; --ember-soft:#a3e2f2; --frost:#bfe3ef;
     --text:#e3f0f5; --text-dim:#93aebd; --text-faint:#56707d;
-    --halo-a: rgba(95,201,232,.12); --halo-b: rgba(191,227,239,.07); --halo-c: rgba(95,201,232,.15);
+    --halo-a: rgba(190,196,204,.06); --halo-b: rgba(190,196,204,.04); --halo-c: rgba(190,196,204,.07);
   }
 
   /* Fuego (Fase 2, 2026-09-15 — tema de los 4 elementos, nuevo). Piedra de
@@ -124,14 +124,14 @@
      secundario (dorado ahumado), no como color frío — cada tema define su
      propio par ember/frost, no hay obligación de que frost sea "azul". */
   [data-theme="fuego"]{
-    --ground:#150806; --ground-2:#1c0d09;
-    --tablet:#241209; --tablet-2:#2e1710;
+    --ground:#0c0a0f; --ground-2:#151119;   /* V226: fondo y paneles neutros (sin tinte de color) */
+    --tablet:#1a1620; --tablet-2:#211c29;
     --line:#4a2415; --frame:#331a0f; --frame-hi:#6b3820;
     --sq-light:#d9b48f; --sq-light-2:#c49a6c; --sq-dark:#3a2018; --sq-dark-2:#2c1712;
     --marble:#f5e6d3; --marble-edge:#8a6a4a; --basalt:#1a0e08; --basalt-edge:#a85030;
     --ember:#e8542e; --ember-soft:#f2916a; --frost:#e8b568;
     --text:#f2e4d5; --text-dim:#c9a488; --text-faint:#8a6650;
-    --halo-a: rgba(232,84,46,.14); --halo-b: rgba(200,120,40,.07); --halo-c: rgba(232,84,46,.16);
+    --halo-a: rgba(190,196,204,.06); --halo-b: rgba(190,196,204,.04); --halo-c: rgba(190,196,204,.07);
   }
   /* Aire (Fase 2, 2026-09-15 — tema de los 4 elementos, nuevo). Arthur
      decidió que Aire siga la misma regla que los otros tres: oscuro, no un
@@ -9226,7 +9226,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V225 · 10-oct-2026 · Pátina y cementerios con el color de cada tema (Agua, Fuego y Aire dejan de verse marrones)";
+const BUILD_ID = "V226 · 10-oct-2026 · Agua y Fuego: fondo y paneles sin tinte de color";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
