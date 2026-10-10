@@ -1104,6 +1104,30 @@
   }
   .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  /* V214: aviso antes de reemplazar la partida del tablero (Biblioteca, Santuario, vitrina, PGN) */
+  .load-ov{
+    position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center;
+    padding:16px; background:rgba(6,5,9,.62);
+    -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+    opacity:0; transition:opacity .35s ease;
+  }
+  .load-ov.show{ opacity:1; }
+  .load-box{
+    width:100%; max-width:380px; padding:20px 20px 16px; border-radius:18px; text-align:center;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.22)),
+      linear-gradient(180deg, color-mix(in srgb, var(--tablet-2) 82%, transparent), color-mix(in srgb, var(--tablet) 92%, transparent));
+    border:1px solid color-mix(in srgb, var(--ember) 30%, rgba(255,255,255,.16));
+    box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.28);
+    color:var(--text);
+    transform:translateY(8px); transition:transform .35s ease;
+  }
+  .load-ov.show .load-box{ transform:none; }
+  .load-box h3{ margin:0 0 8px; font-size:1.05rem; }
+  .load-box p{ margin:0 0 14px; font-size:.92rem; color:var(--text-dim); line-height:1.4; }
+  .load-box .load-btns{ display:flex; flex-direction:column; gap:8px; }
+  .load-box .btn{ width:100%; }
+  @media (prefers-reduced-motion:reduce){ .load-ov, .load-box{ transition:none; } }
+
   /* Ronda "chat flotante" (2026-09-25): chat de la partida en vivo como
      burbuja fija en la esquina inferior izquierda, fuera del tablero y de los
      paneles. Solo existe mientras hay partida en vivo. */
@@ -8135,16 +8159,16 @@ document.addEventListener("keydown", e => {
 });
 
 async function museumLoadGame(g, names, btn){
-  if(liveLocked()){ showGlobalToast("Termina primero la partida en vivo para cargar otra."); return; }
+  if(!(await confirmReplaceGame())) return;   // V214
   btn.disabled = true;
   const { data, error } = await sb.from("game_moves").select("ply, san").eq("game_id", g.id).order("ply", { ascending: true });
   btn.disabled = false;
   if(error || !data || !data.length){ showGlobalToast("No se pudo cargar esa partida."); return; }
-  stopAuto();
-  if(vsMachine) setVsMachine(false);
-  if(currentMode !== "play") setMode("play");
+  prepareForLoadedGame();
+  const prev = game;
   applySanList(VARIANT_START[g.variant], data.map(m => m.san),
     { white: names[g.white_id] || "Blancas", black: names[g.black_id] || "Negras", result: g.result || "", resultNote: "" });
+  if(game !== prev) rememberBoardGame();
   game.cursor = 0; selected = null; persist(); render();
   closeMuseum();
   openPartidaPanel();
@@ -8152,18 +8176,17 @@ async function museumLoadGame(g, names, btn){
 }
 
 // V212: carga una victoria del reto (la partida va guardada en la propia fila, no en games/game_moves).
-function museumLoadReto(a, names, btn){
-  if(liveLocked()){ showGlobalToast("Termina primero la partida en vivo para cargar otra."); return; }
-  if(retoActive){ showGlobalToast("No puedes cargar partidas mientras dura el reto de claudIA."); return; }
+async function museumLoadReto(a, names, btn){
   const r = a.reto;
   if(!r || !r.sans || !r.sans.length){ showGlobalToast("Esa partida no se guardó."); return; }
-  stopAuto();
-  if(vsMachine) setVsMachine(false);
-  if(currentMode !== "play") setMode("play");
+  if(!(await confirmReplaceGame())) return;   // V214 (ya avisa si hay partida en vivo o reto en curso)
+  prepareForLoadedGame();
   const me = names[a.user_id] || "Miembro";
   const humanWhite = r.color === "w";
+  const prev = game;
   applySanList(VARIANT_START[r.variant], r.sans,
     { white: humanWhite ? me : "claudIA", black: humanWhite ? "claudIA" : me, result: humanWhite ? "1-0" : "0-1", resultNote: "" });
+  if(game !== prev) rememberBoardGame();
   game.cursor = 0; selected = null; persist(); render();
   closeMuseum();
   openPartidaPanel();
@@ -8693,7 +8716,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V211 · 8-oct-2026 · Una partida de club terminada ya no bloquea Modalidad; un solo botón «Iniciar/Reiniciar»; El Santuario abre La Partida al cargar";
+const BUILD_ID = "V214 · 9-oct-2026 · Cargar una partida avisa antes de reemplazar la actual (guardar y cargar / cargar sin guardar / cancelar); los nombres se actualizan al cargar con claudIA activa";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11277,22 +11300,94 @@ function replayInto(fen, ucis, meta){
   persist(); render();
   return stopped;
 }
-function loadSavedGame(id){
+/* V214 · Cargar una partida (Biblioteca, Santuario, vitrina, PGN pegado) reemplaza el tablero. Antes de hacerlo, si lo que hay en
+   el tablero tiene jugadas y no es una partida ya guardada o recién cargada, se pregunta: guardarla y cargar, cargar sin guardar o
+   cancelar. «Conocida» = misma posición inicial y mismas jugadas que la última partida cargada o guardada. */
+let knownSig = "";
+function boardSig(){ return game.startFEN + "|" + game.ucis.join(" "); }
+function rememberBoardGame(){ knownSig = boardSig(); }
+function hasUnsavedGame(){ return !liveGame && !!game && game.sans.length > 0 && boardSig() !== knownSig; }
+function autoGameName(){
+  const w = (game.white || "").trim() || "Blancas", b = (game.black || "").trim() || "Negras";
+  const d = new Date(), pad = n => String(n).padStart(2, "0");   // fecha LOCAL (toISOString daría la de UTC por las noches)
+  return w + " – " + b + " · " + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+function askReplaceGame(){
+  return new Promise(resolve => {
+    const ov = document.createElement("div");
+    ov.className = "load-ov";
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Partida en el tablero");
+    const box = document.createElement("div"); box.className = "load-box";
+    const h = document.createElement("h3"); h.textContent = "Hay una partida en el tablero";
+    const p = document.createElement("p");
+    p.textContent = "Cargar otra la reemplazará y se perdería. ¿Quieres guardarla en tu Biblioteca antes?";
+    const row = document.createElement("div"); row.className = "load-btns";
+    let finished = false;
+    function done(val){
+      if(finished) return;
+      finished = true;
+      document.removeEventListener("keydown", onKey, true);
+      ov.classList.remove("show");
+      setTimeout(() => { try{ ov.remove(); }catch(e){} }, 380);
+      resolve(val);
+    }
+    function onKey(e){ if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); done("cancel"); } }
+    const mk = (txt, val) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "btn"; b.textContent = txt; b.onclick = () => done(val);
+      return b;
+    };
+    const bSave = mk("Guardar y cargar", "save"), bDrop = mk("Cargar sin guardar", "drop"), bNo = mk("Cancelar", "cancel");
+    document.addEventListener("keydown", onKey, true);
+    ov.addEventListener("click", e => { if(e.target === ov) done("cancel"); });
+    row.append(bSave, bDrop, bNo);
+    box.append(h, p, row);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => { ov.classList.add("show"); try{ bSave.focus(); }catch(e){} });
+  });
+}
+// true = se puede seguir con la carga; false = se canceló (o no se pudo guardar la partida actual) y el tablero queda intacto.
+let replaceAskBusy = false;   // un doble toque en «Cargar» no apila dos avisos
+async function confirmReplaceGame(){
+  if(replaceAskBusy) return false;
+  if(liveLocked()){ showGlobalToast("Termina primero la partida en vivo para cargar otra."); return false; }
+  if(retoActive){ showGlobalToast("No puedes cargar partidas mientras dura el reto de claudIA."); return false; }
+  if(!hasUnsavedGame()) return true;
+  replaceAskBusy = true;
+  try{
+    const c = await askReplaceGame();
+    if(c === "cancel") return false;
+    if(c === "drop") return true;
+    const ok = await saveCurrentGame(autoGameName());
+    if(!ok) showGlobalToast("No se pudo guardar la partida actual; no se cargó la otra.");
+    return ok;
+  }finally{ replaceAskBusy = false; }
+}
+// Prepara el tablero para estudiar una partida cargada: sus nombres vienen de la partida, así que la Máquina se apaga
+// (si no, su placa taparía un bando con «claudIA» y podría mover por encima de la partida cargada).
+function prepareForLoadedGame(){
+  stopAuto();
+  if(vsMachine) setVsMachine(false);
+  if(currentMode !== "play") setMode("play");
+}
+async function loadSavedGame(id){
   const g = loadGames().find(x => x.id === id);
   if(!g) return;
-  stopAuto();
-  if(currentMode !== "play") setMode("play");
+  if(!(await confirmReplaceGame())) return;
+  prepareForLoadedGame();
+  const prev = game;
   replayInto(g.startFEN, g.ucis, {
     white: g.white || "", black: g.black || "",
     result: g.result || "", resultNote: g.resultNote || ""
   });
+  if(game !== prev) rememberBoardGame();
   libNote("Cargada «" + g.name + "» — avanza con →");
   openPartidaPanel();
 }
 
-document.getElementById("game-save").onclick = async () => {
-  if(!game.sans.length){ libNote("No hay jugadas que guardar todavía.", true); return; }
-  const name = (nameEl.value || "").trim() || ("Partida del " + new Date().toISOString().slice(0,10));
+// V214: el guardado vive en una función para que también lo use el aviso de «Guardar y cargar».
+async function saveCurrentGame(name){
   const base = {
     name,
     startFEN: game.startFEN,
@@ -11312,8 +11407,7 @@ document.getElementById("game-save").onclick = async () => {
       white: base.white, black: base.black,
       result: base.result, result_note: base.resultNote
     });
-    if(error){ libNote("No se pudo guardar en tu cuenta: " + error.message, true); return; }
-    nameEl.value = "";
+    if(error){ libNote("No se pudo guardar en tu cuenta: " + error.message, true); return false; }
     await refreshAccountLibrary();
     libNote("Guardada «" + name + "» en tu cuenta.");
   } else {
@@ -11321,10 +11415,16 @@ document.getElementById("game-save").onclick = async () => {
     list.unshift({ id: "g" + Date.now().toString(36), date: new Date().toISOString().slice(0,10), ...base });
     saveLocalGames(list.slice(0, 60));
     cachedGamesList = loadLocalGames();
-    nameEl.value = "";
     renderSaved();
     libNote("Guardada «" + name + "» en este dispositivo.");
   }
+  rememberBoardGame();
+  return true;
+}
+document.getElementById("game-save").onclick = async () => {
+  if(!game.sans.length){ libNote("No hay jugadas que guardar todavía.", true); return; }
+  const name = (nameEl.value || "").trim() || ("Partida del " + new Date().toISOString().slice(0,10));
+  if(await saveCurrentGame(name)) nameEl.value = "";
 };
 
 /* ---------- PGN ---------- */
@@ -11425,12 +11525,14 @@ function importPGN(text){
   if(failed) libNote(applied + " jugadas importadas; me detuve en «" + failed + "».", true);
   else libNote(applied + " jugadas importadas — avanza con →");
 }
-document.getElementById("pgn-import").onclick = () => {
+document.getElementById("pgn-import").onclick = async () => {
   const text = pgnEl.value.trim();
   if(!text){ libNote("Pega un PGN en el recuadro primero.", true); return; }
-  stopAuto();
-  if(currentMode !== "play") setMode("play");
+  if(!(await confirmReplaceGame())) return;
+  prepareForLoadedGame();
+  const prev = game;
   importPGN(text);
+  if(game !== prev) rememberBoardGame();
 };
 
 /* ---------- teclado ---------- */
@@ -11774,12 +11876,12 @@ function hofRenderMaster(id){
   hofBodyEl.scrollTop = 0;
   hofFillCredit(m);
 }
-function hofLoadGame(g){
-  stopAuto();
-  // Los nombres vienen del PGN: si la Máquina estuviera activa, su placa taparía un bando con "claudIA".
-  if(vsMachine) setVsMachine(false);
-  if(currentMode !== "play") setMode("play");
+async function hofLoadGame(g){
+  if(!(await confirmReplaceGame())) return;   // V214: si se cancela, el Santuario se queda abierto
+  prepareForLoadedGame();   // los nombres vienen del PGN: la Máquina se apaga
+  const prev = game;
   importPGN(g.pgn);
+  if(game !== prev) rememberBoardGame();
   closeHallOfFame();
   openPartidaPanel();   // V209/V212: notación y botones de navegación a la mano
 }
