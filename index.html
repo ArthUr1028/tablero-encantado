@@ -820,7 +820,7 @@
      Es solo pintura estática (un SVG de ruido, sin animación ni medidas): manchas grandes y difusas, grano fino, motas de polvo
      y los bordes algo más sucios. Va por debajo de las piezas (z-index 1; las piezas tienen 2) y no recibe toques.
      --edad regula todo con un número: 0 = tablero limpio, 1 = pátina completa (por defecto .6). */
-  :root{ --edad:.6; --patina:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='640'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.010 .013' numOctaves='3' seed='11'/><feColorMatrix values='0 0 0 0 .17  0 0 0 0 .10  0 0 0 0 .04  1.5 0 0 0 -.62'/></filter><filter id='b' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .16  0 0 0 0 .10  0 0 0 0 .05  1.0 0 0 0 -.40'/></filter><filter id='c' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='1' seed='9'/><feColorMatrix values='0 0 0 0 .96  0 0 0 0 .90  0 0 0 0 .78  5 0 0 0 -3.55'/></filter><rect width='100%' height='100%' filter='url(%23a)'/><rect width='100%' height='100%' filter='url(%23b)'/><rect width='100%' height='100%' filter='url(%23c)' opacity='.35'/></svg>"); }
+  :root{ --edad:.6; --patina-tumba:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='5' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .07  0 0 0 0 .05  0 0 0 0 .03  1.7 0 0 0 -.68'/></filter><filter id='b' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .08  0 0 0 0 .06  0 0 0 0 .04  1.0 0 0 0 -.40'/></filter><filter id='c' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.5' numOctaves='1' seed='8' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .78  0 0 0 0 .72  0 0 0 0 .60  5 0 0 0 -3.65'/></filter><rect width='100%' height='100%' filter='url(%23a)'/><rect width='100%' height='100%' filter='url(%23b)'/><rect width='100%' height='100%' filter='url(%23c)' opacity='.25'/></svg>"); --patina:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='640'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.010 .013' numOctaves='3' seed='11'/><feColorMatrix values='0 0 0 0 .17  0 0 0 0 .10  0 0 0 0 .04  1.5 0 0 0 -.62'/></filter><filter id='b' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .16  0 0 0 0 .10  0 0 0 0 .05  1.0 0 0 0 -.40'/></filter><filter id='c' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='1' seed='9'/><feColorMatrix values='0 0 0 0 .96  0 0 0 0 .90  0 0 0 0 .78  5 0 0 0 -3.55'/></filter><rect width='100%' height='100%' filter='url(%23a)'/><rect width='100%' height='100%' filter='url(%23b)'/><rect width='100%' height='100%' filter='url(%23c)' opacity='.35'/></svg>"); }
   #board::before{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none; opacity:var(--edad);
     background:
       radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(46,28,10,.16) 100%),
@@ -2428,6 +2428,21 @@
   .graveyard{
     background:var(--stone-grain), linear-gradient(160deg, #4a4650, #302d35);
     box-shadow:inset 1px 1px 0 rgba(255,255,255,.11), inset -1px -1px 0 rgba(0,0,0,.5), inset 0 0 16px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.6);
+  }
+
+  /* V217 · Cementerios envejecidos: misma pátina que el tablero (polvo y mugre), pero más sombría. Piedra más oscura y cálida,
+     hollín en los bordes y un cerco de humedad abajo. Solo piel: no cambia medidas, acomodo ni colores de las piezas (V98). */
+  .graveyard{
+    background:
+      var(--patina-tumba) 0 0 / 220px 220px,
+      var(--stone-grain),
+      radial-gradient(120% 70% at 50% 108%, rgba(20,24,16,.34), transparent 70%),
+      linear-gradient(160deg, #3f3b43, #26232b);
+    border-color:rgba(8,6,4,.72);
+    box-shadow:
+      inset 1px 1px 0 rgba(255,255,255,.07), inset -1px -1px 0 rgba(0,0,0,.55),
+      inset 0 0 18px rgba(14,8,2,calc(.30 + .30 * var(--edad))),
+      0 4px 12px rgba(0,0,0,.65);
   }
   /* La pieza capturada llega al cementerio DESPUÉS de desmoronarse en su casilla (≈.6 s). */
   .graveyard .piece.gy-new, .gy-count.gy-new{ animation-delay:.62s; }
@@ -8738,7 +8753,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V216 · 10-oct-2026 · Pátina: un toque muy sutil de polvo y mugre sobre el tablero y su marco (regulable con --edad)";
+const BUILD_ID = "V217 · 10-oct-2026 · Cementerios envejecidos: piedra más oscura, polvo y hollín en los bordes, a juego con la pátina del tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
