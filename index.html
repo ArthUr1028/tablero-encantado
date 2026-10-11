@@ -265,8 +265,9 @@
        nada, siempre. pan-y le dice al navegador "el scroll vertical nativo
        es tuyo, lo horizontal es del JS" — así el gesto horizontal llega
        limpio sin que compita con el scroll de la página. */
-    touch-action:pan-y;
+    touch-action:pan-y pinch-zoom;   /* V246: pinch-zoom explícito; sin él, pan-y bloqueaba el pellizco de dos dedos en el celular */
   }
+  html.zoomed .stage{ touch-action:auto; }   /* V246: con la página ya ampliada hay que poder arrastrar en horizontal */
   @media (max-width:880px){ .stage{ grid-template-columns:1fr; } }
   /* El tablero fijo solo tiene sentido con espacio de sobra (pantalla completa).
      Con la ventana partida a la mitad, la columna se queda demasiado angosta y el
@@ -712,7 +713,7 @@
     grid-template-rows:repeat(8,1fr);
     border:1px solid var(--ground);
     box-shadow:inset 0 0 24px rgba(0,0,0,.55);
-    touch-action:none;
+    touch-action:pinch-zoom;   /* V246: un dedo sigue siendo del JS (arrastrar piezas, nunca desplaza); dos dedos = zoom del navegador. Antes: none, que bloqueaba el pellizco sobre el tablero */
     user-select:none;
   }
   .cell{
@@ -9425,7 +9426,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V245 · 11-oct-2026 · Shatranj: todas las figuras miran al centro";
+const BUILD_ID = "V246 · 11-oct-2026 · Móvil: el pellizco de dos dedos vuelve a hacer zoom";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -12283,6 +12284,13 @@ document.addEventListener("keydown", e => {
    izquierda avanza, hacia la derecha retrocede. Anclado a .stage (toda la
    zona de juego, no solo el tablero) para que responda sin importar
    cuánto espacio ocupe el tablero en la pantalla. */
+
+// V246: marca la página como ampliada (pellizco) para liberar el desplazamiento horizontal con un dedo fuera del tablero.
+(function(){
+  const vv = window.visualViewport; if(!vv) return;
+  const upd = () => document.documentElement.classList.toggle("zoomed", vv.scale > 1.02);
+  vv.addEventListener("resize", upd); upd();
+})();
 const swipeAreaEl = document.querySelector(".stage");
 if(swipeAreaEl){
   let swipe = null;
