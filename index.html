@@ -764,7 +764,7 @@
   /* V240: las figuras del shatranj se rellenan con currentColor (mármol / basalto del tema); sobre casilla clara, la blanca lleva un halo oscuro fino. Acotado a los <symbol> sh-* para no tocar otras modalidades. */
   /* V241: sin contorno dentro del dibujo (se comía los detalles finos); el despegue de la casilla va por FUERA, con un halo. */
   .cell.lgt .piece.w svg:has(> use[href^="#sh-"]){ filter:drop-shadow(0 0 .5px color-mix(in srgb, var(--basalt) 85%, transparent)); }
-  .cell.drk .piece.b svg:has(> use[href^="#sh-"]){ filter:drop-shadow(0 0 .6px color-mix(in srgb, var(--basalt-edge) 90%, transparent)) drop-shadow(0 0 1.6px color-mix(in srgb, var(--basalt-edge) 45%, transparent)); }
+  /* V243: las negras sobre casilla oscura ya no llevan brillo (ni halo en la pieza ni resplandor en la casilla: el del fondo lo anula el tablero antiguo). */
   .piece.dragging{ opacity:.28; }
   .piece.slide{ animation:slidein .24s cubic-bezier(.22,.68,.2,1); }
   @keyframes slidein{
@@ -9425,7 +9425,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V242 · 11-oct-2026 · Shatranj: tablero antiguo (piedra, barro y madera)";
+const BUILD_ID = "V243 · 11-oct-2026 · Shatranj: sin brillo en las negras sobre casilla oscura";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
