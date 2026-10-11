@@ -1553,6 +1553,7 @@
   .seg{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px; }
   .seg.seg3{ grid-template-columns:1fr 1fr 1fr; }
   .seg.seg4{ grid-template-columns:1fr 1fr; }
+  .seg.seg4 #variant-shatranj{ grid-column:1 / -1; }
   .seg button{
     font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
     padding:9px 4px; border-radius:3px; cursor:pointer;
@@ -1893,6 +1894,22 @@
      esquinas, como los paneles; las eras y los maestros entran uno tras otro y, al abrirlo, un proemio aparece línea a línea.
      --hd escala los retrasos: 1 la primera vez, .25 en las siguientes aperturas; tocar el proemio lo adelanta todo (.listo). */
   .hof-teaser{ font-size:.86rem; color:var(--text-dim); font-style:italic; margin:0 0 10px; }
+  .shat-ov{ position:fixed; inset:0; z-index:1002; display:none; align-items:center; justify-content:center; padding:clamp(8px,3vw,28px);
+    background:rgba(6,5,9,.82); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
+  .shat-ov.show{ display:flex; }
+  .shat-box{ position:relative; width:100%; max-width:640px; max-height:90vh; display:flex; flex-direction:column; gap:6px; padding:22px clamp(16px,4vw,30px) 18px;
+    border-radius:18px; border:1px solid color-mix(in srgb, var(--ember) 32%, rgba(255,255,255,.16));
+    background:linear-gradient(180deg, color-mix(in srgb, var(--tablet-2) 96%, #000), color-mix(in srgb, var(--ground-2) 96%, #000)); box-shadow:0 24px 70px rgba(0,0,0,.6); color:var(--marble, #f1ebde); }
+  .shat-box h2{ margin:0; text-align:center; font-size:1.5rem; letter-spacing:.06em; color:var(--ember-soft); }
+  .shat-sub{ margin:0 0 6px; text-align:center; font-size:.86rem; opacity:.85; }
+  .shat-body{ overflow-y:auto; padding-right:6px; font-size:.9rem; line-height:1.5; }
+  .shat-body h3{ margin:14px 0 4px; font-size:.95rem; color:var(--ember-soft); letter-spacing:.03em; }
+  .shat-body p{ margin:0 0 8px; }
+  .shat-body ul{ margin:0 0 8px; padding-left:20px; }
+  .shat-body li{ margin-bottom:5px; }
+  .shat-nota{ font-size:.82rem; opacity:.8; }
+  .shat-x{ position:absolute; top:10px; right:10px; }
+  #shat-ok{ align-self:center; margin-top:10px; }
   .hof-ov{
     --hd:1;
     position:fixed; inset:0; z-index:1000;
@@ -3253,6 +3270,9 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         </g>
       </g>
     </symbol>
+    <!-- V233 · Shatranj: ferz y fil reutilizan por ahora la Dama y el Alfil, un poco más pequeños (el shah usa el Rey). Si Arthur trae sus propios íconos, basta reemplazar estos dos <symbol>. -->
+    <symbol id="glyph-ferz" viewBox="0 0 100 100"><use href="#glyph-queen" transform="translate(8 13) scale(.84)"/></symbol>
+    <symbol id="glyph-fil" viewBox="0 0 100 100"><use href="#glyph-bishop" transform="translate(8 13) scale(.84)"/></symbol>
   </defs>
 </svg>
 
@@ -3583,8 +3603,10 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <button id="variant-capablanca" aria-pressed="false">Capablanca</button>
           <button id="variant-maharaja" aria-pressed="false">Maharajá</button>
           <button id="variant-amazonas" aria-pressed="false">Amazonas</button>
+          <button id="variant-shatranj" aria-pressed="false">Shatranj · el más antiguo</button>
         </div>
         <p class="free-hint" id="variant-note" style="margin:0 0 12px">Ajedrez clásico de toda la vida — 8×8, piezas estándar.</p>
+        <button class="btn mini" id="shat-info" type="button" hidden style="margin:-4px 0 12px">Leyenda y reglas del Shatranj</button>
 
         <p class="lib-label mod-cap free-hide">Rival</p>
         <!-- Fase 3 (2026-09-15): jugar contra la máquina reutilizando el
@@ -3907,6 +3929,35 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
   </div>
 </div>
 
+<div class="shat-ov" id="shat-ov" aria-hidden="true">
+  <div class="shat-box" role="dialog" aria-modal="true" aria-labelledby="shat-title">
+    <button class="btn icon shat-x" id="shat-x" title="Cerrar" aria-label="Cerrar">&#x2715;</button>
+    <h2 id="shat-title">Shatranj</h2>
+    <p class="shat-sub">La forma de ajedrez más antigua cuyas reglas conocemos</p>
+    <div class="shat-body">
+      <h3>Una leyenda de mil cuatrocientos años</h3>
+      <p>El shatranj nació como <em>chatrang</em> en la Persia sasánida hacia el año 600, heredero del chaturanga indio, y floreció en el mundo islámico, de Asia central a la península ibérica. Del siglo VIII al X tuvo grandes maestros, tratados y problemas compuestos. De él descienden el ajedrez que jugamos hoy y hasta las palabras «ajedrez», «jaque» y «alfil». (Más antiguo todavía es el chaturanga de la India, pero de sus reglas exactas apenas hay certezas; el shatranj es el ajedrez antiguo que sí podemos jugar con reglas bien documentadas.)</p>
+      <h3>Las piezas</h3>
+      <ul>
+        <li><b>Shah (rey)</b>: se mueve una casilla en cualquier dirección. Está en la columna <b>d</b>; <b>no hay enroque</b>.</li>
+        <li><b>Ferz (consejero)</b>: la «dama» de entonces, en la columna <b>e</b>. Solo avanza <b>una casilla en diagonal</b>.</li>
+        <li><b>Fil (elefante)</b>: el antiguo «alfil». Salta a la <b>segunda casilla en diagonal</b>, pasando por encima de lo que haya en medio. Solo pisa casillas de su mismo color, y por eso nunca captura a otro fil.</li>
+        <li><b>Caballo y torre</b>: se mueven exactamente igual que hoy.</li>
+        <li><b>Peón</b>: avanza <b>una sola casilla</b> (sin salida doble ni captura al paso) y captura en diagonal. Al llegar al final se convierte siempre en <b>ferz</b>.</li>
+      </ul>
+      <h3>Cómo se gana</h3>
+      <ul>
+        <li><b>Jaque mate</b>, como siempre.</li>
+        <li><b>Rey ahogado: pierde</b> quien se queda sin jugadas legales aunque no esté en jaque. ¡Aquí ahogar es ganar!</li>
+        <li><b>Rey solo</b>: si un bando se queda únicamente con el shah, pierde. Excepción: si acaba de quedarse solo porque le capturaron una pieza y puede capturar de inmediato la última pieza rival, quedan los dos solos y la partida es de <b>tablas</b>.</li>
+        <li>También hay tablas por repetición triple y por 50 jugadas sin captura ni movimiento de peón.</li>
+      </ul>
+      <p class="shat-nota">En este tablero el Oráculo no analiza el shatranj, pero claudIA sí juega contra ti. Encontrarás la historia completa en el Santuario, capítulo «Persia y el shatranj».</p>
+    </div>
+    <button class="btn" id="shat-ok" type="button">A jugar</button>
+  </div>
+</div>
+
 <div class="mus-ov" id="mus-ov" aria-hidden="true">
   <div class="mus-box" role="dialog" aria-modal="true" aria-labelledby="mus-title">
     <div class="mus-head">
@@ -4192,8 +4243,8 @@ const GLYPH = { k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", a:"A", c:"
 // pedido de Arthur para dejar solo cabeza y crin (sin hombro/pechera) —
 // ver comentarios de #glyph-king / #glyph-amazon / #glyph-queen /
 // #glyph-bishop / #glyph-knight en el <defs>.
-const FAIRY = { a:true, c:true, p:true, m:true, k:true, q:true, b:true, n:true, r:true };
-const FAIRY_SYMBOL = { a:"glyph-archbishop", c:"glyph-chancellor", p:"glyph-pawn", m:"glyph-amazon", k:"glyph-king", q:"glyph-queen", b:"glyph-bishop", n:"glyph-knight", r:"glyph-rook" };
+const FAIRY = { a:true, c:true, p:true, m:true, k:true, q:true, b:true, n:true, r:true, s:true, f:true, l:true };
+const FAIRY_SYMBOL = { a:"glyph-archbishop", c:"glyph-chancellor", p:"glyph-pawn", m:"glyph-amazon", k:"glyph-king", q:"glyph-queen", b:"glyph-bishop", n:"glyph-knight", r:"glyph-rook", s:"glyph-king", f:"glyph-ferz", l:"glyph-fil" };
 // Marcado (texto o SVG) para una pieza: las normales son un carácter Unicode
 // de toda la vida; Arzobispo/Canciller usan el ícono definido en <defs> al
 // inicio del body (ver comentario ahí). Se usa con .innerHTML, no
@@ -4216,6 +4267,28 @@ function castleGeom(cols){
   if(cols >= 10) return { kingCol:5, qsRook:0, ksRook:9, qsKingTo:2, ksKingTo:8, qsRookTo:3, ksRookTo:7 };
   return { kingCol:4, qsRook:0, ksRook:7, qsKingTo:2, ksKingTo:6, qsRookTo:3, ksRookTo:5 };
 }
+/* ---------- V233 · Shatranj ----------
+   Letras internas propias (como la Amazona "m"): s = shah (rey), f = ferz (dama de una casilla), l = fil (alfil que salta 2).
+   Torre, caballo y peón conservan r, n, p. La dama NO está en e1 como "q": el ferz sí (f) — el shah queda en d. Que el rey se llame
+   "s" y no "k" es lo que permite derivar la modalidad del tablero real aunque se hayan capturado todos los ferz y fil. */
+const SHATRANJ_START = "rnlsflnr/pppppppp/8/8/8/8/PPPPPPPP/RNLSFLNR w - - 0 1";
+const FIL_OFFS = [[2,2],[2,-2],[-2,2],[-2,-2]];
+const _shatCache = new WeakMap();
+function isShat(b){
+  let v = _shatCache.get(b);
+  if(v === undefined){
+    v = false;
+    for(const row of b){ for(const p of row) if(p && p[1] === "s"){ v = true; break; } if(v) break; }
+    _shatCache.set(b, v);
+  }
+  return v;
+}
+// Piezas (sin el shah) de cada bando.
+function shatMaterial(b){
+  const m = { w:0, b:0 };
+  for(const row of b) for(const p of row) if(p && p[1] !== "s") m[p[0]]++;
+  return m;
+}
 function promoTypes(cols){ return cols >= 10 ? ["q","r","b","n","a","c"] : ["q","r","b","n"]; }
 
 // Qué variante es una posición dada, derivado del propio tablero (nunca de
@@ -4233,6 +4306,7 @@ function variantOf(board){
   // "hay una Amazona" ya no alcanza para distinguirlos: en el Maharajá un
   // bando NUNCA tiene rey propio; en Amazonas ambos reyes están siempre
   // presentes. Se deriva del tablero real, no de una bandera aparte.
+  if(isShat(board)) return "shatranj";   // V233: el shah ("s") solo existe en el Shatranj
   let hasAmazon = false, hasWhiteKing = false;
   for(const row of board) for(const p of row){
     if(p === "wk") hasWhiteKing = true;
@@ -4314,8 +4388,12 @@ function attacked(b, tr, tc, by){
     if(inB(tr+dr,tc+dc,cols) && ["n","a","c","m"].includes((b[tr+dr][tc+dc]||"")[1]) && b[tr+dr][tc+dc][0]===by) return true;
   for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
     if(!dr && !dc) continue;
-    if(inB(tr+dr,tc+dc,cols) && b[tr+dr][tc+dc] === by+"k") return true;
+    if(inB(tr+dr,tc+dc,cols) && (b[tr+dr][tc+dc] === by+"k" || b[tr+dr][tc+dc] === by+"s")) return true;
+    // V233: el ferz ataca una casilla en diagonal
+    if(dr && dc && inB(tr+dr,tc+dc,cols) && b[tr+dr][tc+dc] === by+"f") return true;
   }
+  // V233: el fil ataca saltando exactamente dos casillas en diagonal
+  for(const [dr,dc] of FIL_OFFS) if(inB(tr+dr,tc+dc,cols) && b[tr+dr][tc+dc] === by+"l") return true;
   const scan = (dirs, kinds) => {
     for(const [dr,dc] of dirs){
       let r=tr+dr, c=tc+dc;
@@ -4346,7 +4424,7 @@ function kingPos(b, color){
   let fallback = null;
   for(let r=0;r<8;r++) for(let c=0;c<cols;c++){
     const p = b[r][c];
-    if(p === color+"k") return [r,c];
+    if(p === color+"k" || p === color+"s") return [r,c];
     if(p === color+"m" && !fallback) fallback = [r,c];
   }
   return fallback;
@@ -4377,18 +4455,20 @@ function pseudoMoves(s, R, C){
     const dir = me === "w" ? -1 : 1;
     const startRank = me === "w" ? 6 : 1;
     const lastRank = me === "w" ? 0 : 7;
+    const shat = isShat(b);   // V233: sin salida doble, sin al paso, y se corona siempre en ferz
+    const promos = shat ? ["f"] : promoTypes(cols);
     if(inB(R+dir,C,cols) && !b[R+dir][C]){
-      if(R+dir === lastRank) for(const pr of promoTypes(cols)) push(R+dir,C,{promo:pr});
+      if(R+dir === lastRank) for(const pr of promos) push(R+dir,C,{promo:pr});
       else push(R+dir,C,{});
-      if(R === startRank && !b[R+2*dir][C]) push(R+2*dir,C,{dbl:true});
+      if(!shat && R === startRank && !b[R+2*dir][C]) push(R+2*dir,C,{dbl:true});
     }
     for(const dc of [-1,1]){
       const tr = R+dir, tc = C+dc;
       if(!inB(tr,tc,cols)) continue;
       if(b[tr][tc] && b[tr][tc][0] === opp){
-        if(tr === lastRank) for(const pr of promoTypes(cols)) push(tr,tc,{promo:pr});
+        if(tr === lastRank) for(const pr of promos) push(tr,tc,{promo:pr});
         else push(tr,tc,{});
-      } else if(s.ep && s.ep[0] === tr && s.ep[1] === tc){
+      } else if(!shat && s.ep && s.ep[0] === tr && s.ep[1] === tc){
         push(tr,tc,{ ep:true, capture: opp+"p" });
       }
     }
@@ -4412,7 +4492,14 @@ function pseudoMoves(s, R, C){
         }
       }
     }
-  } else if(type === "k"){
+  } else if(type === "f" || type === "l"){
+    // V233: ferz = una casilla en diagonal; fil = salta a la segunda casilla diagonal (no necesita camino libre)
+    const offs = type === "f" ? DIAG_DIRS : FIL_OFFS;
+    for(const [dr,dc] of offs){
+      const tr=R+dr, tc=C+dc;
+      if(inB(tr,tc,cols) && (!b[tr][tc] || b[tr][tc][0] === opp)) push(tr,tc,{});
+    }
+  } else if(type === "k" || type === "s"){
     for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
       if(!dr && !dc) continue;
       const tr=R+dr, tc=C+dc;
@@ -4420,7 +4507,7 @@ function pseudoMoves(s, R, C){
     }
     const rank = me === "w" ? 7 : 0;
     const g = castleGeom(cols);
-    if(R === rank && C === g.kingCol && !attacked(b,rank,g.kingCol,opp)){
+    if(type === "k" && R === rank && C === g.kingCol && !attacked(b,rank,g.kingCol,opp)){
       const kr = me === "w" ? "K" : "k", qr = me === "w" ? "Q" : "q";
       if(s.castle[kr] && b[rank][g.ksRook] === me+"r"
          && betweenEmpty(b,rank,g.kingCol,g.ksRook)
@@ -4494,6 +4581,7 @@ function legalMoves(s){
 }
 
 function insufficient(b){
+  if(isShat(b)){ const m = shatMaterial(b); return m.w === 0 && m.b === 0; }   // V233: shatranj, solo shah contra shah
   const ps = [];
   for(const row of b) for(const p of row) if(p) ps.push(p);
   // El arzobispo, el canciller y el Maharajá combinan movimientos de
@@ -4557,9 +4645,20 @@ function repCount(s, prev){
 }
 function outcome(s, prev){
   if(!kingPos(s.board,"w") || !kingPos(s.board,"b")) return "nokings";
+  const shat = isShat(s.board);
+  if(shat){
+    // V233 · Shatranj: quien se queda con el shah solo PIERDE (se codifica como "checkmate": pierde quien tiene el turno), salvo que
+    // acabe de quedar solo por una captura y pueda capturar de inmediato la última pieza rival (entonces quedan los dos solos: tablas).
+    const mat = shatMaterial(s.board), opp = s.turn === "w" ? "b" : "w";
+    if(mat[s.turn] === 0){
+      if(mat[opp] === 0) return "material";
+      const rescue = mat[opp] === 1 && s.half === 0 && legalMoves(s).some(m => m.capture && m.capture[1] !== "s");
+      if(!rescue) return "checkmate";
+    }
+  }
   const legal = legalMoves(s);
   const chk = inCheck(s, s.turn);
-  if(!legal.length) return chk ? "checkmate" : "stalemate";
+  if(!legal.length) return (chk || shat) ? "checkmate" : "stalemate";   // V233: en el shatranj el rey ahogado PIERDE
   if(s.half >= 100) return "draw50";
   if(insufficient(s.board)) return "material";
   if(repCount(s, prev) >= 3) return "draw3";
@@ -4568,6 +4667,12 @@ function outcome(s, prev){
 // Todo estado que cierra la partida por las reglas (un solo lugar).
 const END_OC = ["checkmate","stalemate","draw50","draw3","material","nokings"];
 
+// V233: por qué terminó una partida de Shatranj con outcome() === "checkmate": "mate" | "ahogado" | "reysolo".
+function shatReason(s){
+  if(inCheck(s, s.turn)) return "mate";
+  if(shatMaterial(s.board)[s.turn] === 0) return "reysolo";
+  return "ahogado";
+}
 function toSAN(s, mv, legal){
   if(mv.castle === "K") return "O-O";
   if(mv.castle === "Q") return "O-O-O";
@@ -4603,7 +4708,7 @@ function moveWithSAN(s, mv){
   let san = toSAN(s, mv, legal);
   const n = applyMove(s, mv);
   const oc = outcome(n, s);
-  if(oc === "checkmate") san += "#";
+  if(oc === "checkmate"){ if(!isShat(n.board) || inCheck(n, n.turn)) san += "#"; }
   else if(oc === "check") san += "+";
   return { n, san, oc };
 }
@@ -6648,7 +6753,7 @@ function renderNameplates(){
    sanListWithNumbers()/L() para combinar jugadas previas a una rama con
    las propias de la rama: game.moves hasta el punto de divergencia +
    branch.moves hasta su propio cursor. */
-const PIECE_VALUE = { p:1, n:3, b:3, r:5, a:6, c:7, q:9, m:11, k:0 };
+const PIECE_VALUE = { p:1, n:3, b:3, r:5, a:6, c:7, q:9, m:11, k:0, s:0, f:2, l:2 };
 function capturedMoves(){
   return branch
     ? game.moves.slice(0, branch.diverge).concat(branch.moves.slice(0, branch.cursor))
@@ -6701,7 +6806,7 @@ function gyCapacity(color){
   const st = game.states[0];
   let majors = 0, pawns = 0;
   for(const row of st.board) for(const cell of row){
-    if(!cell || cell[0] !== color || cell[1] === "k") continue;
+    if(!cell || cell[0] !== color || cell[1] === "k" || cell[1] === "s") continue;
     if(cell[1] === "p") pawns++; else majors++;
   }
   return { majors, pawns };
@@ -6839,7 +6944,7 @@ function render(){
   }
   const oc = outcome(pos);
   let checkSq = null;
-  if((oc === "check" || oc === "checkmate")) checkSq = kingPos(pos.board, pos.turn);
+  if((oc === "check" || oc === "checkmate") && inCheck(pos, pos.turn)) checkSq = kingPos(pos.board, pos.turn);
 
   boardEl.innerHTML = "";
   boardEl.style.gridTemplateColumns = "repeat(" + nCols + ",1fr)";
@@ -7058,7 +7163,13 @@ function renderStatus(pos, oc){
     !["checkmate","stalemate","draw50","draw3","material"].includes(oc);
   let txt;
   if(oc === "nokings"){ txt = "Coloca ambos reyes para jugar"; statusEl.classList.add("draw"); }
-  else if(oc === "checkmate"){ txt = "Jaque mate — ganan " + winner; statusEl.classList.add("mate"); }
+  else if(oc === "checkmate"){
+    const why = isShat(pos.board) ? shatReason(pos) : "mate";
+    txt = why === "ahogado" ? "Rey ahogado — en el shatranj pierde quien no puede mover: ganan " + winner
+        : why === "reysolo" ? "Rey solo — ganan " + winner
+        : "Jaque mate — ganan " + winner;
+    statusEl.classList.add("mate");
+  }
   else if(oc === "stalemate"){ txt = "Rey ahogado — tablas"; statusEl.classList.add("draw"); }
   else if(oc === "draw50"){ txt = "Tablas por la regla de 50 jugadas"; statusEl.classList.add("draw"); }
   else if(oc === "draw3"){ txt = "Tablas por repetición triple"; statusEl.classList.add("draw"); }
@@ -7431,7 +7542,7 @@ document.getElementById("mode-free").onclick = () => setMode("free");
    más abajo), así que cargar un FEN, una partida de la Biblioteca o una
    del Salón de la Fama cambia de variante sola. Aquí solo arrancamos una
    posición inicial nueva en el ancho pedido. */
-const VARIANT_START = { clasico: START, capablanca: CAPABLANCA_START, maharaja: MAHARAJA_START, amazonas: AMAZONAS_START };
+const VARIANT_START = { clasico: START, capablanca: CAPABLANCA_START, maharaja: MAHARAJA_START, amazonas: AMAZONAS_START, shatranj: SHATRANJ_START };
 /* V208 · «Entrar a la batalla» empieza SIEMPRE con ajedrez clásico en su posición inicial (en Partida), sin importar lo que hubiera quedado
    guardado de la visita anterior. Única excepción: un reto de claudIA o una partida en vivo en curso, que no se deben pisar. */
 function startFreshClassic(){
@@ -7454,11 +7565,14 @@ document.getElementById("variant-clasica").onclick = () => { if(variantOf(liveSt
 document.getElementById("variant-capablanca").onclick = () => { if(variantOf(liveState().board) !== "capablanca") switchVariant("capablanca"); };
 document.getElementById("variant-maharaja").onclick = () => { if(variantOf(liveState().board) !== "maharaja") switchVariant("maharaja"); };
 document.getElementById("variant-amazonas").onclick = () => { if(variantOf(liveState().board) !== "amazonas") switchVariant("amazonas"); };
+document.getElementById("variant-shatranj").onclick = () => { if(variantOf(liveState().board) !== "shatranj"){ switchVariant("shatranj"); openShatLegend(); } };
+document.getElementById("shat-info").onclick = () => openShatLegend();
 
 // Se llama desde render() en cada refresco: nada aquí depende de que el
 // resto del código "recuerde" cambiar de variante a mano.
 let oracleForcedNote = false;
 const VARIANT_NOTE = {
+  shatranj: "Shatranj, el ajedrez medieval de Persia y de los califatos: 8×8, pero con ferz (la «dama» de una sola casilla en diagonal), fil que salta dos casillas en diagonal, peones sin salida doble y sin enroque. Aquí el rey ahogado PIERDE, y también quien se queda con el rey solo. El Oráculo no juega esta modalidad; claudIA sí.",
   clasico: "Ajedrez clásico de toda la vida — 8×8, piezas estándar.",
   capablanca: "Capablanca: tablero de 10 columnas con dos piezas nuevas — Arzobispo (A, alfil+caballo) y Canciller (C, torre+caballo). El Grimorio sigue siendo solo de ajedrez clásico; el Oráculo y la Máquina ya juegan y analizan también en esta variante, con su propio motor.",
   maharaja: "Maharajá y los Cipayas: variante asimétrica de origen indio. Las negras conservan el ejército completo; las blancas juegan con una sola pieza, el Maharajá (dama + caballo combinados — se le da jaque mate igual que a un rey). El Grimorio y el Oráculo no aplican en este modo; la Máquina sí juega aquí, con el mismo motor de Capablanca.",
@@ -7477,7 +7591,7 @@ function updateModalitySelectorsUI(){
   // Libre" en vez de tener su propia lista aparte.
   const inPlay = currentMode === "play" && !liveLocked() && !retoActive;
   const ids = [
-    "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas",
+    "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas", "variant-shatranj",
     "rival-humano", "rival-maquina", "machine-side-w", "machine-side-b", "machine-level",
     "clock-toggle", "clock-preset", "clock-custom-min", "clock-custom-inc",
     "fen-load", "pgn-import"
@@ -7506,7 +7620,7 @@ function updatePanelVisibility(variant){
   // como "inservible". A partir de la Versión 82 el panel entero
   // desaparece en esta variante en vez de mostrarse inerte; reaparece
   // solo al volver a Clásico o Capablanca.
-  document.getElementById("panel-oracle").hidden = variant === "maharaja" || currentMode === "free";   // V187: tampoco en modo libre
+  document.getElementById("panel-oracle").hidden = variant === "maharaja" || variant === "shatranj" || currentMode === "free";   // V187: tampoco en modo libre
   // V155: el análisis de partida es solo para el clásico y para partidas (no Modo Libre).
   document.getElementById("panel-analysis").hidden = !showPlayPanels || variant !== "clasico";
 }
@@ -7519,6 +7633,10 @@ function updateVariantUI(variant){
   if(btnCapablanca) btnCapablanca.setAttribute("aria-pressed", String(variant === "capablanca"));
   if(btnMaharaja) btnMaharaja.setAttribute("aria-pressed", String(variant === "maharaja"));
   if(btnAmazonas) btnAmazonas.setAttribute("aria-pressed", String(variant === "amazonas"));
+  const btnShat = document.getElementById("variant-shatranj");
+  if(btnShat) btnShat.setAttribute("aria-pressed", String(variant === "shatranj"));
+  const shatInfo = document.getElementById("shat-info");
+  if(shatInfo) shatInfo.hidden = variant !== "shatranj";
   const noteEl2 = document.getElementById("variant-note");
   if(noteEl2) noteEl2.textContent = VARIANT_NOTE[variant] || VARIANT_NOTE.clasico;
   updatePanelVisibility(variant);
@@ -7528,11 +7646,11 @@ function updateVariantUI(variant){
   // Modo Maharajá — decisión explícita de Arthur, sin motor de análisis en
   // esta variante por ahora.
   const liveBlock = liveFocusActive();
-  const oracleOff = vsMachine || variant === "maharaja" || liveBlock;
+  const oracleOff = vsMachine || variant === "maharaja" || variant === "shatranj" || liveBlock;
   if(oracleOff){
     oracleAskBtn.disabled = true;
     if(!oracleForcedNote){ oracleResultEl.innerHTML = ""; clearArrow(); }
-    oracleNote(liveBlock ? "El Oráculo está desactivado durante las partidas en vivo." : (variant === "maharaja" ? "El Oráculo no está disponible en Modo Maharajá." : "El Oráculo está desactivado mientras juegas contra la Máquina."));
+    oracleNote(liveBlock ? "El Oráculo está desactivado durante las partidas en vivo." : (variant === "maharaja" ? "El Oráculo no está disponible en Modo Maharajá." : variant === "shatranj" ? "El Oráculo no está disponible en el Shatranj." : "El Oráculo está desactivado mientras juegas contra la Máquina."));
     oracleForcedNote = true;
   } else if(oracleForcedNote){
     oracleAskBtn.disabled = false;
@@ -7571,7 +7689,7 @@ function updateMachineUI(variant){
   // hilos, compartiendo worker: Capablanca viene compilada de fábrica,
   // Maharajá se registra una vez por partida vía fsf_load_variant_ini).
   // V202: sin leyendas explicativas bajo el nivel de claudIA; solo queda visible un fallo real al cargar el motor.
-  const usesFsf = isCap || isMah || isAmz;
+  const usesFsf = isCap || isMah || isAmz || variant === "shatranj";
   note.textContent = (usesFsf && fsfLoadError) ? fsfLoadError : "";
 }
 const MAQUINA_KEY = "tablero-encantado.maquina.v1";
@@ -7738,7 +7856,7 @@ sb.auth.getSession().then(({ data }) => {
    conecta la partida creada al tablero en vivo — aceptar un reto solo crea
    la fila en `games` con status "en_curso"; jugarla de verdad llega en el
    paso 4 (sincronización por Realtime). */
-const VARIANT_LABEL = { clasico: "Clásico", capablanca: "Capablanca", maharaja: "Maharajá", amazonas: "Amazonas" };
+const VARIANT_LABEL = { clasico: "Clásico", capablanca: "Capablanca", maharaja: "Maharajá", amazonas: "Amazonas", shatranj: "Shatranj" };
 
 const clubPanelEl = document.getElementById("panel-club");
 const clubJoinerEl = document.getElementById("club-joiner");
@@ -8353,7 +8471,7 @@ const ACH_INFO = {
   reto_claudia_club:   { icon: "\u{1F916}", name: "Reto claudIA · Club",   rule: "Vencer a claudIA en el reto (Maharaj\u00e1 o Amazonas)", img: RETO_CLUB_IMG },
   reto_claudia_fuerte: { icon: "\u{1F9BE}", name: "Reto claudIA · Fuerte", rule: "Vencer a claudIA en el reto (Cl\u00e1sico o Capablanca)", img: RETO_FUERTE_IMG }
 };
-const MUS_VARIANT = { clasico: "Cl\u00e1sico", capablanca: "Capablanca", maharaja: "Maharaj\u00e1", amazonas: "Amazonas" };
+const MUS_VARIANT = { clasico: "Cl\u00e1sico", capablanca: "Capablanca", maharaja: "Maharaj\u00e1", amazonas: "Amazonas", shatranj: "Shatranj" };
 /* V212 \u00b7 Reto de claudIA: cada victoria es una insignia propia (tabla reto_victorias), con su modalidad en el nombre.
    Mismo arte por nivel que antes (Club = acero azulado, Fuerte = dorado). Las dos insignias antiguas
    (reto_claudia_club/fuerte) ya pasaron a esa tabla con 14_reto_victorias.sql: si la tabla responde, no se repiten. */
@@ -9238,7 +9356,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V232 · 10-oct-2026 · El Santuario: orígenes, primeros maestros y evolución de las piezas";
+const BUILD_ID = "V233 · 10-oct-2026 · Nueva modalidad: Shatranj, el ajedrez más antiguo";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9870,10 +9988,12 @@ function announceCheckOrMate(oc, perspective){
   if(oc !== "check" && oc !== "checkmate") return;
   const turn = liveState().turn; // lado que queda en jaque/mate tras la jugada
   if(oc === "checkmate"){
+    const why = isShat(liveState().board) ? shatReason(liveState()) : "mate";
+    const nom = why === "ahogado" ? "Rey ahogado" : why === "reysolo" ? "Rey solo" : "Jaque mate";
     if(perspective){
-      showGlobalToast(turn === perspective ? "Jaque mate — perdiste la partida." : "¡Jaque mate! Ganaste la partida.");
+      showGlobalToast(turn === perspective ? nom + " — perdiste la partida." : "¡" + nom + "! Ganaste la partida.");
     } else {
-      showGlobalToast("¡Jaque mate! Ganan las " + (turn === "w" ? "negras" : "blancas") + ".");
+      showGlobalToast("¡" + nom + "! Ganan las " + (turn === "w" ? "negras" : "blancas") + ".");
     }
     return;
   }
@@ -10942,7 +11062,7 @@ function maybeMachineMove(){
   const oc = outcome(pos);
   if(END_OC.includes(oc)) return;
   const variant = variantOf(pos.board);
-  const usesFsf = variant === "capablanca" || variant === "maharaja" || variant === "amazonas";
+  const usesFsf = variant === "capablanca" || variant === "maharaja" || variant === "amazonas" || variant === "shatranj";
   // Fase 6 + Fase B: Capablanca y Maharajá comparten el mismo worker/motor
   // Fairy-Stockfish (nunca compiten entre sí ni con el clásico, porque una
   // posición solo tiene una variante activa a la vez).
@@ -10981,7 +11101,7 @@ function maybeMachineMove(){
       fsfWorker.postMessage("setoption name MultiPV value 1");
       fsfWorker.postMessage("setoption name UCI_LimitStrength value true");
       fsfWorker.postMessage("setoption name UCI_Elo value " + (FSF_ELO_FOR_LEVEL[levelAtRequest] || 500));
-      fsfWorker.postMessage("position fen " + fen);
+      fsfWorker.postMessage("position fen " + fsfFen(variant, fen));
       fsfWorker.postMessage("go movetime " + machineMovetimeFor(levelAtRequest));
     });
   } else {
@@ -11009,6 +11129,7 @@ function finishMachineMove(bestUci){
   // agotarse MIENTRAS claudIA pensaba esta jugada (fenNow sigue siendo el
   // mismo tablero, así que fenNow===forFEN no lo detecta por sí solo).
   if(!vsMachine || !atLive() || fenNow !== forFEN || game.result || !bestUci || bestUci === "(none)") return;
+  if(isShat(pos.board) && bestUci.length === 5) bestUci = bestUci.slice(0, 4) + "f";   // V233: el motor corona en "q" (= ferz)
   const mv = matchUci(pos, bestUci);
   if(!mv) return;
   commitMove(mv);
@@ -11436,7 +11557,14 @@ function getFairyEngine(cb){
 // identificador interno es "maharaja" (sin h, como lo usa todo tablero.html:
 // variantOf, VARIANT_START, botones...) — esta tabla traduce solo al enviar
 // el comando UCI, sin tocar el identificador interno en ningún otro lado.
-const FSF_VARIANT_UCI_NAME = { capablanca: "capablanca", maharaja: "maharajah", amazonas: "amazonas" };
+const FSF_VARIANT_UCI_NAME = { capablanca: "capablanca", maharaja: "maharajah", amazonas: "amazonas", shatranj: "shatranj" };
+// V233: el motor llama k/q/b al shah/ferz/fil del shatranj (misma colocación: shah en d, ferz en e). Se traduce al ir y volver.
+const FSF_SHAT_TO = { s:"k", f:"q", l:"b", S:"K", F:"Q", L:"B" };
+function fsfFen(variant, fen){
+  if(variant !== "shatranj") return fen;
+  const sp = fen.indexOf(" ");
+  return fen.slice(0, sp).replace(/[sflSFL]/g, ch => FSF_SHAT_TO[ch]) + fen.slice(sp);
+}
 function ensureFsfVariant(variant){
   // Reafirma la variante activa antes de cada consulta: el mismo worker
   // ahora sirve Capablanca (nativa del motor), Maharajá y Amazonas
@@ -11494,7 +11622,7 @@ function askOracle(){
   if(liveFocusActive()) return; // V148: nunca durante una partida en vivo en curso
   if(sfBusy || fsfBusy || vsMachine) return; // el botón ya está deshabilitado en Modo Máquina; esto es un segundo seguro
   const pos = liveState();
-  if(variantOf(pos.board) === "maharaja") return; // el botón ya está deshabilitado en Modo Maharajá; segundo seguro
+  if(variantOf(pos.board) === "maharaja" || variantOf(pos.board) === "shatranj") return; // el botón ya está deshabilitado en Modo Maharajá; segundo seguro
   if(!kingPos(pos.board,"w") || !kingPos(pos.board,"b")){
     oracleNote("Coloca ambos reyes antes de consultar al Oráculo.", true);
     return;
@@ -11698,6 +11826,7 @@ function renderPalette(){
   const variant = variantOf(liveState().board);
   const types = variant === "capablanca" ? ["k","q","r","b","n","p","a","c"]
     : (variant === "maharaja" || variant === "amazonas") ? ["k","q","r","b","n","p","m"]
+    : variant === "shatranj" ? ["s","f","l","n","r","p"]
     : ["k","q","r","b","n","p"];
   const make = (val, cls, markup, fairy) => {
     const b = document.createElement("button");
@@ -11995,7 +12124,7 @@ function stripBalanced(s, open, close){
 // [a-j] y [KQRBNACM] en vez de [a-h]/[KQRBN]: acepta también notación del
 // Modo Capablanca (columnas i/j, Arzobispo A y Canciller C) y del Modo
 // Maharajá (M).
-const SAN_RE = /^(O-O-O|O-O|0-0-0|0-0|[KQRBNACM]?[a-j]?[1-8]?x?[a-j][1-8](=[QRBNAC])?)[+#!?]*$/;
+const SAN_RE = /^(O-O-O|O-O|0-0-0|0-0|[KQRBNACMSFL]?[a-j]?[1-8]?x?[a-j][1-8](=[QRBNACF])?)[+#!?]*$/;
 const normSAN = s => s.replace(/[+#!?]/g, "").replace("=", "").replace(/0/g, "O");
 
 function tagValue(text, tag){
@@ -12057,12 +12186,20 @@ document.getElementById("pgn-import").onclick = async () => {
   if(game !== prev) rememberBoardGame();
 };
 
+/* ---------- V233 · leyenda y reglas del Shatranj ---------- */
+const shatOv = document.getElementById("shat-ov");
+function openShatLegend(){ shatOv.classList.add("show"); shatOv.setAttribute("aria-hidden", "false"); try{ document.getElementById("shat-ok").focus(); }catch(e){} }
+function closeShatLegend(){ shatOv.classList.remove("show"); shatOv.setAttribute("aria-hidden", "true"); }
+document.getElementById("shat-ok").onclick = closeShatLegend;
+document.getElementById("shat-x").onclick = closeShatLegend;
+shatOv.addEventListener("click", e => { if(e.target === shatOv) closeShatLegend(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape" && shatOv.classList.contains("show")){ e.stopPropagation(); closeShatLegend(); } }, true);
 /* ---------- teclado ---------- */
 function stepBack(){ if(L().cursor>0){ L().cursor--; selected=null; persist(); render(); } }
 function stepForward(){ if(!atLive()){ L().cursor++; animFrom = L().moves[L().cursor-1].from; persist(); render(); } }
 document.addEventListener("keydown", e => {
   if(["TEXTAREA","SELECT","INPUT"].includes(e.target.tagName)) return;
-  if(!document.getElementById("hof-ov").hidden || document.getElementById("mus-ov").classList.contains("show")) return;
+  if(!document.getElementById("hof-ov").hidden || document.getElementById("mus-ov").classList.contains("show") || shatOv.classList.contains("show")) return;
   if(e.key === "ArrowLeft"){ stepBack(); }
   else if(e.key === "ArrowRight"){ stepForward(); }
   else if(e.key === "f" || e.key === "F"){ flipped = !flipped; persist(); render(); }
@@ -12387,6 +12524,12 @@ function hofRenderMaster(id){
       main.appendChild(hofEl("p", "", txt));
     });
   }
+  if(m.id === "shatranj"){   // V233: del capítulo de historia al tablero
+    const pb = hofEl("button", "btn", "Jugar shatranj en el tablero");
+    pb.type = "button"; pb.style.marginTop = "10px";
+    pb.onclick = hofPlayShatranj;
+    main.appendChild(pb);
+  }
   sheet.appendChild(main);
 
   const gm = hofEl("div", "hof-games");
@@ -12409,6 +12552,14 @@ function hofRenderMaster(id){
   hofBodyEl.appendChild(sheet);
   hofBodyEl.scrollTop = 0;
   hofFillCredit(m);
+}
+async function hofPlayShatranj(){
+  if(retoActive || liveGame){ showGlobalToast("Termina primero la partida en curso (reto o partida en vivo)."); return; }
+  if(!(await confirmReplaceGame())) return;
+  closeHallOfFame();
+  if(currentMode !== "play") setMode("play");
+  if(variantOf(liveState().board) !== "shatranj") switchVariant("shatranj");
+  openShatLegend();
 }
 async function hofLoadGame(g){
   if(!(await confirmReplaceGame())) return;   // V214: si se cancela, el Santuario se queda abierto
