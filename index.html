@@ -69,9 +69,9 @@
     /* Halo/resplandor de fondo — antes rgba() sueltas dentro de body y
        body::after, así que el tema no las alcanzaba. Ahora son variables
        como todo lo demás. */
-    --halo-a: rgba(217,138,61,.10);
-    --halo-b: rgba(143,176,189,.06);
-    --halo-c: rgba(217,138,61,.13);
+    --halo-a: rgba(190,196,204,.06);   /* V231: halo neutro (sin tinte de color), igual que Agua y Fuego */
+    --halo-b: rgba(190,196,204,.04);
+    --halo-c: rgba(190,196,204,.07);
 
     --shadow: 0 14px 40px rgba(0,0,0,.55);
 
@@ -144,14 +144,14 @@
      tinte azul-cielo, apenas perceptible, para insinuar "aire/cielo" sin
      convertirlo en un cuarto tema azul. */
   [data-theme="aire"]{
-    --ground:#0b0c10; --ground-2:#101216;
-    --tablet:#16181d; --tablet-2:#1d2026;
+    --ground:#0c0a0f; --ground-2:#151119;   /* V231: fondo y paneles neutros (sin tinte de color) */
+    --tablet:#1a1620; --tablet-2:#211c29;
     --line:#33373f; --frame:#22252b; --frame-hi:#565c66;
     --sq-light:#d5d8dc; --sq-light-2:#b9bec5; --sq-dark:#363a42; --sq-dark-2:#2b2e35;
     --marble:#f4f5f7; --marble-edge:#888d94; --basalt:#1c1d21; --basalt-edge:#7d8590;
     --ember:#b9c2cc; --ember-soft:#d8dee4; --frost:#a9c4d6;
     --text:#eceef1; --text-dim:#a7acb4; --text-faint:#6b6f78;
-    --halo-a: rgba(185,194,204,.10); --halo-b: rgba(169,196,214,.06); --halo-c: rgba(185,194,204,.13);
+    --halo-a: rgba(190,196,204,.06); --halo-b: rgba(190,196,204,.04); --halo-c: rgba(190,196,204,.07);
   }
 
   *{ box-sizing:border-box; min-width:0; }
@@ -452,20 +452,6 @@
   #snd-toggle[aria-pressed="false"] .snd-off{ display:inline; }
   #snd-toggle[aria-pressed="false"]{ opacity:.45; }
   body.toggle-col:not(.zen-mode) .zen-toggle-row #snd-toggle{ right:var(--snd-off, 44px); }
-  /* V231 · Antorchas lejanas: botón (llama) a la izquierda del altavoz, y el resplandor. */
-  #torch-toggle .tc-off{ display:none; }
-  #torch-toggle[aria-pressed="false"] .tc-off{ display:inline; }
-  #torch-toggle[aria-pressed="false"]{ opacity:.45; }
-  body.toggle-col:not(.zen-mode) .zen-toggle-row #torch-toggle{ right:calc(var(--snd-off, 44px) * 2); }
-  /* Un resplandor de fuego lejano en los márgenes, como de antorchas alrededor del salón. Va DETRÁS de todo el contenido (z-index negativo): el
-     tablero y los paneles lo tapan, así que nunca invade las casillas ni cambia el contraste de lo que se mira para jugar; solo se ve en el fondo
-     y, muy apenas, a través del cristal de los paneles. Cada antorcha es un círculo pequeño con degradado cuya opacidad parpadea despacio y al
-     azar (WAAPI, solo opacidad: lo resuelve la tarjeta gráfica). Con «reducir movimiento» queda fijo. Oculto durante la pantalla de entrada. */
-  .antorchas{ position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; contain:strict; }
-  .antorchas[hidden], html.intro-abierta .antorchas{ display:none; }
-  .antorcha{ position:absolute; left:var(--x); top:var(--y); width:var(--t); height:var(--t); margin:calc(var(--t) / -2) 0 0 calc(var(--t) / -2);
-    opacity:.7; background:radial-gradient(circle closest-side, color-mix(in srgb, var(--c, #ff8f3d) 17%, transparent) 0%,
-      color-mix(in srgb, var(--c, #ff8f3d) 8%, transparent) 42%, transparent 100%); }
   /* V145: en zen, el botón mismo se achica más (mismo motivo que el padding
      de arriba: cada píxel de "chrome" fijo resta directo al presupuesto de
      alto del tablero en pantallas horizontales cortas) -- fuera de zen sigue
@@ -3324,9 +3310,6 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
        propio ícono fijo y su propia acción de una sola dirección; el que
        no aplica según el modo actual se oculta entero con `hidden`. -->
   <div class="zen-toggle-row">
-    <button class="btn icon zen-toggle-btn" id="torch-toggle" type="button" aria-pressed="true" aria-label="Antorchas activadas" title="Antorchas activadas">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/><path class="tc-off" d="M3 3l18 18"/></svg>
-    </button>
     <button class="btn icon zen-toggle-btn" id="snd-toggle" type="button" aria-pressed="true" aria-label="Sonido activado" title="Sonido activado">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><g class="snd-on"><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></g><g class="snd-off"><path d="M16 9l5 6M21 9l-5 6"/></g></svg>
     </button>
@@ -7158,67 +7141,6 @@ document.getElementById("btn-branch-back").onclick = () => { branch = null; sele
   b.onclick = () => { SFX.toggle(); paint(); };
   paint();
 })();
-/* V231 · Antorchas lejanas: seis resplandores cálidos en los bordes del encuadre, detrás de todo el contenido (ver `.antorchas` en el CSS). Cada
-   uno parpadea despacio y al azar —una caminata aleatoria de la opacidad entre 45 % y 100 %, con ciclos de 6,5 a 12,5 s distintos para cada
-   antorcha, así que el conjunto nunca se repite a simple vista—. Cambios de luz de pocos puntos porcentuales: no hay destellos ni nada que
-   compita con la jugada. Sin JavaScript por fotograma: las animaciones corren en la tarjeta gráfica. Se apagan con el botón de la llama (se recuerda). */
-var ANTORCHAS = (function(){
-  const KEY = "tablero-encantado.antorchas";
-  const quieto = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  let on = true, cont = null, anims = [];
-  try{ if(localStorage.getItem(KEY) === "0") on = false; }catch(e){}
-  const rnd = (a, b) => a + Math.random() * (b - a);
-  const PUNTOS = [[-3, 16], [-3, 70], [103, 24], [103, 78], [30, 103], [62, -3]];          // x %, y % sobre el borde: dos a cada lado, una abajo y una arriba
-  const COLORES = ["#ff8f3d", "#ff9a45", "#ff7f32", "#ffa352"];
-  function crear(){
-    if(cont) return cont;
-    cont = document.createElement("div"); cont.className = "antorchas"; cont.setAttribute("aria-hidden", "true");
-    PUNTOS.forEach(([x, y]) => {
-      const e = document.createElement("div"); e.className = "antorcha";
-      e.style.cssText = "--x:" + (x + rnd(-5, 5)).toFixed(1) + "%;--y:" + (y + rnd(-6, 6)).toFixed(1) + "%;--t:" + rnd(54, 74).toFixed(0) + "vmin;--c:" + COLORES[Math.floor(Math.random() * COLORES.length)];
-      cont.appendChild(e);
-    });
-    document.body.insertBefore(cont, document.body.firstChild);
-    return cont;
-  }
-  function parpadeo(e){
-    const n = Math.floor(rnd(16, 26)), offs = [0];
-    for(let i = 1; i < n; i++) offs.push(i / n + rnd(-0.25, 0.25) / n);
-    offs.push(1);
-    let v = rnd(.62, .92);
-    const kf = offs.map((o, i) => { if(i) v = Math.max(.45, Math.min(1, v + rnd(-.24, .24))); return { offset:o, opacity:+v.toFixed(3) }; });
-    kf[kf.length - 1].opacity = kf[0].opacity;                                                // el ciclo cierra sin salto
-    return e.animate(kf, { duration:rnd(6500, 12500), iterations:Infinity, easing:"ease-in-out" });
-  }
-  function arrancar(){
-    const c = crear(); c.hidden = false;
-    if(quieto || anims.length) return;
-    try{ anims = Array.prototype.map.call(c.children, parpadeo); }catch(e){}
-  }
-  function parar(){ anims.forEach(a => { try{ a.cancel(); }catch(e){} }); anims = []; if(cont) cont.hidden = true; }
-  if(on) arrancar();
-  return {
-    isOn: () => on,
-    toggle(){
-      on = !on;
-      try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
-      if(on) arrancar(); else parar();
-      return on;
-    }
-  };
-})();
-(function(){
-  const b = document.getElementById("torch-toggle");
-  if(!b) return;
-  const paint = () => {
-    const on = ANTORCHAS.isOn();
-    b.setAttribute("aria-pressed", String(on));
-    const t = on ? "Antorchas activadas" : "Antorchas desactivadas";
-    b.setAttribute("aria-label", t); b.title = t;
-  };
-  b.onclick = () => { ANTORCHAS.toggle(); paint(); };
-  paint();
-})();
 /* ============================ Jugadas ============================ */
 let animFrom = null;
 
@@ -9307,7 +9229,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V231 · 10-oct-2026 · Antorchas lejanas: resplandor sutil de fondo (sin tormenta)";
+const BUILD_ID = "V231 · 10-oct-2026 · Sin antorchas; fondo neutro en Tierra y Aire";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
