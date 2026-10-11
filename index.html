@@ -873,6 +873,56 @@
   #board .piece.fairy.n-hop::before{ animation:nShadow .32s ease; }
   #board .piece.fairy.n-hop.n-turn-to-r svg{ animation:nHop .32s ease, kturn-to-r .32s cubic-bezier(.22,.68,.2,1); }
   #board .piece.fairy.n-hop.n-turn-to-l svg{ animation:nHop .32s ease, kturn-to-l .32s cubic-bezier(.22,.68,.2,1); }
+
+  /* ================= V242 · Tablero ANTIGUO, solo en Shatranj (body.var-shatranj, lo pone updateVariantUI) =================
+     Losa de arenisca erosionada (casillas claras) alternada con barro cocido/madera oscura (casillas oscuras), con grano,
+     manchas, grietas y un marco de piedra tallada. Todo es pintura estática (SVG de ruido en data-URI; sin animación ni medidas)
+     y cada casilla recorta una zona distinta de la mancha grande para que no se repita el dibujo. No toca otras modalidades. */
+  body.var-shatranj{ --edad:1; --pat-rgb:58,34,12; --pat-sombra:24,12,3;
+    --sq-light:#bba477; --sq-light-2:#9f8657; --sq-dark:#4a3326; --sq-dark-2:#392618;
+    --an-grano-l:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .22  0 0 0 0 .14  0 0 0 0 .07  1.5 0 0 0 -.58'/></filter><filter id='b' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.5' numOctaves='1' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .8  3.2 0 0 0 -1.9'/></filter><rect width='100%' height='100%' filter='url(%23a)'/><rect width='100%' height='100%' filter='url(%23b)' opacity='.5'/></svg>"); --an-grano-d:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.7 .12' numOctaves='3' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .05  0 0 0 0 .03  0 0 0 0 .02  1.7 0 0 0 -.62'/></filter><filter id='b' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.6' numOctaves='1' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .78  0 0 0 0 .62  0 0 0 0 .42  3.4 0 0 0 -2.05'/></filter><rect width='100%' height='100%' filter='url(%23a)'/><rect width='100%' height='100%' filter='url(%23b)' opacity='.45'/></svg>"); --an-mancha:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='a' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.012 .02' numOctaves='4' seed='21' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .20  0 0 0 0 .12  0 0 0 0 .05  2.1 0 0 0 -.95'/></filter><rect width='100%' height='100%' filter='url(%23a)'/></svg>"); --an-grieta-l:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M14 0 L19 17 L13 31 L22 47 L17 61 L27 78 L24 100' stroke='rgba(40,24,10,.62)' stroke-width='.9'/><path d='M22 47 L38 52 L46 63' stroke='rgba(40,24,10,.5)' stroke-width='.7'/><path d='M14.9 0.3 L19.9 17.3 L13.9 31.3' stroke='rgba(255,240,205,.28)' stroke-width='.5'/></g></svg>"); --an-grieta-d:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M100 18 L81 24 L72 39 L58 42 L49 58 L35 61 L30 78' stroke='rgba(0,0,0,.7)' stroke-width='1'/><path d='M72 39 L77 55 L70 70' stroke='rgba(0,0,0,.55)' stroke-width='.7'/><path d='M100 19.2 L81 25.2 L72 40.2 L58 43.2' stroke='rgba(214,176,120,.3)' stroke-width='.5'/></g></svg>"); }
+  body.var-shatranj #board .cell.lgt{
+    background:
+      radial-gradient(120% 90% at 18% 12%, rgba(255,242,205,.22), transparent 55%),
+      radial-gradient(90% 80% at 90% 95%, rgba(70,40,12,.30), transparent 60%),
+      var(--an-grano-l) 0 0 / 120px 120px,
+      var(--an-mancha) 0 0 / 260% 260%,
+      linear-gradient(160deg, var(--sq-light), var(--sq-light-2)); }
+  body.var-shatranj #board .cell.drk{
+    background:
+      radial-gradient(110% 90% at 20% 10%, rgba(214,170,112,.14), transparent 55%),
+      radial-gradient(90% 80% at 88% 94%, rgba(0,0,0,.42), transparent 62%),
+      var(--an-grano-d) 0 0 / 120px 120px,
+      var(--an-mancha) 0 0 / 260% 260%,
+      linear-gradient(160deg, var(--sq-dark), var(--sq-dark-2)); }
+  /* grietas: solo algunas casillas, cada una con su orientación */
+  body.var-shatranj #board .cell.lgt:nth-child(5n+2), body.var-shatranj #board .cell.lgt:nth-child(11n+7){
+    background-image:
+      var(--an-grieta-l), radial-gradient(120% 90% at 18% 12%, rgba(255,242,205,.22), transparent 55%),
+      radial-gradient(90% 80% at 90% 95%, rgba(70,40,12,.30), transparent 60%),
+      var(--an-grano-l), var(--an-mancha), linear-gradient(160deg, var(--sq-light), var(--sq-light-2));
+    background-size:100% 100%, 100% 100%, 100% 100%, 120px 120px, 260% 260%, 100% 100%; }
+  body.var-shatranj #board .cell.drk:nth-child(4n+1), body.var-shatranj #board .cell.drk:nth-child(9n+4){
+    background-image:
+      var(--an-grieta-d), radial-gradient(110% 90% at 20% 10%, rgba(214,170,112,.14), transparent 55%),
+      radial-gradient(90% 80% at 88% 94%, rgba(0,0,0,.42), transparent 62%),
+      var(--an-grano-d), var(--an-mancha), linear-gradient(160deg, var(--sq-dark), var(--sq-dark-2));
+    background-size:100% 100%, 100% 100%, 100% 100%, 120px 120px, 260% 260%, 100% 100%; }
+  /* juntas talladas entre losas: bisel áspero en vez del bisel limpio */
+  body.var-shatranj #board .cell.lgt:not(.hint){ box-shadow:inset 2px 2px 3px rgba(255,238,200,.18), inset -2px -2px 4px rgba(40,22,6,.38), inset 0 0 14px rgba(70,40,12,.22); }
+  body.var-shatranj #board .cell.drk:not(.hint){ box-shadow:inset 2px 2px 3px rgba(214,170,112,.10), inset -2px -2px 5px rgba(0,0,0,.6), inset 0 0 16px rgba(0,0,0,.30); }
+  /* marco: bloque de piedra oscura con grano, canto desportillado y doble línea tallada */
+  body.var-shatranj .board-frame{
+    border:2px solid #6d5a40; border-radius:3px 7px 4px 6px;
+    background:
+      var(--patina) 0 0 / 100% 100%,
+      var(--an-grano-d) 0 0 / 160px 160px,
+      var(--an-mancha) 0 0 / 220% 220%,
+      linear-gradient(150deg, #3b3026, #2a2119 55%, #1c1611);
+    box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,.6), inset 0 0 0 4px rgba(214,176,120,.10), inset 0 0 0 5px rgba(0,0,0,.55),
+      inset 0 3px 10px rgba(0,0,0,.65),
+      0 0 26px color-mix(in srgb, var(--ember) 14%, transparent), var(--shadow); }
   /* V201 · Panel Modalidad: rótulos de cada grupo y botón «Iniciar» destacado. */
   .mod-cap{ margin:14px 0 6px; }
   #panel-variant h2 + .mod-cap{ margin-top:2px; }
@@ -7653,6 +7703,7 @@ function updateVariantUI(variant){
   if(btnAmazonas) btnAmazonas.setAttribute("aria-pressed", String(variant === "amazonas"));
   const btnShat = document.getElementById("variant-shatranj");
   if(btnShat) btnShat.setAttribute("aria-pressed", String(variant === "shatranj"));
+  document.body.classList.toggle("var-shatranj", variant === "shatranj");   // V242: tablero antiguo solo en Shatranj
   const shatInfo = document.getElementById("shat-info");
   if(shatInfo) shatInfo.hidden = variant !== "shatranj";
   const noteEl2 = document.getElementById("variant-note");
@@ -9374,7 +9425,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V241 · 11-oct-2026 · Shatranj: sin contorno grueso, figuras más legibles";
+const BUILD_ID = "V242 · 11-oct-2026 · Shatranj: tablero antiguo (piedra, barro y madera)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
