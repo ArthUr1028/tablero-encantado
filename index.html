@@ -3270,9 +3270,60 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         </g>
       </g>
     </symbol>
-    <!-- V233 · Shatranj: ferz y fil reutilizan por ahora la Dama y el Alfil, un poco más pequeños (el shah usa el Rey). Si Arthur trae sus propios íconos, basta reemplazar estos dos <symbol>. -->
-    <symbol id="glyph-ferz" viewBox="0 0 100 100"><use href="#glyph-queen" transform="translate(8 13) scale(.84)"/></symbol>
-    <symbol id="glyph-fil" viewBox="0 0 100 100"><use href="#glyph-bishop" transform="translate(8 13) scale(.84)"/></symbol>
+    <!-- V234 · Shatranj: juego propio (estilo mixto: figuras sobrias con talla geométrica de inspiración islámica). Shah en trono, ferz (consejero con turbante), fil (elefante), rukh (carro de guerra), faras (caballo) y baydaq (soldado de a pie con lanza). -->
+    <symbol id="sh-shah" viewBox="0 0 100 100"><g fill="currentColor" stroke="var(--piece-edge, currentColor)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M20 90 L20 80 L80 80 L80 90 Z"/>
+  <path d="M22 80 L26 44 Q26 30 38 28 L62 28 Q74 30 74 44 L78 80 Z"/>
+  <path d="M34 80 Q34 58 50 54 Q66 58 66 80 Z"/>
+  <circle cx="50" cy="44" r="9"/>
+  <path d="M37 36 L38 20 L44 28 L50 14 L56 28 L62 20 L63 36 Z"/>
+  <path d="M43 50 Q50 62 57 50" fill="none"/>
+  <circle cx="50" cy="68" r="4.2" stroke-width="2"/>
+  <circle cx="50" cy="19" r="2.2" stroke-width="1.6"/>
+</g></symbol>
+<symbol id="sh-ferz" viewBox="0 0 100 100"><g fill="currentColor" stroke="var(--piece-edge, currentColor)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M22 90 L22 80 L78 80 L78 90 Z"/>
+  <path d="M26 80 Q28 54 50 52 Q72 54 74 80 Z"/>
+  <path d="M36 66 L64 74" fill="none" stroke-width="2.2"/>
+  <circle cx="50" cy="42" r="9"/>
+  <path d="M33 38 Q34 14 50 13 Q66 14 67 38 Q58 30 50 31 Q42 30 33 38 Z"/>
+  <path d="M33 38 Q50 44 67 38" fill="none" stroke-width="2"/>
+  <path d="M50 13 L50 7" fill="none"/><circle cx="50" cy="22" r="2.6" stroke-width="1.6"/>
+</g></symbol>
+<symbol id="sh-fil" viewBox="0 0 100 100"><g fill="currentColor" stroke="var(--piece-edge, currentColor)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M20 90 L20 80 L80 80 L80 90 Z"/>
+  <circle cx="25" cy="48" r="14"/><circle cx="75" cy="48" r="14"/>
+  <path d="M35 24 Q50 14 65 24 L63 62 Q59 78 50 82 Q41 78 37 62 Z"/>
+  <path d="M50 38 L50 62 Q50 74 43 76" fill="none" stroke-width="3.4"/>
+  <path d="M40 62 Q22 74 18 46" fill="none" stroke-width="6.4"/><path d="M60 62 Q78 74 82 46" fill="none" stroke-width="6.4"/>
+  <path d="M40 62 Q22 74 18 46" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M60 62 Q78 74 82 46" fill="none" stroke="currentColor" stroke-width="2.4"/>
+  <path d="M41 30 Q50 22 59 30" fill="none" stroke-width="2.4"/><circle cx="50" cy="27" r="2.6" stroke-width="1.6"/>
+  <circle cx="43" cy="42" r="1.9" stroke-width="1.4"/><circle cx="57" cy="42" r="1.9" stroke-width="1.4"/>
+</g></symbol>
+<symbol id="sh-rukh" viewBox="0 0 100 100"><g fill="currentColor" stroke="var(--piece-edge, currentColor)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M30 20 L30 12 L38 12 L38 18 L46 18 L46 12 L54 12 L54 18 L62 18 L62 12 L70 12 L70 20 L66 28 L66 62 L70 66 L30 66 L34 62 L34 28 Z"/>
+  <path d="M42 40 L42 52 Q50 44 58 52 L58 40 Q50 32 42 40 Z" stroke-width="2"/>
+  <path d="M20 90 L20 80 L80 80 L80 90 Z"/>
+  <circle cx="50" cy="75" r="13"/><circle cx="50" cy="75" r="3.4" stroke-width="2"/>
+  <path d="M50 62 L50 88 M37 75 L63 75 M41 66 L59 84 M59 66 L41 84" fill="none" stroke-width="1.8"/>
+</g></symbol>
+<symbol id="sh-faras" viewBox="0 0 100 100"><g fill="currentColor" stroke="var(--piece-edge, currentColor)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M20 90 L20 80 L80 80 L80 90 Z"/>
+  <path d="M30 80 Q30 62 40 52 Q28 52 20 44 L18 34 Q22 28 30 30 L38 22 L40 8 L50 18 Q70 20 76 42 Q82 62 76 80 Z"/>
+  <path d="M52 22 Q62 30 60 46 Q58 60 64 74" fill="none" stroke-width="2.2"/>
+  <path d="M56 24 Q70 32 68 50" fill="none" stroke-width="2.2"/>
+  <circle cx="36" cy="34" r="2.2" stroke-width="1.6"/>
+  <path d="M18 38 L24 40" fill="none" stroke-width="2"/>
+</g></symbol>
+<symbol id="sh-baydaq" viewBox="0 0 100 100"><g fill="currentColor" stroke="var(--piece-edge, currentColor)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M26 90 L26 80 L74 80 L74 90 Z"/>
+  <path d="M30 80 Q32 56 50 54 Q68 56 70 80 Z"/>
+  <circle cx="50" cy="44" r="8.5"/>
+  <path d="M38 42 Q38 24 50 22 Q62 24 62 42 Z"/>
+  <path d="M50 22 L50 10" fill="none"/>
+  <path d="M42 66 L58 66" fill="none" stroke-width="2"/>
+  <path d="M74 80 L74 30" fill="none" stroke-width="3"/><path d="M74 20 L70 32 L78 32 Z"/>
+</g></symbol>
   </defs>
 </svg>
 
@@ -4244,14 +4295,18 @@ const GLYPH = { k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", a:"A", c:"
 // ver comentarios de #glyph-king / #glyph-amazon / #glyph-queen /
 // #glyph-bishop / #glyph-knight en el <defs>.
 const FAIRY = { a:true, c:true, p:true, m:true, k:true, q:true, b:true, n:true, r:true, s:true, f:true, l:true };
-const FAIRY_SYMBOL = { a:"glyph-archbishop", c:"glyph-chancellor", p:"glyph-pawn", m:"glyph-amazon", k:"glyph-king", q:"glyph-queen", b:"glyph-bishop", n:"glyph-knight", r:"glyph-rook", s:"glyph-king", f:"glyph-ferz", l:"glyph-fil" };
+const FAIRY_SYMBOL = { a:"glyph-archbishop", c:"glyph-chancellor", p:"glyph-pawn", m:"glyph-amazon", k:"glyph-king", q:"glyph-queen", b:"glyph-bishop", n:"glyph-knight", r:"glyph-rook", s:"sh-shah", f:"sh-ferz", l:"sh-fil" };
+// V234: en el shatranj, torre/caballo/peón también cambian de dibujo (ver setPieceSet()).
+const SHAT_SET = { r:"sh-rukh", n:"sh-faras", p:"sh-baydaq" };
+let shatSet = false;
+function setPieceSet(board){ shatSet = isShat(board); }
 // Marcado (texto o SVG) para una pieza: las normales son un carácter Unicode
 // de toda la vida; Arzobispo/Canciller usan el ícono definido en <defs> al
 // inicio del body (ver comentario ahí). Se usa con .innerHTML, no
 // .textContent, en cada lugar donde se dibuja una pieza (tablero, cantera,
 // ficha flotante al arrastrar, diálogo de coronación).
 function pieceMarkup(t){
-  if(FAIRY[t]) return '<svg viewBox="0 0 100 100" aria-hidden="true"><use href="#' + FAIRY_SYMBOL[t] + '"></use></svg>';
+  if(FAIRY[t]) return '<svg viewBox="0 0 100 100" aria-hidden="true"><use href="#' + ((shatSet && SHAT_SET[t]) || FAIRY_SYMBOL[t]) + '"></use></svg>';
   return GLYPH[t];
 }
 
@@ -6930,6 +6985,7 @@ function render(){
   // Reto de claudIA: solo se juega la posicion actual (sin volver atras ni ramas).
   if(retoActive && (branch || game.cursor !== game.states.length - 1)){ branch = null; game.cursor = game.states.length - 1; }
   const pos = liveState();
+  setPieceSet(pos.board);   // V234
   const nCols = pos.board[0].length;
   const { rows, cols } = displayOrder(nCols);
 
@@ -9356,7 +9412,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V233 · 10-oct-2026 · Nueva modalidad: Shatranj, el ajedrez más antiguo";
+const BUILD_ID = "V234 · 10-oct-2026 · Shatranj: piezas propias (estilo mixto)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11824,6 +11880,7 @@ function renderPalette(){
   if(currentMode !== "free") return;
   paletteEl.innerHTML = "";
   const variant = variantOf(liveState().board);
+  setPieceSet(liveState().board);
   const types = variant === "capablanca" ? ["k","q","r","b","n","p","a","c"]
     : (variant === "maharaja" || variant === "amazonas") ? ["k","q","r","b","n","p","m"]
     : variant === "shatranj" ? ["s","f","l","n","r","p"]
