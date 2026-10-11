@@ -761,8 +761,8 @@
     text-shadow:0 2px 5px rgba(0,0,0,.5), 0 0 2px rgba(255,255,255,.3); }
   .piece.b{ color:var(--basalt); --piece-edge:var(--basalt-edge); -webkit-text-stroke:.8px var(--basalt-edge);
     text-shadow:0 2px 6px rgba(0,0,0,.6); }
-  .piece.w, .palette button.w{ --sh-hi:#f1ebde; --sh-mass:#5a5043; --sh-line:#fffaf0; --sh-sw:0; }   /* V238: mismo reparto oscuro/claro que las negras (masa oscura, luces claras), con la masa aclarada a tono medio para que siga leyéndose como bando blanco */
-  .cell.lgt .piece.w svg{ filter:drop-shadow(0 0 .6px rgba(25,15,5,.9)) drop-shadow(0 0 1.2px rgba(25,15,5,.55)); }   /* sobre casilla clara, halo oscuro fino para despegar la silueta */   /* V237: piezas ilustradas del Shatranj, lado blanco */
+  .piece.w, .palette button.w{ --sh-hi:color-mix(in srgb, var(--marble) 80%, var(--basalt-edge)); --sh-mass:color-mix(in srgb, var(--basalt-edge) 35%, color-mix(in srgb, var(--marble-edge) 70%, var(--basalt))); --sh-line:color-mix(in srgb, var(--marble) 85%, var(--basalt-edge)); --sh-sw:0; }   /* V238: mismo reparto oscuro/claro que las negras (masa oscura, luces claras), con la masa aclarada a tono medio para que siga leyéndose como bando blanco */
+  .cell.lgt .piece.w svg{ filter:drop-shadow(0 0 .6px color-mix(in srgb, var(--basalt) 92%, transparent)) drop-shadow(0 0 1.2px color-mix(in srgb, var(--basalt) 55%, transparent)); }   /* sobre casilla clara, halo oscuro fino para despegar la silueta */   /* V237: piezas ilustradas del Shatranj, lado blanco */
   .piece.dragging{ opacity:.28; }
   .piece.slide{ animation:slidein .24s cubic-bezier(.22,.68,.2,1); }
   @keyframes slidein{
@@ -9367,7 +9367,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V238 · 11-oct-2026 · Shatranj: piezas blancas con el mismo reparto de tonos que las negras";
+const BUILD_ID = "V239 · 11-oct-2026 · Shatranj: piezas blancas siguen el tema (agua, fuego, tierra, aire)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
