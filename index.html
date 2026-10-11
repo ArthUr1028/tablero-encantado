@@ -2558,7 +2558,9 @@
   var decidir = function(){
     if(started || esperando) return;
     var libre = true;
-    try{ if(typeof SFX !== "undefined" && SFX.isOn()) libre = SFX.puedeSonar(); }catch(e){}
+    /* V228: con el sonido activado la entrada SIEMPRE espera el toque, salvo que la página ya haya recibido un gesto del usuario. Antes, si el
+       navegador dejaba arrancar el audio solo (según su historial de uso del sitio), pasaba directo a la animación y la música a veces no sonaba. */
+    try{ if(typeof SFX !== "undefined" && SFX.isOn()){ var gesto = !!(navigator.userActivation && navigator.userActivation.hasBeenActive); libre = gesto && SFX.puedeSonar(); } }catch(e){}
     if(libre) arrancar(); else { esperando = true; intro.classList.add("intro-espera"); }
   };
   var start = function(){
@@ -4917,7 +4919,7 @@ var SFX = (function(){
       if(chant !== me || !ctx) return;
       if(!b){ try{ bus.disconnect(); }catch(e){} chant = null; startChantSynth(); return; }
       const src = ctx.createBufferSource(); src.buffer = b; src.loop = true;
-      const g = ctx.createGain(); g.gain.value = 0.55; src.connect(g); g.connect(bus);
+      const g = ctx.createGain(); g.gain.value = 0.40; src.connect(g); g.connect(bus);   // V228: antes 0.55 (≈ -2.8 dB)
       src.start(); me.oscs.push(src);
     });
   }
@@ -9227,7 +9229,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V227 · 10-oct-2026 · Capturas: 6 choques de espada nuevos (11 en total)";
+const BUILD_ID = "V228 · 10-oct-2026 · Entrada: siempre espera el toque (con sonido) · Santuario más suave";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
