@@ -452,19 +452,20 @@
   #snd-toggle[aria-pressed="false"] .snd-off{ display:inline; }
   #snd-toggle[aria-pressed="false"]{ opacity:.45; }
   body.toggle-col:not(.zen-mode) .zen-toggle-row #snd-toggle{ right:var(--snd-off, 44px); }
-  /* V229 · Tormenta lejana: botón (rayo) a la izquierda del altavoz, y la capa de luz. */
-  #storm-toggle .st-off{ display:none; }
-  #storm-toggle[aria-pressed="false"] .st-off{ display:inline; }
-  #storm-toggle[aria-pressed="false"]{ opacity:.45; }
-  body.toggle-col:not(.zen-mode) .zen-toggle-row #storm-toggle{ right:calc(var(--snd-off, 44px) * 2); }
-  /* Tres capas fijas, sin captar toques, de las que solo se anima la opacidad (lo resuelve la tarjeta gráfica: sin recalcular el diseño ni repintar la
-     página). Cada golpe de luz nace en un punto al azar FUERA del encuadre —arriba, abajo, a un lado o en una esquina (--sx/--sy)— y se apaga hacia el
-     interior con una elipse de tamaño al azar (--rx/--ry). El tinte toma el color del tema (--ember). Quedan por debajo de la pantalla de entrada
-     (z-index 20000), que además ni las arranca. */
-  .storm-capa{ position:fixed; inset:0; z-index:40; pointer-events:none; opacity:0; contain:strict;
-    --st:color-mix(in srgb, #c4d4ff 80%, var(--ember, #d98a3d) 20%);
-    background:radial-gradient(ellipse var(--rx, 95%) var(--ry, 70%) at var(--sx, 50%) var(--sy, -10%),
-      color-mix(in srgb, var(--st) 31%, transparent) 0%, color-mix(in srgb, var(--st) 14%, transparent) 42%, transparent 84%); }
+  /* V231 · Antorchas lejanas: botón (llama) a la izquierda del altavoz, y el resplandor. */
+  #torch-toggle .tc-off{ display:none; }
+  #torch-toggle[aria-pressed="false"] .tc-off{ display:inline; }
+  #torch-toggle[aria-pressed="false"]{ opacity:.45; }
+  body.toggle-col:not(.zen-mode) .zen-toggle-row #torch-toggle{ right:calc(var(--snd-off, 44px) * 2); }
+  /* Un resplandor de fuego lejano en los márgenes, como de antorchas alrededor del salón. Va DETRÁS de todo el contenido (z-index negativo): el
+     tablero y los paneles lo tapan, así que nunca invade las casillas ni cambia el contraste de lo que se mira para jugar; solo se ve en el fondo
+     y, muy apenas, a través del cristal de los paneles. Cada antorcha es un círculo pequeño con degradado cuya opacidad parpadea despacio y al
+     azar (WAAPI, solo opacidad: lo resuelve la tarjeta gráfica). Con «reducir movimiento» queda fijo. Oculto durante la pantalla de entrada. */
+  .antorchas{ position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; contain:strict; }
+  .antorchas[hidden], html.intro-abierta .antorchas{ display:none; }
+  .antorcha{ position:absolute; left:var(--x); top:var(--y); width:var(--t); height:var(--t); margin:calc(var(--t) / -2) 0 0 calc(var(--t) / -2);
+    opacity:.7; background:radial-gradient(circle closest-side, color-mix(in srgb, var(--c, #ff8f3d) 17%, transparent) 0%,
+      color-mix(in srgb, var(--c, #ff8f3d) 8%, transparent) 42%, transparent 100%); }
   /* V145: en zen, el botón mismo se achica más (mismo motivo que el padding
      de arriba: cada píxel de "chrome" fijo resta directo al presupuesto de
      alto del tablero en pantallas horizontales cortas) -- fuera de zen sigue
@@ -3323,8 +3324,8 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
        propio ícono fijo y su propia acción de una sola dirección; el que
        no aplica según el modo actual se oculta entero con `hidden`. -->
   <div class="zen-toggle-row">
-    <button class="btn icon zen-toggle-btn" id="storm-toggle" type="button" aria-pressed="true" aria-label="Tormenta activada" title="Tormenta activada">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/><path class="st-off" d="M3 3l18 18"/></svg>
+    <button class="btn icon zen-toggle-btn" id="torch-toggle" type="button" aria-pressed="true" aria-label="Antorchas activadas" title="Antorchas activadas">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/><path class="tc-off" d="M3 3l18 18"/></svg>
     </button>
     <button class="btn icon zen-toggle-btn" id="snd-toggle" type="button" aria-pressed="true" aria-label="Sonido activado" title="Sonido activado">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><g class="snd-on"><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></g><g class="snd-off"><path d="M16 9l5 6M21 9l-5 6"/></g></svg>
@@ -7157,137 +7158,65 @@ document.getElementById("btn-branch-back").onclick = () => { branch = null; sele
   b.onclick = () => { SFX.toggle(); paint(); };
   paint();
 })();
-/* V230 · Tormenta lejana, solo luz (sin truenos). La tormenta alterna rachas activas (un evento cada 2,5-9 s) y calmas (14-34 s), y cada EVENTO es de
-   un tipo al azar: un golpe grande (a veces con precursor o réplica), varios pequeños, una mezcla de grandes y pequeños, un resplandor largo con
-   chispazos, o un solo fogonazo corto. Cada golpe sale de una dirección al azar y dura distinto. Corre solo con el Tablero a la vista (nada en la
-   entrada ni con la pestaña oculta), duerme entre eventos y se apaga con el botón del rayo (se recuerda). Sin preferencia guardada y con
-   «reducir movimiento» en el sistema, arranca apagada. Límite de seguridad: nunca más de 3 destellos fuertes por segundo (los pequeños, que
-   cambian muy poco la luz, pueden ir más juntos). */
-var STORM = (function(){
-  const KEY = "tablero-encantado.tormenta", d = document.documentElement;
-  let on = true, capas = null, timer = 0, timers = [], fase = { activa:true, hasta:0 };
-  try{
-    const v = localStorage.getItem(KEY);
-    if(v === "0") on = false;
-    else if(v === null && window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) on = false;
-  }catch(e){}
+/* V231 · Antorchas lejanas: seis resplandores cálidos en los bordes del encuadre, detrás de todo el contenido (ver `.antorchas` en el CSS). Cada
+   uno parpadea despacio y al azar —una caminata aleatoria de la opacidad entre 45 % y 100 %, con ciclos de 6,5 a 12,5 s distintos para cada
+   antorcha, así que el conjunto nunca se repite a simple vista—. Cambios de luz de pocos puntos porcentuales: no hay destellos ni nada que
+   compita con la jugada. Sin JavaScript por fotograma: las animaciones corren en la tarjeta gráfica. Se apagan con el botón de la llama (se recuerda). */
+var ANTORCHAS = (function(){
+  const KEY = "tablero-encantado.antorchas";
+  const quieto = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  let on = true, cont = null, anims = [];
+  try{ if(localStorage.getItem(KEY) === "0") on = false; }catch(e){}
   const rnd = (a, b) => a + Math.random() * (b - a);
-  const pick = (pares) => { let t = 0; pares.forEach(p => t += p[1]); let r = Math.random() * t; for(const p of pares){ if((r -= p[1]) < 0) return p[0]; } return pares[0][0]; };
-  const bloqueada = () => d.classList.contains("intro-abierta") || document.hidden;
-  function crearCapas(){
-    if(capas) return capas;
-    capas = [0, 1, 2].map(i => {
-      const e = document.createElement("div"); e.className = "storm-capa"; e.id = i ? "storm" + (i + 1) : "storm"; e.setAttribute("aria-hidden", "true");
-      document.body.appendChild(e); return e;
+  const PUNTOS = [[-3, 16], [-3, 70], [103, 24], [103, 78], [30, 103], [62, -3]];          // x %, y % sobre el borde: dos a cada lado, una abajo y una arriba
+  const COLORES = ["#ff8f3d", "#ff9a45", "#ff7f32", "#ffa352"];
+  function crear(){
+    if(cont) return cont;
+    cont = document.createElement("div"); cont.className = "antorchas"; cont.setAttribute("aria-hidden", "true");
+    PUNTOS.forEach(([x, y]) => {
+      const e = document.createElement("div"); e.className = "antorcha";
+      e.style.cssText = "--x:" + (x + rnd(-5, 5)).toFixed(1) + "%;--y:" + (y + rnd(-6, 6)).toFixed(1) + "%;--t:" + rnd(54, 74).toFixed(0) + "vmin;--c:" + COLORES[Math.floor(Math.random() * COLORES.length)];
+      cont.appendChild(e);
     });
-    return capas;
+    document.body.insertBefore(cont, document.body.firstChild);
+    return cont;
   }
-  /* Formas de un golpe: [desplazamiento 0-1, intensidad 0-1] y duración en ms. */
-  const FORMAS = {
-    corto: () => ({ dur:rnd(140, 380),   kf:[[0, 0], [.14, 1], [.38, .3], [.55, .65], [1, 0]] }),
-    medio: () => ({ dur:rnd(450, 950),   kf:[[0, 0], [.09, 1], [.24, .45], [.33, rnd(.6, .9)], [.62, .18], [1, 0]] }),
-    largo: () => ({ dur:rnd(1200, 2800), kf:[[0, 0], [.18, rnd(.4, .6)], [.3, rnd(.25, .4)], [.42, rnd(.7, .95)], [.55, rnd(.3, .5)], [.7, rnd(.45, .65)], [.86, .18], [1, 0]] })
-  };
-  /* Dirección: un punto fuera del encuadre, en cualquiera de los cuatro lados o esquinas. */
-  function origen(){
-    const lado = Math.floor(Math.random() * 4), t = rnd(-10, 110), f = rnd(-14, -4), horiz = lado === 0 || lado === 2;   // 0 arriba, 1 derecha, 2 abajo, 3 izquierda
-    return { lado,
-      x: horiz ? t : (lado === 1 ? 100 - f : f), y: horiz ? (lado === 0 ? f : 100 - f) : t,
-      rx: horiz ? rnd(90, 125) : rnd(65, 95), ry: horiz ? rnd(60, 90) : rnd(85, 120) };
+  function parpadeo(e){
+    const n = Math.floor(rnd(16, 26)), offs = [0];
+    for(let i = 1; i < n; i++) offs.push(i / n + rnd(-0.25, 0.25) / n);
+    offs.push(1);
+    let v = rnd(.62, .92);
+    const kf = offs.map((o, i) => { if(i) v = Math.max(.45, Math.min(1, v + rnd(-.24, .24))); return { offset:o, opacity:+v.toFixed(3) }; });
+    kf[kf.length - 1].opacity = kf[0].opacity;                                                // el ciclo cierra sin salto
+    return e.animate(kf, { duration:rnd(6500, 12500), iterations:Infinity, easing:"ease-in-out" });
   }
-  const TIPOS = [["grande", 26], ["pequenos", 24], ["mixto", 24], ["largo", 14], ["corto", 12]];
-  /* Devuelve la lista de golpes de un evento: { at (ms desde el inicio), forma, pico (0-1), org }. No toca la pantalla. */
-  function generar(tipo){
-    tipo = tipo || pick(TIPOS);
-    const seq = []; let at = 0, org = origen();
-    const add = (forma, pico, gap, nuevoOrigen) => {
-      const prev = seq[seq.length - 1];
-      if(prev){
-        const minimo = (prev.pico > 0.35 && pico > 0.35) ? 340 : 110;   // seguridad: ≤3 destellos fuertes por segundo
-        at += Math.max(minimo, gap);
-      }
-      if(nuevoOrigen) org = origen();
-      seq.push({ at, forma, pico, org });
-    };
-    if(tipo === "grande"){
-      if(Math.random() < 0.4) add("corto", rnd(.25, .4), 0, true);                    // precursor tenue
-      add(pick([["medio", 60], ["largo", 40]]), rnd(.8, 1), rnd(200, 500), false);
-      if(Math.random() < 0.35) add("medio", rnd(.4, .7), rnd(400, 1100), Math.random() < 0.5);   // réplica
-    }else if(tipo === "pequenos"){
-      const n = Math.floor(rnd(3, 8));
-      for(let i = 0; i < n; i++) add(Math.random() < 0.7 ? "corto" : "medio", rnd(.22, .5), rnd(110, 700), i === 0 || Math.random() < 0.4);
-    }else if(tipo === "mixto"){
-      const n = Math.floor(rnd(3, 7)); let grande = false;
-      for(let i = 0; i < n; i++){
-        const p = [.25, .35, .5, .65, .9][Math.floor(Math.random() * 5)];
-        if(p > .8) grande = true;
-        add(pick([["corto", 40], ["medio", 40], ["largo", 20]]), p, rnd(160, 1300), i === 0 || Math.random() < 0.5);
-      }
-      if(!grande) seq[Math.floor(Math.random() * seq.length)].pico = rnd(.8, .95);
-    }else if(tipo === "largo"){
-      add("largo", rnd(.5, .8), 0, true);
-      if(Math.random() < 0.6){ const n = Math.floor(rnd(1, 4)); for(let i = 0; i < n; i++) add("corto", rnd(.25, .5), rnd(150, 900), false); }
-    }else{
-      add("corto", rnd(.55, 1), 0, true);
-    }
-    return seq;
+  function arrancar(){
+    const c = crear(); c.hidden = false;
+    if(quieto || anims.length) return;
+    try{ anims = Array.prototype.map.call(c.children, parpadeo); }catch(e){}
   }
-  /* Un golpe: usa una capa libre (o, si todas están ocupadas, la que lleva más tiempo) para que su dirección no cambie a mitad de otro destello. */
-  function golpe(s){
-    if(!on || bloqueada()) return;
-    const cs = crearCapas();
-    let L = cs.find(c => c.getAnimations().length === 0);
-    if(!L){ L = cs[0]; let viejo = Infinity; cs.forEach(c => { const t = c.getAnimations()[0].startTime || 0; if(t < viejo){ viejo = t; L = c; } }); try{ L.getAnimations().forEach(a => a.cancel()); }catch(e){} }
-    const f = FORMAS[s.forma](), o = s.org;
-    L.style.setProperty("--sx", o.x.toFixed(1) + "%"); L.style.setProperty("--sy", o.y.toFixed(1) + "%");
-    L.style.setProperty("--rx", o.rx.toFixed(0) + "%"); L.style.setProperty("--ry", o.ry.toFixed(0) + "%");
-    const kf = f.kf.map(([of, v]) => ({ offset:of, opacity:+(v * s.pico).toFixed(3) }));
-    try{ L.animate(kf, { duration:f.dur, easing:"linear" }); }catch(e){}
-  }
-  function evento(tipo){
-    if(!on || bloqueada()) return;
-    generar(tipo).forEach(s => { timers.push(setTimeout(() => golpe(s), s.at)); });
-  }
-  function parar(){
-    clearTimeout(timer); timer = 0; timers.forEach(clearTimeout); timers = [];
-    if(capas) capas.forEach(c => { try{ c.getAnimations().forEach(a => a.cancel()); }catch(e){} });
-  }
-  function brecha(){   // ms hasta el próximo evento: rachas activas y calmas que se alternan
-    const t = performance.now();
-    if(t > fase.hasta) fase = { activa:Math.random() < 0.6, hasta:t + rnd(30000, 80000) };
-    return fase.activa ? rnd(2500, 9000) : rnd(14000, 34000);
-  }
-  function programar(pronto){
-    clearTimeout(timer); timer = 0;
-    if(!on || bloqueada()) return;
-    timer = setTimeout(() => { timer = 0; evento(); programar(false); }, pronto ? rnd(2000, 4000) : brecha());
-  }
-  document.addEventListener("visibilitychange", () => { if(document.hidden) parar(); else programar(false); });
-  /* la entrada pone/quita `intro-abierta` en <html>: al cerrarse, empieza la tormenta */
-  try{ new MutationObserver(() => { if(!bloqueada()){ if(!timer) programar(true); } else parar(); }).observe(d, { attributes:true, attributeFilter:["class"] }); }catch(e){}
-  fase = { activa:true, hasta:performance.now() + 45000 };   // la primera racha es activa, para que se note al probar
-  programar(true);
+  function parar(){ anims.forEach(a => { try{ a.cancel(); }catch(e){} }); anims = []; if(cont) cont.hidden = true; }
+  if(on) arrancar();
   return {
     isOn: () => on,
-    evento, generar, golpe,
     toggle(){
       on = !on;
       try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
-      if(on){ fase = { activa:true, hasta:performance.now() + 45000 }; programar(true); } else parar();
+      if(on) arrancar(); else parar();
       return on;
     }
   };
 })();
 (function(){
-  const b = document.getElementById("storm-toggle");
+  const b = document.getElementById("torch-toggle");
   if(!b) return;
   const paint = () => {
-    const on = STORM.isOn();
+    const on = ANTORCHAS.isOn();
     b.setAttribute("aria-pressed", String(on));
-    const t = on ? "Tormenta activada" : "Tormenta desactivada";
+    const t = on ? "Antorchas activadas" : "Antorchas desactivadas";
     b.setAttribute("aria-label", t); b.title = t;
   };
-  b.onclick = () => { STORM.toggle(); paint(); };
+  b.onclick = () => { ANTORCHAS.toggle(); paint(); };
   paint();
 })();
 /* ============================ Jugadas ============================ */
@@ -9378,7 +9307,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V230 · 10-oct-2026 · Tormenta: sin truenos, destellos más frecuentes, erráticos y desde todas direcciones";
+const BUILD_ID = "V231 · 10-oct-2026 · Antorchas lejanas: resplandor sutil de fondo (sin tormenta)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
