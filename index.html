@@ -1952,12 +1952,36 @@
      esquinas, como los paneles; las eras y los maestros entran uno tras otro y, al abrirlo, un proemio aparece línea a línea.
      --hd escala los retrasos: 1 la primera vez, .25 en las siguientes aperturas; tocar el proemio lo adelanta todo (.listo). */
   .hof-teaser{ font-size:.86rem; color:var(--text-dim); font-style:italic; margin:0 0 10px; }
-  .shat-ov{ position:fixed; inset:0; z-index:1002; display:none; align-items:center; justify-content:center; padding:clamp(8px,3vw,28px);
-    background:rgba(6,5,9,.82); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
-  .shat-ov.show{ display:flex; }
-  .shat-box{ position:relative; width:100%; max-width:640px; max-height:90vh; display:flex; flex-direction:column; gap:6px; padding:22px clamp(16px,4vw,30px) 18px;
-    border-radius:18px; border:1px solid color-mix(in srgb, var(--ember) 32%, rgba(255,255,255,.16));
-    background:linear-gradient(180deg, color-mix(in srgb, var(--tablet-2) 96%, #000), color-mix(in srgb, var(--ground-2) 96%, #000)); box-shadow:0 24px 70px rgba(0,0,0,.6); color:var(--marble, #f1ebde); }
+  /* V247: la leyenda entra y sale como la vitrina y el Santuario: fundido de .6 s con el fondo desenfocándose poco a poco y la caja
+     subiendo suave; la caja es de cristal biselado y traslúcido, con remaches en las esquinas (mismo lenguaje que los paneles). */
+  .shat-ov{ position:fixed; inset:0; z-index:1002; display:flex; align-items:center; justify-content:center; padding:clamp(8px,3vw,28px);
+    background:radial-gradient(ellipse at 50% 18%, color-mix(in srgb, var(--ember) 20%, transparent), rgba(6,5,9,.88) 62%);
+    -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .6s ease, visibility 0s linear .6s; }
+  .shat-ov.show{ opacity:1; visibility:visible; pointer-events:auto; transition:opacity .6s ease, visibility 0s; }
+  .shat-box{
+    --shat-studs:
+      radial-gradient(circle at 14px 14px, rgba(255,255,255,.18) 0 1.5px, rgba(0,0,0,.5) 2.4px, transparent 3.6px),
+      radial-gradient(circle at calc(100% - 14px) 14px, rgba(255,255,255,.18) 0 1.5px, rgba(0,0,0,.5) 2.4px, transparent 3.6px),
+      radial-gradient(circle at 14px calc(100% - 14px), rgba(255,255,255,.18) 0 1.5px, rgba(0,0,0,.5) 2.4px, transparent 3.6px),
+      radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), rgba(255,255,255,.18) 0 1.5px, rgba(0,0,0,.5) 2.4px, transparent 3.6px);
+    position:relative; width:100%; max-width:640px; max-height:90vh; display:flex; flex-direction:column; gap:6px; padding:22px clamp(16px,4vw,30px) 18px;
+    border-radius:22px; border:1px solid color-mix(in srgb, var(--ember) 32%, rgba(255,255,255,.16));
+    background:
+      var(--shat-studs),
+      linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 40%, rgba(0,0,0,.30)),
+      linear-gradient(180deg, color-mix(in srgb, var(--tablet-2) 72%, transparent), color-mix(in srgb, var(--ground-2) 84%, transparent));
+    box-shadow:0 24px 70px rgba(0,0,0,.6), 0 0 40px color-mix(in srgb, var(--ember) 12%, transparent),
+      inset 0 1px 0 rgba(255,255,255,.3), inset 0 -18px 40px rgba(0,0,0,.28);
+    -webkit-backdrop-filter:blur(12px) saturate(1.2); backdrop-filter:blur(12px) saturate(1.2);
+    color:var(--marble, #f1ebde);
+    transform:translateY(10px) scale(.985); transition:transform .6s ease; }
+  .shat-ov.show .shat-box{ transform:none; }
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .shat-box{ background:var(--shat-studs), linear-gradient(180deg, var(--tablet-2), var(--ground-2)); }
+  }
+  @media (prefers-reduced-motion:reduce){ .shat-ov, .shat-ov.show, .shat-box{ transition:none; } }
   .shat-box h2{ margin:0; text-align:center; font-size:1.5rem; letter-spacing:.06em; color:var(--ember-soft); }
   .shat-sub{ margin:0 0 6px; text-align:center; font-size:.86rem; opacity:.85; }
   .shat-body{ overflow-y:auto; padding-right:6px; font-size:.9rem; line-height:1.5; }
@@ -4005,7 +4029,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <li><b>Ferz (consejero)</b>: la «dama» de entonces, en la columna <b>e</b>. Solo avanza <b>una casilla en diagonal</b>.</li>
         <li><b>Fil (elefante)</b>: el antiguo «alfil». Salta a la <b>segunda casilla en diagonal</b>, pasando por encima de lo que haya en medio. Solo pisa casillas de su mismo color, y por eso nunca captura a otro fil.</li>
         <li><b>Rukh (torre) y faras (caballo)</b>: se mueven exactamente igual que hoy. El rukh era el <b>carro de guerra</b>, y de ahí viene nuestra torre.</li>
-        <li><b>Peón</b>: avanza <b>una sola casilla</b> (sin salida doble ni captura al paso) y captura en diagonal. Al llegar al final se convierte siempre en <b>ferz</b>.</li>
+        <li><b>Baydaq (peón)</b>: avanza <b>una sola casilla</b> (sin salida doble ni captura al paso) y captura en diagonal. Al llegar al final se convierte siempre en <b>ferz</b>.</li>
       </ul>
       <h3>Cómo se gana</h3>
       <ul>
@@ -9426,7 +9450,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V246 · 11-oct-2026 · Móvil: el pellizco de dos dedos vuelve a hacer zoom";
+const BUILD_ID = "V247 · 11-oct-2026 · Shatranj: leyenda con fundido, cristal biselado y el Baydaq";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
