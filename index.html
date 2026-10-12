@@ -9450,7 +9450,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V247 · 11-oct-2026 · Shatranj: leyenda con fundido, cristal biselado y el Baydaq";
+const BUILD_ID = "V248 · 11-oct-2026 · claudIA tarda unos segundos en mover";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11169,7 +11169,7 @@ function maybeMachineMove(){
   if(!usesFsf && Math.random() < (CLASSIC_RANDOM_BLEND[levelAtRequest] || 0)){
     const legal = legalMoves(pos);
     if(legal.length){
-      machineThinking = true;
+      machineThinking = true; machineT0 = Date.now();
       updateMachineUI(variant);
       machineForFEN = fen;
       const mv = legal[Math.floor(Math.random() * legal.length)];
@@ -11177,11 +11177,11 @@ function maybeMachineMove(){
         machineThinking = false;
         if(!vsMachine || machineForFEN !== fen || toFEN(liveState()) !== fen){ updateMachineUI(variantOf(liveState().board)); return; }
         commitMove(mv);
-      }, 250 + Math.random() * 350); // breve pausa para que no se sienta instantáneo
+      }, machineHumanPause(legal.length)); // V248: pausa humana (antes 250-600 ms)
       return;
     }
   }
-  machineThinking = true;
+  machineThinking = true; machineT0 = Date.now();
   updateMachineUI(variant);
   machineForFEN = fen;
   if(usesFsf){
@@ -11210,23 +11210,36 @@ function maybeMachineMove(){
     });
   }
 }
+// V248: claudIA no responde al instante. Se fija una pausa "humana" total de 1,5 a 4 s (0,8 a 1,5 s si solo hay una jugada legal),
+// contada desde que empezó a pensar: si el motor ya tardó más que eso, no se agrega espera extra.
+var machineT0 = 0;
+function machineHumanPause(nLegal){
+  const target = nLegal <= 1 ? 800 + Math.random() * 700 : 1500 + Math.random() * 2500;
+  return Math.max(0, target - (Date.now() - machineT0));
+}
 function finishMachineMove(bestUci){
   sfBusy = false;
   fsfBusy = false;
-  machineThinking = false;
-  const pos = liveState();
-  const fenNow = toFEN(pos);
-  updateMachineUI(variantOf(pos.board));
   const forFEN = machineForFEN;
   machineForFEN = null;
-  // Ronda "reloj": mismo freno que en maybeMachineMove() — el tiempo pudo
-  // agotarse MIENTRAS claudIA pensaba esta jugada (fenNow sigue siendo el
-  // mismo tablero, así que fenNow===forFEN no lo detecta por sí solo).
-  if(!vsMachine || !atLive() || fenNow !== forFEN || game.result || !bestUci || bestUci === "(none)") return;
-  if(isShat(pos.board) && bestUci.length === 5) bestUci = bestUci.slice(0, 4) + "f";   // V233: el motor corona en "q" (= ferz)
-  const mv = matchUci(pos, bestUci);
-  if(!mv) return;
-  commitMove(mv);
+  const pos0 = liveState();
+  const nLegal = legalMoves(pos0).length;
+  // machineThinking sigue en true durante la pausa: el tablero la trata como "claudIA está pensando".
+  setTimeout(() => {
+    machineThinking = false;
+    const pos = liveState();
+    const fenNow = toFEN(pos);
+    updateMachineUI(variantOf(pos.board));
+    // Ronda "reloj": mismo freno que en maybeMachineMove() — el tiempo pudo
+    // agotarse MIENTRAS claudIA pensaba esta jugada (fenNow sigue siendo el
+    // mismo tablero, así que fenNow===forFEN no lo detecta por sí solo).
+    if(!vsMachine || !atLive() || fenNow !== forFEN || game.result || !bestUci || bestUci === "(none)") return;
+    let uci = bestUci;
+    if(isShat(pos.board) && uci.length === 5) uci = uci.slice(0, 4) + "f";   // V233: el motor corona en "q" (= ferz)
+    const mv = matchUci(pos, uci);
+    if(!mv) return;
+    commitMove(mv);
+  }, machineHumanPause(nLegal));
 }
 
 document.getElementById("btn-undo").onclick = () => {
