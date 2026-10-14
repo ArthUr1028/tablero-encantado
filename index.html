@@ -1191,6 +1191,29 @@
   }
   .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  /* V249: avisos de retos pendientes al entrar al Tablero (hasta 3 + «y N más»), apilados bajo el aviso global */
+  #challenge-toasts{
+    position:fixed; top:66px; left:50%; transform:translateX(-50%); z-index:9998;
+    display:flex; flex-direction:column; gap:8px; align-items:center;
+    width:min(92vw, 420px); pointer-events:none;
+  }
+  .challenge-toast{
+    position:relative; pointer-events:auto; cursor:pointer; width:100%;
+    display:flex; align-items:center; gap:10px; padding:10px 12px 10px 16px; border-radius:14px;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 42%, rgba(0,0,0,.22)), rgba(16,12,22,.46);
+    border:1px solid rgba(255,255,255,.2);
+    box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+    color:var(--text); font-size:.93rem; text-align:left;
+    opacity:0; transform:translateY(-8px); transition:opacity .6s ease, transform .6s ease;
+  }
+  .challenge-toast.show{ opacity:1; transform:translateY(0); }
+  .challenge-toast .ct-txt{ flex:1 1 auto; min-width:0; }
+  .challenge-toast .ct-x{
+    flex:0 0 auto; width:30px; height:30px; border-radius:50%; border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.07); color:var(--text); font-size:1.05rem; line-height:1; cursor:pointer;
+  }
+
   /* V214: aviso antes de reemplazar la partida del tablero (Biblioteca, Santuario, vitrina, PGN) */
   .load-ov{
     position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center;
@@ -8078,6 +8101,7 @@ async function refreshClub(){
   if(!isMember) return;
 
   await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments()]);
+  try{ announcePendingChallengesOnEntry(); }catch(e){}   // V249
   subscribeClubChannel();
   subscribePresence();
   autoReconnectLive();
@@ -8371,6 +8395,64 @@ document.getElementById("club-compose-send").onclick = async () => {
   loadClubChallenges();
 };
 
+// V249 · avisos de retos pendientes al entrar al Tablero. Una vez por sesión de cuenta y por carga de página;
+// espera a que se cierre la pantalla de entrada (la intro) para que se vean en el Tablero, no encima de ella.
+var clubIncomingCache = [];
+var entryChallengesAnnouncedFor = null;
+function announcePendingChallengesOnEntry(){
+  if(!accountProfile || entryChallengesAnnouncedFor === accountProfile.id) return;
+  entryChallengesAnnouncedFor = accountProfile.id;
+  const list = clubIncomingCache.slice();
+  if(!list.length) return;
+  const wait = n => {
+    if(document.documentElement.classList.contains("intro-abierta") && n < 240){ setTimeout(() => wait(n + 1), 500); return; }
+    setTimeout(() => showChallengeToasts(list), 700);
+  };
+  wait(0);
+}
+function showChallengeToasts(list){
+  let box = document.getElementById("challenge-toasts");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "challenge-toasts";
+    box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite");
+    document.body.appendChild(box);
+  }
+  const MAX = 3;
+  list.slice(0, MAX).forEach((ch, i) => setTimeout(() => addChallengeToast(box, ch), i * 450));
+  if(list.length > MAX) setTimeout(() => addChallengeToast(box, { more: list.length - MAX }), MAX * 450);
+}
+function addChallengeToast(box, ch){
+  const el = document.createElement("div");
+  el.className = "challenge-toast";
+  el.setAttribute("role", "button"); el.tabIndex = 0;
+  const txt = document.createElement("span");
+  txt.className = "ct-txt";
+  if(ch.more){
+    txt.textContent = "…y " + ch.more + (ch.more === 1 ? " reto más" : " retos más") + " en el panel Club.";
+  } else if(ch.torneo){
+    txt.textContent = "Torneo · " + ch.who + " te espera para jugar tu partida.";
+  } else {
+    txt.textContent = "¡" + ch.who + " te retó! · " + (VARIANT_LABEL[ch.variant] || ch.variant) + (ch.async_days ? " · asíncrona" : "");
+  }
+  const x = document.createElement("button");
+  x.type = "button"; x.className = "ct-x"; x.textContent = "×"; x.setAttribute("aria-label", "Cerrar aviso");
+  el.appendChild(txt); el.appendChild(x);
+  let gone = false;
+  const close = () => {
+    if(gone) return; gone = true;
+    el.classList.remove("show");
+    setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 700);
+  };
+  x.onclick = ev => { ev.stopPropagation(); close(); };
+  const open = () => { close(); try{ openPanelAligned(clubPanelEl); }catch(e){} };
+  el.onclick = open;
+  el.onkeydown = ev => { if(ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); open(); } };
+  box.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("show")));
+  setTimeout(close, 14000);
+}
+
 async function loadClubChallenges(){
   const mySeq = ++clubChallengesSeq;
   const { data: incoming, error: inErr } = await withAsyncCols(ok => sb.from("game_challenges")
@@ -8380,6 +8462,11 @@ async function loadClubChallenges(){
   if(mySeq !== clubChallengesSeq) return;
   if(inErr){ clubNote("No se pudieron cargar los retos recibidos: " + inErr.message, true); }
   clubChallengesInEl.innerHTML = "";
+  // V249: lista de retos recibidos, para el aviso al entrar
+  clubIncomingCache = (incoming || []).map(ch => ({
+    id: ch.id, variant: ch.variant, async_days: ch.async_days || null, torneo: !!ch.tournament_match_id,
+    who: ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "Alguien"
+  }));
   if(!incoming || incoming.length === 0){
     clubChallengesInEl.innerHTML = "";   // V152: sin retos, el grupo entero se oculta (clubSyncGroups)
   } else {
@@ -9417,14 +9504,9 @@ function updateLiveBanner(){
   if(rn) rn.disabled = !!liveGame;
   const cw = document.getElementById("chat-widget");
   if(cw) cw.hidden = !liveGame;
-  // El chat no sobrevive a la partida (migración 08 borra los mensajes al
-  // terminar): con resultado puesto ya no se puede escribir.
-  const ci = document.getElementById("chat-input"), cs = document.getElementById("chat-send");
-  if(ci && cs){
-    const over = !!(liveGame && game.result);
-    ci.disabled = over; cs.disabled = over;
-    ci.placeholder = over ? "Partida terminada" : "Mensaje…";
-  }
+  // V249: el chat sigue abierto tras la partida mientras la ventana de la migración 15 esté
+  // abierta y el rival no haya salido (sin esa migración se comporta como antes).
+  refreshChatInput();
   if(!liveGame){ banner.hidden = true; try{ updateZenLiveMenu(); }catch(e){} return; }
   banner.hidden = false;
   updateDrawUI();
@@ -9450,7 +9532,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V248 · 11-oct-2026 · claudIA tarda unos segundos en mover";
+const BUILD_ID = "V249 · 13-oct-2026 · el chat sigue tras la partida; avisos de retos al entrar";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -9505,6 +9587,18 @@ function applyGameRow(row){
     }
   }
   liveGame.drawOfferedBy = row.draw_offered_by || null;
+  // V249 · chat tras la partida: la fila trae (si la migración 15 corrió) la ventana y quién salió.
+  if(row.chat_closes_at !== undefined){
+    const hadWindow = !!liveGame.chatClosesAt;
+    liveGame.chatClosesAt = row.chat_closes_at ? new Date(row.chat_closes_at).getTime() : null;
+    const oppLeftAt = liveGame.myColor === "w" ? row.black_left_at : row.white_left_at;
+    const wasLeft = !!liveGame.oppLeftChat;
+    liveGame.oppLeftChat = !!oppLeftAt;
+    const over = !!(row.result || game.result);
+    if(over && liveGame.chatClosesAt && !hadWindow) chatNote("La partida terminó. Pueden seguir hablando hasta que salgan de ella.");
+    if(over && liveGame.oppLeftChat && !wasLeft) chatNote(liveGame.opponentName + " salió de la partida. El chat se cerró.");
+    refreshChatInput();
+  }
   // Reloj en vivo: este es el único punto por el que pasan TODAS las fuentes
   // de una fila `games` fresca (Realtime, resync cada 5s, volver a la
   // pestaña) — sincronizar acá cubre los tres caminos con un solo código.
@@ -9598,6 +9692,44 @@ setInterval(() => {
    Además se relee por id > último cada 5 s (mismo respaldo que las jugadas).
    Todo el texto entra al DOM con textContent. */
 let chatMsgs = [], chatIds = new Set(), chatOpen = false, chatUnread = 0, chatChannel = null, chatBroken = false;
+// V249 · el chat sigue tras la partida (migración 15_chat_tras_partida.sql).
+// - liveGame.chatClosesAt: instante (ms) en que vence la ventana de chat tras el final; null = sin migración
+//   o partida anterior a ella -> el chat se cierra al terminar, como antes.
+// - liveGame.oppLeftChat: el rival ya salió de la partida terminada -> nadie leería lo que escribas.
+var chatExpiryTimer = null;
+function chatWritable(){
+  if(!liveGame) return false;
+  if(!game.result) return true;
+  if(!liveGame.chatClosesAt) return false;
+  if(liveGame.oppLeftChat) return false;
+  return Date.now() < liveGame.chatClosesAt;
+}
+function refreshChatInput(){
+  const ci = document.getElementById("chat-input"), cs = document.getElementById("chat-send");
+  if(!ci || !cs) return;
+  const ok = !liveGame || chatWritable();
+  ci.disabled = !ok; cs.disabled = !ok;
+  let ph = "Mensaje…";
+  if(!ok){
+    if(liveGame && liveGame.oppLeftChat) ph = "Tu rival salió de la partida";
+    else if(liveGame && liveGame.chatClosesAt) ph = "Chat cerrado";
+    else ph = "Partida terminada";
+  }
+  ci.placeholder = ph;
+  clearTimeout(chatExpiryTimer);
+  if(liveGame && game.result && liveGame.chatClosesAt && ok){
+    const ms = liveGame.chatClosesAt - Date.now();
+    if(ms > 0) chatExpiryTimer = setTimeout(() => {
+      if(liveGame){ chatNote("El chat de esta partida se cerró."); refreshChatInput(); }
+    }, Math.min(ms + 300, 2147000000));
+  }
+}
+// Avisa al servidor que salí de una partida terminada; cuando salen los dos, borra los mensajes.
+function leaveChatOf(gameId){
+  try{
+    Promise.resolve(sb.rpc("leave_game_chat", { p_game_id: String(gameId) })).then(() => {}, () => {});
+  }catch(e){}
+}
 const chatLogEl = document.getElementById("chat-log");
 const chatWidgetEl = document.getElementById("chat-widget");
 const chatPanelEl = document.getElementById("chat-panel");
@@ -9718,7 +9850,12 @@ async function sendChat(text){
   const { data, error } = await sb.from("game_messages")
     .insert({ game_id: liveGame.id, sender_id: accountProfile.id, body: text.slice(0, 300) })
     .select("id, sender_id, body, created_at").single();
-  if(error){ chatNote("No se pudo enviar: " + error.message); return; }
+  if(error){
+    if(error.code === "42501" || /row-level security/i.test(error.message || "")){
+      chatNote("El chat de esta partida ya está cerrado."); refreshChatInput();
+    } else chatNote("No se pudo enviar: " + error.message);
+    return;
+  }
   addChatMessages([data], false);
 }
 // Ronda "desvanecido al cerrar" (2026-09-26): cerrar ya no es instantáneo
@@ -9932,6 +10069,8 @@ function exitLiveGame(opts){
   if(!liveGame) return;
   if(liveChannel){ sb.removeChannel(liveChannel); liveChannel = null; }
   stopChat();
+  clearTimeout(chatExpiryTimer);
+  if(game.result) leaveChatOf(liveGame.id);   // V249: salir de una partida terminada cuenta para cerrar su chat
   stopLiveClockTicking();
   liveGame = null;
   clearLiveKey();
