@@ -5336,13 +5336,39 @@ let liveGame = null;
 function liveLocked(){ return !!liveGame && !(game && game.result); }
 /* V212: tras cargar una partida o entrar a una en vivo, se va al tablero con «La Partida» abierta (navegación y notación a la mano).
    En pantalla completa ese panel no existe. Se espera un instante para que cierre el fundido de la vitrina / Santuario. */
-function openPartidaPanel(){
+// V253: interfaz de celular = táctil sin hover, o pantalla angosta (mismo criterio que la tira del cementerio).
+function isPhoneUI(){
+  return !!(window.matchMedia && (window.matchMedia("(hover:none) and (pointer:coarse)").matches || window.matchMedia("(max-width:880px)").matches));
+}
+// V253: lleva la vista al tablero (con su rótulo de jugador arriba), suave; el tablero está ARRIBA de los paneles, así que abrir o cerrar
+// paneles no lo mueve. Se reintenta una vez por si algún fundido recolocó la página.
+function scrollToBoardOnPhone(){
+  const reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const target = () => {
+    const el = document.querySelector(".board-area");
+    if(!el) return null;
+    return Math.max(0, Math.round(window.scrollY + el.getBoundingClientRect().top - 8));
+  };
+  const go = (smooth) => { const y = target(); if(y !== null && Math.abs(y - window.scrollY) > 2) window.scrollTo({ top: y, behavior: (smooth && !reduce) ? "smooth" : "auto" }); };
+  setTimeout(() => go(true), 120);
+  setTimeout(() => go(false), 900);
+}
+// Al INICIAR una partida: en el celular se abre «La Partida» pero la vista se queda en el tablero; en escritorio, como siempre.
+function openPartidaPanelOnStart(){
+  if(isPhoneUI() && !(zenMode || document.body.classList.contains("zen-mode"))){ openPartidaPanel({ toBoard:true }); return; }
+  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
+}
+function openPartidaPanel(opts){
+  const toBoard = !!(opts && opts.toBoard) && isPhoneUI();
   const go = () => {
     try{
       const pn = document.getElementById("panel-partida");
-      if(pn && !pn.hidden && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn);
+      if(pn && !pn.hidden && !(zenMode || document.body.classList.contains("zen-mode"))){
+        if(toBoard) expandPanelExclusive(pn); else openPanelAligned(pn);
+      }
     }catch(e){}
   };
+  if(toBoard) scrollToBoardOnPhone();
   go();
   setTimeout(go, 450);   // por si un fundido o el cambio de modo recolocó la página
 }
@@ -5408,10 +5434,14 @@ function persist(){
     }));
   }catch(e){}
 }
-function restore(){
+// V253: al ABRIR el Tablero siempre arranca en Modo Libre (forceFree), salvo que haya un reto de claudIA guardado a medias: retoRestore()
+// exige Modo Partida y, sin él, el reto se perdería en silencio. Al volver de una partida en vivo se sigue restaurando el modo de antes.
+function restore(forceFree){
   let saved = null;
   try{ saved = JSON.parse(localStorage.getItem(STORE) || "null"); }catch(e){}
-  currentMode = saved?.mode === "free" ? "free" : "play";
+  let retoGuardado = false;
+  try{ retoGuardado = !!localStorage.getItem("tablero-encantado.reto.v1"); }catch(e){}
+  currentMode = (forceFree && !retoGuardado) ? "free" : (saved?.mode === "free" ? "free" : "play");
   flipped = !!saved?.flipped;
   if(saved?.startFEN){
     newGame(saved.startFEN, {
@@ -7747,7 +7777,7 @@ const VARIANT_START = { clasico: START, capablanca: CAPABLANCA_START, maharaja: 
 function startFreshClassic(){
   try{
     if(retoActive || liveGame) return false;
-    if(currentMode !== "play") setMode("play");
+    if(currentMode !== "free") setMode("free");   // V253: se entra en Modo Libre (antes, Partida)
     switchVariant("clasico");
     return true;
   }catch(e){ return false; }
@@ -8962,7 +8992,7 @@ async function retoStart(){
   persist(); render();
   retoSave();
   // V185: al empezar el reto se despliega «La Partida» (controles, Abandonar reto y jugadas); acordeón: cierra el que estuviera abierto.
-  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
+  openPartidaPanelOnStart();   // V253: en el celular, la vista va al tablero
   showGlobalToast("claudIA eligió " + RETO_TABLE[variant].label + ": tú llevas " + (color === "w" ? "blancas" : "negras") + ". ¡Suerte!");
 }
 function retoRestore(){
@@ -9703,7 +9733,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V252 · 13-oct-2026 · shatranj: fichas de arcilla antigua; la leyenda entra suave";
+const BUILD_ID = "V253 · 13-oct-2026 · se abre en Modo Libre; en el celular, al iniciar se va al tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10230,7 +10260,7 @@ async function enterLiveGameInner(row){
   persist(); render();
   updateLiveBanner();
   clubNote("");
-  openPartidaPanel();   // V212: al aceptar un reto (ambos lados) o reabrir una partida en vivo, «La Partida» queda abierta
+  openPartidaPanel({ toBoard:true });   // V212: al aceptar un reto (ambos lados) o reabrir una partida en vivo, «La Partida» queda abierta (V253: en el celular la vista va al tablero)
 }
 
 // V150: opts.restore = vuelve a la partida local de antes; opts.keepFrozen = se está cambiando de
@@ -10760,7 +10790,7 @@ document.getElementById("match-start").onclick = () => {
   matchPaused = false;
   persist(); render();
   // V208: al iniciar se abre «La Partida» (notación y botones a la mano); acordeón: cierra Modalidad. En pantalla completa ese panel no existe.
-  try{ const pn = document.getElementById("panel-partida"); if(pn && !(zenMode || document.body.classList.contains("zen-mode"))) openPanelAligned(pn); }catch(e){}
+  openPartidaPanelOnStart();   // V253: en el celular, la vista va al tablero
 };
 document.getElementById("match-pause").onclick = () => {
   if(currentMode !== "play" || !matchStarted || game.result) return;
@@ -15098,7 +15128,7 @@ initCollapsiblePanels();
 // llama a resetClock() — sin esto, el primer resetClock() de la sesión
 // correría con los valores por defecto del código, no los guardados.
 restoreClockPrefs();
-restore();
+restore(true);
 restoreMachinePrefs();
 retoRestore();
 applyAutoNames();
