@@ -3842,6 +3842,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
             </div>
           </div>
           <div class="btns">
+            <button class="btn" id="live-game-rematch" hidden>Pedir revancha</button>
             <button class="btn" id="live-game-draw">Ofrecer tablas</button>
             <button class="btn" id="live-game-pause" hidden>Pausa</button>
             <button class="btn" id="live-game-claim" hidden>Reclamar victoria (plazo vencido)</button>
@@ -7380,6 +7381,11 @@ document.getElementById("btn-branch-back").onclick = () => { branch = null; sele
 /* ============================ Jugadas ============================ */
 let animFrom = null;
 
+// V250: partida cargada y todavía sin «Iniciar» (matchStarted lo apaga newGame()). No aplica a vivo, reto ni claudIA.
+function studyLoaded(){
+  return currentMode === "play" && !matchStarted && !matchPaused && !liveGame && !retoActive && !vsMachine &&
+    !!(game && game.sans && game.sans.length > 0);
+}
 function tryMove(from, to){
   if(currentMode === "free"){ freeMove(from, to); return; }
   // Ronda "Iniciar realmente inicia la partida" (2026-09-17): antes, solo
@@ -7389,13 +7395,18 @@ function tryMove(from, to){
   // que ninguna jugada (Solitario o contra claudIA) se acepta hasta
   // pulsarlo, ni mientras esté en Pausa. Modo Libre queda afuera (ya
   // retornó arriba): ahí no hay partida que iniciar.
-  if(!matchStarted || matchPaused) return;
+  // V250: una partida CARGADA (Biblioteca, Santuario, PGN) llega sin «Iniciar»; aun así se puede explorar:
+  // mover en una jugada anterior abre una variante (lo de siempre). Una partida en pausa o por empezar sigue frenada.
+  if(!matchStarted || matchPaused){ if(!studyLoaded()) return; }
   if(retoActive && (!atLive() || branch)) return;
   // Fase 2 · paso 4: en partida en vivo, ni navegar a una jugada anterior
   // ni mover fuera de tu turno (ver también canPick(), que ya bloquea
   // TOMAR una pieza que no es tuya — esto es la segunda guarda, por si
   // algo llega a intentar mover sin pasar por canPick primero).
-  if(liveGame && (!atLive() || game.result || liveGame.pausedBy || liveState().turn !== liveGame.myColor)) return;
+  // V250: una partida en vivo ya TERMINADA se puede explorar (nunca una en curso): solo se abren variantes
+  // retrocediendo, jamás se añade nada a la partida real ni se envía nada al servidor.
+  if(liveGame && game.result){ if(!branch && atLive()) return; }
+  else if(liveGame && (!atLive() || game.result || liveGame.pausedBy || liveState().turn !== liveGame.myColor)) return;
   const pos = liveState();
   const candidates = legalMoves(pos).filter(m => sameSq(m.from, from) && sameSq(m.to, to));
   if(!candidates.length) return;
@@ -7462,9 +7473,9 @@ function commitMove(mv){
   // quien mueve nunca espere a la red. pushLiveMove() ya avisa jaque/mate/
   // tablas por su cuenta (con perspectiva de "yo"); en Solitario/Máquina no
   // hay red que esperar, así que se avisa acá mismo.
-  if(liveGame){
+  if(liveGame && !game.result){
     pushLiveMove();
-  } else {
+  } else if(!liveGame){
     announceCheckOrMate(oc, vsMachine ? machineHumanColor : null);
     const dtxt = drawToastText(oc);
     if(dtxt) showGlobalToast(dtxt);
@@ -7526,6 +7537,11 @@ function canPick(r,c){
   // piezas del propio color, incluso durante el turno del rival (sin esto,
   // cualquiera de los dos podría "mover" las piezas del otro en su propia
   // pantalla mientras no es su turno — un bug real que se evitó a propósito).
+  if(liveGame && game.result){
+    // V250: terminada -> exploración libre de ambos bandos, pero solo dentro de una variante o retrocediendo.
+    if(!branch && atLive()) return false;
+    return p[0] === liveState().turn;
+  }
   if(liveGame && (!atLive() || p[0] !== liveGame.myColor || game.result || liveGame.pausedBy)) return false;
   // Fase 3: en turno de la Máquina no se puede tomar ninguna pieza, ni
   // siquiera las propias — evita adelantarse mientras el motor piensa.
@@ -8147,8 +8163,16 @@ function subscribeClubChannel(){
 // (game_challenges solo trae el uuid en created_by), así que se pide su
 // perfil aparte, igual que ya hace enterLiveGameInner() con el rival.
 async function handleIncomingChallenge(payload){
-  loadClubChallenges();
   const row = payload.new;
+  // V250: ¿es la revancha del rival de la partida terminada que tengo en pantalla?
+  const isRematch = !!(row && liveGame && game.result && row.created_by === rematchOpp() && row.variant === liveGame.variant &&
+                       !row.async_days && !row.tournament_match_id);
+  if(isRematch){
+    await loadClubChallenges();
+    if(liveGame && game.result && !rematchSent() && !rematchBusy) showGlobalToast("¡" + liveGame.opponentName + " te ofrece la revancha!");
+    return;
+  }
+  loadClubChallenges();
   if(!row || !row.created_by) return;
   const { data: p } = await sb.from("profiles")
     .select("username, display_name").eq("id", row.created_by).maybeSingle();
@@ -8190,7 +8214,9 @@ async function handleMyChallengeAccepted(payload){
   const { data: oppProfile } = await sb.from("profiles")
     .select("username, display_name").eq("id", oppId).maybeSingle();
   const oppName = oppProfile ? (oppProfile.display_name || oppProfile.username) : "tu rival";
+  const wasRematch = !!(liveGame && game.result && row.invited_id === rematchOpp());   // V250
   await enterLiveGame(g);
+  if(wasRematch) return;     // revancha aceptada: se pasa directo a la segunda partida
   clubNote("¡" + oppName + " aceptó tu reto! Partida iniciada.");
   showGlobalToast("¡" + oppName + " aceptó tu reto! La partida ya empezó.");
 }
@@ -8398,6 +8424,80 @@ document.getElementById("club-compose-send").onclick = async () => {
 // V249 · avisos de retos pendientes al entrar al Tablero. Una vez por sesión de cuenta y por carga de página;
 // espera a que se cierre la pantalla de entrada (la intro) para que se vean en el Tablero, no encima de ella.
 var clubIncomingCache = [];
+/* ---- V250 · Revancha ----
+   Al terminar una partida en vivo (no asíncrona) aparece «Pedir revancha». Es un reto normal del Club (misma variante y
+   reloj, colores invertidos): el rival tiene que ACEPTAR. No hay migración nueva: todo se deduce de los retos pendientes.
+   Si los dos la piden a la vez, el de id menor acepta el reto del otro y cancela el suyo, en silencio: ambos pasan
+   directo a la segunda partida. */
+var clubOutgoingCache = [];
+var rematchBusy = false;
+function rematchOpp(){ return liveGame ? (liveGame.myColor === "w" ? liveGame.blackId : liveGame.whiteId) : null; }
+function rematchEligible(){ return !!(liveGame && game.result && !liveGame.asyncDays && accountProfile); }
+function rematchSent(){
+  const o = rematchOpp(); if(!o || !liveGame) return null;
+  return clubOutgoingCache.find(c => c.invited_id === o && c.variant === liveGame.variant && !c.async_days) || null;
+}
+function rematchIncoming(){
+  const o = rematchOpp(); if(!o || !liveGame) return null;
+  return clubIncomingCache.find(c => c.by === o && c.variant === liveGame.variant && !c.async_days && !c.torneo) || null;
+}
+function updateRematchUI(refreshZen){
+  const b = document.getElementById("live-game-rematch");
+  if(!b) return;
+  if(!rematchEligible()){ b.hidden = true; if(refreshZen) try{ updateZenLiveMenu(); }catch(e){} return; }
+  b.hidden = false;
+  const inc = rematchIncoming(), sent = rematchSent();
+  if(sent){ b.textContent = "Revancha pedida… (cancelar)"; b.disabled = false; }
+  else if(inc){ b.textContent = "Aceptar la revancha de " + liveGame.opponentName; b.disabled = rematchBusy; }
+  else { b.textContent = "Pedir revancha"; b.disabled = rematchBusy; }
+  if(refreshZen) try{ updateZenLiveMenu(); }catch(e){}
+  maybeResolveSimultaneous();
+}
+var rematchTried = {};     // un solo intento automático por reto: si falla, queda el botón manual (no reintenta en bucle)
+async function maybeResolveSimultaneous(){
+  if(rematchBusy || !rematchEligible()) return;
+  const inc = rematchIncoming(), sent = rematchSent();
+  if(!inc || !sent) return;
+  if(accountProfile.id > rematchOpp()) return;     // desempate: acepta el de id menor; el otro entra cuando lo aceptan
+  if(rematchTried[inc.id]) return;
+  rematchTried[inc.id] = true;
+  rematchBusy = true;
+  try{
+    const ok = await respondClubChallenge(inc.id, true, null, { silent: true });
+    if(ok !== false){ try{ await sb.rpc("cancel_challenge", { p_challenge_id: sent.id }); }catch(e){} }   // el mío ya no hace falta
+  } finally { rematchBusy = false; }
+}
+async function requestRematch(){
+  if(!rematchEligible() || rematchBusy) return;
+  const g = liveGame, opp = rematchOpp();
+  const sent = rematchSent(), inc = rematchIncoming();
+  if(sent){      // ya la pedí: este botón la cancela
+    rematchBusy = true;
+    const { error } = await sb.rpc("cancel_challenge", { p_challenge_id: sent.id });
+    rematchBusy = false;
+    if(error) showGlobalToast("No se pudo cancelar la revancha: " + error.message);
+    await loadClubChallenges();
+    return;
+  }
+  if(inc){       // él ya la pidió: aceptarla
+    rematchBusy = true;
+    try{ await respondClubChallenge(inc.id, true, null); } finally { rematchBusy = false; }
+    return;
+  }
+  rematchBusy = true; updateRematchUI(true);
+  const { error } = await sb.rpc("send_challenge", {
+    p_invited_id: opp,
+    p_variant: g.variant,
+    p_creator_color: g.myColor === "w" ? "negras" : "blancas",     // colores invertidos
+    p_time_initial: g.timeInitialSec == null ? null : g.timeInitialSec,
+    p_time_increment: g.timeInitialSec == null ? null : (g.timeIncSec || 0)
+  });
+  rematchBusy = false;
+  if(error){ showGlobalToast("No se pudo pedir la revancha: " + asyncErrorText(error)); updateRematchUI(true); return; }
+  showGlobalToast("Revancha pedida a " + g.opponentName + ".");
+  await loadClubChallenges();    // refresca «pedida» y resuelve el empate si él también la había pedido
+}
+document.getElementById("live-game-rematch").onclick = requestRematch;
 var entryChallengesAnnouncedFor = null;
 function announcePendingChallengesOnEntry(){
   if(!accountProfile || entryChallengesAnnouncedFor === accountProfile.id) return;
@@ -8456,7 +8556,7 @@ function addChallengeToast(box, ch){
 async function loadClubChallenges(){
   const mySeq = ++clubChallengesSeq;
   const { data: incoming, error: inErr } = await withAsyncCols(ok => sb.from("game_challenges")
-    .select("id, variant, status, created_at, tournament_match_id" + (ok ? ", async_days" : "") + ", profiles!game_challenges_created_by_fkey(username, display_name)")
+    .select("id, created_by, variant, status, created_at, tournament_match_id" + (ok ? ", async_days" : "") + ", profiles!game_challenges_created_by_fkey(username, display_name)")
     .eq("invited_id", accountProfile.id).eq("status", "pendiente")
     .order("created_at", { ascending: false }));
   if(mySeq !== clubChallengesSeq) return;
@@ -8464,7 +8564,7 @@ async function loadClubChallenges(){
   clubChallengesInEl.innerHTML = "";
   // V249: lista de retos recibidos, para el aviso al entrar
   clubIncomingCache = (incoming || []).map(ch => ({
-    id: ch.id, variant: ch.variant, async_days: ch.async_days || null, torneo: !!ch.tournament_match_id,
+    id: ch.id, by: ch.created_by, variant: ch.variant, async_days: ch.async_days || null, torneo: !!ch.tournament_match_id,
     who: ch.profiles ? (ch.profiles.display_name || ch.profiles.username) : "Alguien"
   }));
   if(!incoming || incoming.length === 0){
@@ -8481,11 +8581,12 @@ async function loadClubChallenges(){
   }
 
   const { data: outgoing, error: outErr } = await withAsyncCols(ok => sb.from("game_challenges")
-    .select("id, variant, status, created_at" + (ok ? ", async_days" : "") + ", profiles!game_challenges_invited_id_fkey(username, display_name)")
+    .select("id, invited_id, variant, status, created_at" + (ok ? ", async_days" : "") + ", profiles!game_challenges_invited_id_fkey(username, display_name)")
     .eq("created_by", accountProfile.id).eq("status", "pendiente")
     .order("created_at", { ascending: false }));
   if(mySeq !== clubChallengesSeq) return;
   if(outErr){ clubNote("No se pudieron cargar tus retos enviados: " + outErr.message, true); }
+  clubOutgoingCache = (outgoing || []).map(ch => ({ id: ch.id, invited_id: ch.invited_id, variant: ch.variant, async_days: ch.async_days || null }));   // V250
   clubChallengesOutEl.innerHTML = "";
   if(!outgoing || outgoing.length === 0){
     clubChallengesOutEl.innerHTML = "";
@@ -8498,6 +8599,7 @@ async function loadClubChallenges(){
     });
   }
   clubLoaded.ch = true; clubSyncGroups();
+  try{ updateRematchUI(true); }catch(e){}   // V250: la revancha depende de los retos pendientes
 }
 
 // Fase 2 · paso 4 (ronda "reto simple", 2026-09-24): Arthur pidió que el
@@ -8506,13 +8608,13 @@ async function loadClubChallenges(){
 // "Jugar" a mano (eso era además lo que lo tenía mirando esa lista justo
 // cuando podía refrescarse dos veces seguidas y parecer duplicada). Quien
 // acepta entra derecho al tablero en vivo.
-async function respondClubChallenge(id, accept, asyncDays){
+async function respondClubChallenge(id, accept, asyncDays, opts){
   clubNote(accept ? "Aceptando reto…" : "Rechazando reto…");
   // V150: un reto asíncrono se responde con su función propia (copia el plazo a la partida).
   const { data: gameId, error } = await sb.rpc(asyncDays ? "respond_async_challenge" : "respond_challenge", { p_challenge_id: id, p_accept: accept });
-  if(error){ clubNote("No se pudo responder: " + asyncErrorText(error), true); return; }
+  if(error){ clubNote("No se pudo responder: " + asyncErrorText(error), true); return false; }   // V250: false = falló
   loadClubChallenges();
-  if(!accept){ clubNote("Reto rechazado."); return; }
+  if(!accept){ clubNote("Reto rechazado."); return true; }
   if(asyncDays){
     // Una asíncrona NO abre el tablero sola: juegas cuando quieras, desde el aviso o el panel Club.
     clubNote("¡Partida asíncrona creada! Aparece abajo, en «Partidas en curso».");
@@ -8525,6 +8627,7 @@ async function respondClubChallenge(id, accept, asyncDays){
     .select("id, variant, status, white_id, black_id").eq("id", gameId).maybeSingle();
   if(gErr || !row){ clubNote("¡Partida creada! Ya aparece abajo, en «Partidas en curso»."); loadClubActiveGames(); return; }
   await enterLiveGame(row);
+  if(opts && opts.silent) return;     // V250: revancha pedida por los dos a la vez -> directo, sin avisos
   clubNote("¡Partida iniciada!");
   showGlobalToast("¡Partida iniciada! Ya puedes jugar.");
 }
@@ -9510,10 +9613,11 @@ function updateLiveBanner(){
   if(!liveGame){ banner.hidden = true; try{ updateZenLiveMenu(); }catch(e){} return; }
   banner.hidden = false;
   updateDrawUI();
+  try{ updateRematchUI(); }catch(e){}   // V250
   const misTurno = liveState().turn === liveGame.myColor;
   note.textContent = "Jugando en vivo contra " + liveGame.opponentName + " · " + VARIANT_LABEL[liveGame.variant] +
     " · juegas " + (liveGame.myColor === "w" ? "blancas" : "negras") + " · " + BUILD_ID.split(" · ")[0] +
-    (game.result ? " · partida terminada (" + game.result + ")" : (livePauseActive() ? " · en pausa" : (misTurno ? " · tu turno" : " · turno del rival")));
+    (game.result ? " · partida terminada (" + game.result + ") · retrocede y prueba otras jugadas" : (livePauseActive() ? " · en pausa" : (misTurno ? " · tu turno" : " · turno del rival")));
   try{ updateAsyncBanner(); }catch(e){} // V150
   try{ updateZenLiveMenu(); }catch(e){} // V149: después de updateDrawUI(), cuyo estado espeja
 }
@@ -9532,7 +9636,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V249 · 13-oct-2026 · el chat sigue tras la partida; avisos de retos al entrar";
+const BUILD_ID = "V250 · 13-oct-2026 · revancha inmediata; explorar variantes en partidas cargadas";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10917,14 +11021,15 @@ function ensureZenLiveMenu(){
   const decline = mk("button", "btn", "Rechazar"); decline.type = "button";
   offerBtns.appendChild(accept); offerBtns.appendChild(decline);
   offer.appendChild(offerNote); offer.appendChild(offerBtns);
+  const rematch = mk("button", "btn", "Pedir revancha"); rematch.type = "button"; rematch.hidden = true;   // V250
   const pause = mk("button", "btn", "Pausa"); pause.type = "button";
   const draw = mk("button", "btn", "Ofrecer tablas"); draw.type = "button";
   const resign = mk("button", "btn", "Rendirse"); resign.type = "button";
   const exit = mk("button", "btn", "Salir de la partida en vivo"); exit.type = "button";
-  [title, offer, pause, draw, resign, exit].forEach(e => menu.appendChild(e));
+  [title, offer, rematch, pause, draw, resign, exit].forEach(e => menu.appendChild(e));
   document.body.appendChild(menu);
   zenMenuEl = menu;
-  zenMenuParts = { title, offer, offerNote, accept, decline, pause, draw, resign, exit };
+  zenMenuParts = { title, offer, offerNote, accept, decline, rematch, pause, draw, resign, exit };
 
   const via = origId => () => {
     const o = document.getElementById(origId);
@@ -10933,6 +11038,7 @@ function ensureZenLiveMenu(){
   };
   accept.onclick = via("live-draw-accept");
   decline.onclick = via("live-draw-decline");
+  rematch.onclick = via("live-game-rematch");
   pause.onclick = via("live-game-pause");
   draw.onclick = via("live-game-draw");
   resign.onclick = via("live-game-resign");
@@ -10983,6 +11089,7 @@ function updateZenLiveMenu(){
     item.disabled = !!orig.disabled;
     item.title = orig.title || "";
   };
+  mirror(P.rematch, byId("live-game-rematch"));
   mirror(P.pause, byId("live-game-pause"));
   mirror(P.draw, byId("live-game-draw"));
   mirror(P.resign, byId("live-game-resign"));
@@ -12280,7 +12387,7 @@ async function loadSavedGame(id){
     result: g.result || "", resultNote: g.resultNote || ""
   });
   if(game !== prev) rememberBoardGame();
-  libNote("Cargada «" + g.name + "» — avanza con →");
+  libNote("Cargada «" + g.name + "» — avanza con →. Mueve una pieza en cualquier jugada para explorar otra variante.");
   openPartidaPanel();
 }
 
