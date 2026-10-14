@@ -7764,7 +7764,7 @@ document.getElementById("variant-clasica").onclick = () => { if(variantOf(liveSt
 document.getElementById("variant-capablanca").onclick = () => { if(variantOf(liveState().board) !== "capablanca") switchVariant("capablanca"); };
 document.getElementById("variant-maharaja").onclick = () => { if(variantOf(liveState().board) !== "maharaja") switchVariant("maharaja"); };
 document.getElementById("variant-amazonas").onclick = () => { if(variantOf(liveState().board) !== "amazonas") switchVariant("amazonas"); };
-document.getElementById("variant-shatranj").onclick = () => { if(variantOf(liveState().board) !== "shatranj"){ switchVariant("shatranj"); openShatLegend(); } };
+document.getElementById("variant-shatranj").onclick = () => { if(variantOf(liveState().board) !== "shatranj"){ openShatLegendThen(() => switchVariant("shatranj")); } };
 document.getElementById("shat-info").onclick = () => openShatLegend();
 
 // Se llama desde render() en cada refresco: nada aquí depende de que el
@@ -9703,7 +9703,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V252 · 13-oct-2026 · shatranj: fichas de arcilla antigua en arco";
+const BUILD_ID = "V252 · 13-oct-2026 · shatranj: fichas de arcilla antigua; la leyenda entra suave";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -12609,6 +12609,22 @@ document.getElementById("pgn-import").onclick = async () => {
 
 /* ---------- V233 · leyenda y reglas del Shatranj ---------- */
 const shatOv = document.getElementById("shat-ov");
+// V252: al CAMBIAR a shatranj, reconstruir el tablero (con todas sus piezas) ocupaba justo los primeros cuadros del fundido de la
+// leyenda, que entraba a tirones y con el tablero cambiando a la vista. Ahora la leyenda se abre PRIMERO (el mismo fundido tranquilo del
+// botón «Leyenda y reglas») y el cambio de modalidad se hace cuando el velo ya es casi opaco, así el tablero cambia por detrás.
+function openShatLegendThen(fn){
+  openShatLegend();
+  let hecho = false;
+  const ir = () => {
+    if(hecho) return; hecho = true;
+    shatOv.removeEventListener("transitionend", alFin);
+    setTimeout(() => { try{ fn(); }catch(e){ console.error(e); } }, 60);
+  };
+  const alFin = e => { if(e.target === shatOv && e.propertyName === "opacity") ir(); };
+  shatOv.addEventListener("transitionend", alFin);
+  const quieto = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  setTimeout(ir, quieto ? 50 : 1300);   // respaldo por si el fundido no llega a terminar
+}
 function openShatLegend(){ shatOv.classList.add("show"); shatOv.setAttribute("aria-hidden", "false"); try{ document.getElementById("shat-ok").focus(); }catch(e){} }
 function closeShatLegend(){ shatOv.classList.remove("show"); shatOv.setAttribute("aria-hidden", "true"); }
 document.getElementById("shat-ok").onclick = closeShatLegend;
@@ -12986,8 +13002,7 @@ async function hofPlayShatranj(){
   if(!(await confirmReplaceGame())) return;
   closeHallOfFame();
   if(currentMode !== "play") setMode("play");
-  if(variantOf(liveState().board) !== "shatranj") switchVariant("shatranj");
-  openShatLegend();
+  openShatLegendThen(() => { if(variantOf(liveState().board) !== "shatranj") switchVariant("shatranj"); });
 }
 async function hofLoadGame(g){
   if(!(await confirmReplaceGame())) return;   // V214: si se cancela, el Santuario se queda abierto
