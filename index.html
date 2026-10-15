@@ -7677,7 +7677,23 @@ function canPick(r,c){
   return p[0] === liveState().turn;
 }
 
+// V257 · pellizco sobre el tablero: se cuentan los dedos puestos. Con 2 o más es un gesto de zoom del navegador,
+// nunca una jugada: se descarta el arrastre y el toque pendiente, sin seleccionar ni mover nada.
+const boardTouches = new Set();
+let pendingTap = null;
+["pointerup","pointercancel"].forEach(ev => document.addEventListener(ev, e => { boardTouches.delete(e.pointerId); }, true));   // por si el dedo se levanta fuera del tablero
+function abortBoardGesture(){
+  pendingTap = null;
+  if(!drag) return;
+  const d = drag; drag = null;
+  if(d.float) d.float.remove();
+  if(d.glyph) d.glyph.classList.remove("dragging");
+}
 boardEl.addEventListener("pointerdown", e => {
+  if(e.pointerType === "touch"){
+    boardTouches.add(e.pointerId);
+    if(boardTouches.size > 1){ abortBoardGesture(); return; }
+  }
   const cell = e.target.closest(".cell");
   if(!cell) return;
   const r = +cell.dataset.r, c = +cell.dataset.c;
@@ -7689,10 +7705,18 @@ boardEl.addEventListener("pointerdown", e => {
   if(selected && !sameSq(selected,[r,c])){
     const isTarget = currentMode === "free" ||
       legalMoves(liveState()).some(m => sameSq(m.from, selected) && sameSq(m.to,[r,c]));
-    if(isTarget){ tryMove(selected, [r,c]); return; }
+    if(isTarget){
+      // V257: con el dedo, la jugada se hace al LEVANTARLO (si no llegó un segundo dedo); con ratón, al instante.
+      if(e.pointerType === "touch") pendingTap = { from:selected, to:[r,c], id:e.pointerId };
+      else tryMove(selected, [r,c]);
+      return;
+    }
   }
 
-  if(!canPick(r,c)){ selected = null; render(); return; }
+  if(!canPick(r,c)){
+    if(e.pointerType === "touch") return;   // V257: puede ser el inicio de un pellizco; no se deselecciona ni se redibuja
+    selected = null; render(); return;
+  }
 
   drag = { from:[r,c], x:e.clientX, y:e.clientY, moved:false, glyph:cell.querySelector(".piece") };
   try{ boardEl.setPointerCapture(e.pointerId); }catch(err){}
@@ -7741,6 +7765,13 @@ boardEl.addEventListener("pointermove", e => {
 });
 
 function endDrag(e){
+  if(e.pointerType === "touch") boardTouches.delete(e.pointerId);
+  if(pendingTap && pendingTap.id === e.pointerId){
+    const t = pendingTap; pendingTap = null;
+    const dest = cellFromPoint(e.clientX, e.clientY);
+    if(dest && sameSq(dest, t.to) && selected && sameSq(selected, t.from)) tryMove(t.from, t.to);
+    return;
+  }
   if(!drag) return;
   const d = drag; drag = null;
   if(d.float) d.float.remove();
@@ -7763,7 +7794,13 @@ function endDrag(e){
   tryMove(d.from, dest);
 }
 boardEl.addEventListener("pointerup", endDrag);
-boardEl.addEventListener("pointercancel", endDrag);
+boardEl.addEventListener("pointercancel", e => {
+  // V257: cancelar NO es soltar. Antes se trataba como pointerup: un pellizco sobre una pieza la seleccionaba/deseleccionaba
+  // y, si el dedo ya se había movido, jugaba el movimiento donde hubiera quedado el dedo.
+  boardTouches.delete(e.pointerId);
+  try{ boardEl.releasePointerCapture(e.pointerId); }catch(err){}
+  abortBoardGesture();
+});
 
 movesEl.addEventListener("click", e => {
   const mv = e.target.closest(".mv");
@@ -9768,7 +9805,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V256 · 15-oct-2026 · deslizamiento de paneles más suave en el celular (escritorio sin cambios)";
+const BUILD_ID = "V257 · 15-oct-2026 · el pellizco sobre el tablero ya no juega ni selecciona piezas; deslizamiento de paneles suave en el celular";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
