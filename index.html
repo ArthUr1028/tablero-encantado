@@ -827,6 +827,11 @@
     background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat, no-repeat;
     filter:drop-shadow(0 .7px 0 var(--groove-lip)) drop-shadow(0 -.5px 0 var(--groove-shade));
   }
+  /* V258: el shah es alto y angosto (ocupa 54 × 94 de su dibujo): la ficha le dejaba aire de sobra. Menos relleno lateral y
+     el límite de tamaño era el ancho (68 % de la ficha); ahora es el alto (77 %), así que la figura crece ~13 %. */
+  #board .piece.fairy:has(> svg > use[href="#sh-shah"]) > svg, .piece-float.fairy:has(> svg > use[href="#sh-shah"]) > svg{
+    padding:15% 10% 8%;
+  }
   /* con ficha, ya no hace falta el halo/resplandor de V194/V241 */
   .cell.drk:has(> .piece.b > svg > use[href^="#sh-"]){ background:linear-gradient(160deg, var(--sq-dark), var(--sq-dark-2)); }
   .cell.lgt .piece.w:has(> svg > use[href^="#sh-"]) > svg{ filter:drop-shadow(0 .7px 0 var(--groove-lip)) drop-shadow(0 -.5px 0 var(--groove-shade)); }
@@ -9805,7 +9810,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V257 · 15-oct-2026 · el pellizco sobre el tablero ya no juega ni selecciona piezas; deslizamiento de paneles suave en el celular";
+const BUILD_ID = "V258 · 15-oct-2026 · shah más grande en su ficha; piezas del shatranj entre los íconos al azar de los paneles; pellizco seguro en el tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -15255,17 +15260,22 @@ anEl.me.addEventListener("click", (e) => {
 
 /* V204 · Un ícono de pieza (los mismos dibujos del tablero) en el título de cada panel, en lugar del rombo. */
 function initPanelIcons(){
-  const BY_ID = { "panel-account":"pawn", "panel-club":"rook", "panel-variant":"knight", "panel-reto":"amazon", "panel-partida":"chancellor",
-    "panel-oracle":"bishop", "panel-analysis":"queen", "panel-openings":"archbishop", "panel-free":"pawn", "panel-library":"archbishop",
-    "panel-hof":"king", "panel-theme":"queen" };
+  // V258: ya no hay una pieza fija por panel. En cada carga se baraja el surtido completo (las 9 figuras de las modalidades
+  // clásica, Capablanca, Maharajá y Amazonas, más las 6 del shatranj) y se reparte sin repetir entre los paneles.
+  const WITH_ICON = new Set(["panel-account","panel-club","panel-variant","panel-reto","panel-partida","panel-oracle","panel-analysis",
+    "panel-openings","panel-free","panel-library","panel-hof","panel-theme"]);
+  const POOL = ["glyph-pawn","glyph-knight","glyph-bishop","glyph-rook","glyph-queen","glyph-king","glyph-archbishop","glyph-chancellor","glyph-amazon",
+    "sh-shah","sh-ferz","sh-fil","sh-faras","sh-rukh","sh-baydaq"].filter(id => document.getElementById(id));
+  for(let i = POOL.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = POOL[i]; POOL[i] = POOL[j]; POOL[j] = t; }
+  let k = 0;
   document.querySelectorAll(".panel").forEach(p => {
     const h2 = p.querySelector(":scope > h2");
     if(!h2 || h2.querySelector(".panel-ico")) return;
-    let g = BY_ID[p.id];
-    if(!g && /^\s*Posici/i.test(h2.textContent)) g = "rook";   // «Posición · FEN» (sin id)
-    if(!g || !document.getElementById("glyph-" + g)) return;
+    if(!WITH_ICON.has(p.id) && !/^\s*Posici/i.test(h2.textContent)) return;   // «Posición · FEN» no tiene id
+    if(!POOL.length) return;
+    const g = POOL[k++ % POOL.length];
     h2.classList.add("has-ico");
-    h2.insertAdjacentHTML("afterbegin", '<svg class="panel-ico" viewBox="0 0 100 100" aria-hidden="true"><use href="#glyph-' + g + '"></use></svg>');
+    h2.insertAdjacentHTML("afterbegin", '<svg class="panel-ico" viewBox="0 0 100 100" aria-hidden="true"><use href="#' + g + '"></use></svg>');
   });
 }
 initPanelIcons();
