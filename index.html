@@ -837,7 +837,11 @@
   .cell.lgt .piece.w:has(> svg > use[href^="#sh-"]) > svg{ filter:drop-shadow(0 .7px 0 var(--groove-lip)) drop-shadow(0 -.5px 0 var(--groove-shade)); }
 
   .piece.dragging{ opacity:.28; }
-  .piece.slide{ animation:slidein .24s cubic-bezier(.22,.68,.2,1); }
+  /* V259: la pieza recorre visiblemente su trayecto. El deslizamiento (slidein) ya existía, pero .cell{overflow:hidden} lo recortaba
+     y solo se veía al llegar a la casilla destino. Ahora la casilla destino deja de recortar mientras la ficha viaja y se pone por
+     encima de las demás; la duración crece con la distancia (--fdur, la calcula render()). */
+  .cell:has(> .piece.slide){ overflow:visible; z-index:6; }
+  .piece.slide{ animation:slidein var(--fdur,.24s) cubic-bezier(.3,.1,.2,1); }
   @keyframes slidein{
     from{ transform:translate(calc(var(--fdx,0) * 100%), calc(var(--fdy,0) * 100%)); }
     to{ transform:none; }
@@ -849,8 +853,8 @@
      Si el salto cruza de mitad, el caballo gira durante el brinco. */
   .piece.n-face-r svg{ transform:scaleX(-1); }
   /* V240: en el shatranj TODAS las piezas miran al centro (misma regla que el caballo). Las que no saltan combinan el giro con el deslizamiento. */
-  #board .piece.fairy.slide.n-turn-to-r:not(.n-hop) svg{ animation:pzSlide .24s ease-in-out, kturn-to-r .24s cubic-bezier(.22,.68,.2,1); }
-  #board .piece.fairy.slide.n-turn-to-l:not(.n-hop) svg{ animation:pzSlide .24s ease-in-out, kturn-to-l .24s cubic-bezier(.22,.68,.2,1); }
+  #board .piece.fairy.slide.n-turn-to-r:not(.n-hop) svg{ animation:pzSlide var(--fdur,.24s) ease-in-out, kturn-to-r var(--fdur,.24s) cubic-bezier(.22,.68,.2,1); }
+  #board .piece.fairy.slide.n-turn-to-l:not(.n-hop) svg{ animation:pzSlide var(--fdur,.24s) ease-in-out, kturn-to-l var(--fdur,.24s) cubic-bezier(.22,.68,.2,1); }
   .piece.n-turn-to-r svg{ animation:kturn-to-r .24s cubic-bezier(.22,.68,.2,1); }
   .piece.n-turn-to-l svg{ animation:kturn-to-l .24s cubic-bezier(.22,.68,.2,1); }
   @keyframes kturn-to-r{ from{ transform:scaleX(1); } to{ transform:scaleX(-1); } }
@@ -938,7 +942,7 @@
   @keyframes nShadow{ 0%{ opacity:1; scale:1 1; } 42%{ opacity:.3; scale:.65 .65; } 78%{ opacity:1; scale:1 1; } 88%{ scale:1.12 1; } 100%{ opacity:1; scale:1 1; } }
   #board .cell.sel > .piece.fairy svg{ animation:pzLift .16s ease-out both; }
   #board .cell.sel > .piece.fairy::before{ opacity:.55; scale:.8 .8; transition:opacity .16s ease, scale .16s ease; }
-  #board .piece.fairy.slide:not(.n-hop) svg{ animation:pzSlide .24s ease-in-out; }
+  #board .piece.fairy.slide:not(.n-hop) svg{ animation:pzSlide var(--fdur,.24s) ease-in-out; }
   #board .piece.fairy.n-hop.slide{ animation-duration:.32s; }
   #board .piece.fairy.n-hop svg{ animation:nHop .32s ease; }
   #board .piece.fairy.n-hop::before{ animation:nShadow .32s ease; }
@@ -7349,8 +7353,12 @@ function render(){
         if(lastMv && sameSq(lastMv.to,[r,c]) && animFrom){
           const fromColIdx = cols.indexOf(animFrom[1]);
           const fromRowIdx = rows.indexOf(animFrom[0]);
-          span.style.setProperty("--fdx", (fromColIdx - ci));
-          span.style.setProperty("--fdy", (fromRowIdx - ri));
+          const dropped = slideSkipFly;   // V259: soltada con el dedo/ratón = ya está en su casilla; no vuela de regreso al origen
+          const sdx = dropped ? 0 : (fromColIdx - ci), sdy = dropped ? 0 : (fromRowIdx - ri);
+          span.style.setProperty("--fdx", sdx);
+          span.style.setProperty("--fdy", sdy);
+          const sdist = Math.max(Math.abs(sdx), Math.abs(sdy));
+          if(sdist > 1) span.style.setProperty("--fdur", Math.min(.5, .17 + .05 * sdist).toFixed(3) + "s");
           span.classList.add("slide");
           if(p[1] === "n") span.classList.add("n-hop");   // V199: el caballo salta en arco
           if(facesCenter(p[1]) && fromColIdx >= 0 && (fromColIdx < nCols / 2) !== knightOnLeft){
@@ -7363,7 +7371,7 @@ function render(){
     }
   }
   const sfxAnim = !!animFrom;
-  animFrom = null;
+  animFrom = null; slideSkipFly = false;
   try{ sfxOnRender(lastMv, oc, sfxAnim); }catch(e){}
   syncPieceSize();
 
@@ -7508,6 +7516,7 @@ document.getElementById("btn-branch-back").onclick = () => { branch = null; sele
 })();
 /* ============================ Jugadas ============================ */
 let animFrom = null;
+let slideSkipFly = false;   // V259: true cuando la jugada viene de soltar una pieza arrastrada
 
 // V250: partida cargada y todavía sin «Iniciar» (matchStarted lo apaga newGame()). No aplica a vivo, reto ni claudIA.
 function studyLoaded(){
@@ -7796,7 +7805,9 @@ function endDrag(e){
     return;
   }
   if(sameSq(dest, d.from)){ selected = d.from; render(); return; }
+  slideSkipFly = true;
   tryMove(d.from, dest);
+  slideSkipFly = false;
 }
 boardEl.addEventListener("pointerup", endDrag);
 boardEl.addEventListener("pointercancel", e => {
@@ -9810,7 +9821,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V258 · 15-oct-2026 · shah más grande en su ficha; piezas del shatranj entre los íconos al azar de los paneles; pellizco seguro en el tablero";
+const BUILD_ID = "V259 · 15-oct-2026 · se ve todo el trayecto de la pieza al moverse; shah más grande; piezas del shatranj en los títulos; pellizco seguro en el tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
