@@ -9768,7 +9768,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V254 · 14-oct-2026 · jugadas que no se perdían a medias; carga única al iniciar; animaciones más fluidas en el celular";
+const BUILD_ID = "V255 · 14-oct-2026 · los paneles se abren y cierran con un deslizamiento natural (resorte) y un fundido escalonado";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -13201,8 +13201,10 @@ function initCollapsiblePanels(){
      desaparecería de golpe antes de poder animarlo). Estado lógico = `aria-expanded` del <h2>, no la
      clase, porque durante un colapso animado la clase todavía no está puesta. Respeta
      prefers-reduced-motion (cambio instantáneo como antes, pero también con colchón). */
-  const PANEL_ANIM_MS = 280;
-  const PANEL_EASE = "cubic-bezier(.22,.8,.3,1)";
+  // V255: antes 280 ms con un fundido del contenido al mismo ritmo que la altura (se veía brusco). Ahora 400 ms, con una curva más
+  // suave al final, y el contenido entra DESPUÉS de que el panel ya empezó a abrirse (y sale ANTES de que termine de cerrarse).
+  const PANEL_ANIM_MS = 400;
+  const PANEL_EASE = "cubic-bezier(.32,.72,.24,1)";
   const panels = [...document.querySelectorAll(".panel")].filter(p => p.querySelector(":scope > h2"));
   const running = new Map();   // panel -> { finish }  (animación en curso)
   const reduceMotion = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -13284,8 +13286,10 @@ function initCollapsiblePanels(){
     panel.classList.add("panel-anim");
     const grow = panel.animate([{ height: startH + "px" }, { height: endH + "px" }],
                                { duration: PANEL_ANIM_MS, easing: PANEL_EASE, fill: "forwards" });
-    const fades = kids.map(k => k.animate(collapsed ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }],
-                                          { duration: PANEL_ANIM_MS, easing: "ease", fill: "forwards" }));
+    const fadeKF = collapsed
+      ? [{ opacity: 1 }, { opacity: 0, offset: .4 }, { opacity: 0 }]
+      : [{ opacity: 0 }, { opacity: 0, offset: .24 }, { opacity: 1 }];
+    const fades = kids.map(k => k.animate(fadeKF, { duration: PANEL_ANIM_MS, easing: "ease", fill: "forwards" }));
     let done = false;
     const finish = () => {
       if(done) return; done = true;
@@ -13302,6 +13306,7 @@ function initCollapsiblePanels(){
      borde superior del tablero (con el tablero fijo de escritorio) o cerca del tope de la pantalla. Se
      espera a que terminen las animaciones de los paneles, porque al cerrarse los de arriba el módulo sube. */
   let spacerPx = 0;
+  let springStop = null;   // V255: cancela el deslizamiento anterior si se abre otro panel enseguida
   const alignSpacer = (extra) => {
     // Relleno inferior DENTRO de .stage: así el tablero fijo sigue pegado mientras se desliza.
     spacerPx = Math.max(0, spacerPx + extra);
@@ -13334,34 +13339,55 @@ function initCollapsiblePanels(){
       }
       return want;
     };
-    const easeIO = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-    // Deslizamiento suave y lento, como el fundido de la vitrina: arranca casi a la vez que el módulo se
-    // abre, y recalcula el destino en cada cuadro porque los módulos de arriba se están cerrando.
-    const glide = () => {
-      if(!panel.isConnected || panel.hidden || panel.classList.contains("collapsed")) return;
-      const y0 = window.scrollY, d0 = Math.abs(absTarget() - y0);
-      if(d0 < 6) return;
-      if(reduceMotion()){ window.scrollTo({ top: absTarget(), behavior: "auto" }); return; }
-      const dur = Math.max(650, Math.min(1150, 520 + d0 * 0.55));
-      let stop = false;
-      const cancel = () => { stop = true; };
-      ["wheel", "touchstart", "keydown", "mousedown"].forEach(ev => window.addEventListener(ev, cancel, { once: true, passive: true }));
+    /* V255 · deslizamiento natural. Antes: y = y0 + (destino - y0) * curva(t), con una curva de arranque LENTO, 90 ms de retraso y una
+       duración de 0,65-1,15 s sin relación con la de los paneles (0,28 s): el panel se abría de golpe y la página se movía después,
+       como dos pasos separados (lo "mecánico"). Ahora la página sigue al destino con un resorte críticamente amortiguado: arranca de
+       inmediato, llega al 90 % del camino en ~0,25 s y se asienta hacia los 0,4 s, junto con la altura del panel, frena sola y no rebota de forma apreciable (≤ ~1 px). Como sigue
+       al destino cuadro a cuadro, también acompaña bien a los paneles de arriba mientras se cierran. La velocidad se acota para que un
+       salto largo no se vea como un latigazo. Se cancela al tocar, usar la rueda o el teclado (como antes). */
+    const springScroll = (getTarget, alive) => {
+      if(springStop) springStop();
+      const evs = ["wheel", "touchstart", "keydown", "mousedown"];
+      let stopped = false, raf = 0;
+      const stop = () => {
+        if(stopped) return;
+        stopped = true; if(raf) cancelAnimationFrame(raf);
+        evs.forEach(e => window.removeEventListener(e, stop));
+        if(springStop === stop) springStop = null;
+      };
+      evs.forEach(e => window.addEventListener(e, stop, { passive: true }));
+      springStop = stop;
+      const OMEGA = 10.5, VMAX = 3000;
+      let y = window.scrollY, v = 0, last = 0;
       const t0 = performance.now();
       const frame = (now) => {
-        if(stop) return;
-        const p = Math.min(1, (now - t0) / dur);
-        const y = y0 + (absTarget() - y0) * easeIO(p);
-        window.scrollTo({ top: y, behavior: "instant" });
-        if(p < 1) requestAnimationFrame(frame);
-        else {
-          // Ajuste final por si las animaciones de los paneles aún se estaban asentando.
-          const fin = () => { if(stop) return; if(running.size) return setTimeout(fin, 50); const t = absTarget(); if(Math.abs(t - window.scrollY) > 2) window.scrollTo({ top: t, behavior: "instant" }); };
-          setTimeout(fin, 40);
+        if(stopped) return;
+        if(alive && !alive()){ stop(); return; }
+        const dt = last ? Math.min(.034, Math.max(.001, (now - last) / 1000)) : .016;
+        last = now;
+        const target = getTarget();
+        v += (-OMEGA * OMEGA * (y - target) - 2 * OMEGA * v) * dt;
+        v = Math.max(-VMAX, Math.min(VMAX, v));
+        y += v * dt;
+        if(Math.abs(y - window.scrollY) > .01) window.scrollTo({ top: y, behavior: "instant" });
+        const actual = window.scrollY;
+        if(Math.abs(actual - y) > 1.5){ y = actual; v = 0; }   // el navegador lo recortó (tope del documento): no acumular error
+        const settled = Math.abs(y - target) < .6 && Math.abs(v) < 12;
+        if((settled && !running.size) || now - t0 > 3200){
+          const t = getTarget();                               // ajuste final exacto, por si las animaciones aún se asentaban
+          if(Math.abs(t - window.scrollY) > 1) window.scrollTo({ top: t, behavior: "instant" });
+          stop(); return;
         }
+        raf = requestAnimationFrame(frame);
       };
-      requestAnimationFrame(frame);
+      raf = requestAnimationFrame(frame);
     };
-    setTimeout(glide, 90);
+    const glide = () => {
+      if(!panel.isConnected || panel.hidden || panel.classList.contains("collapsed")) return;
+      if(reduceMotion()){ window.scrollTo({ top: absTarget(), behavior: "auto" }); return; }
+      springScroll(absTarget, () => panel.isConnected && !panel.hidden && isOpen(panel));   // isOpen: si lo cierras a media animación, la página deja de seguirlo
+    };
+    requestAnimationFrame(glide);
   };
   const expandExclusive = (panel) => {
     panels.forEach(o => { if(o !== panel) setCollapsed(o, true, true); });
