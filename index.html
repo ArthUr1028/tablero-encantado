@@ -840,7 +840,7 @@
   /* V259: la pieza recorre visiblemente su trayecto. El deslizamiento (slidein) ya existía, pero .cell{overflow:hidden} lo recortaba
      y solo se veía al llegar a la casilla destino. Ahora la casilla destino deja de recortar mientras la ficha viaja y se pone por
      encima de las demás; la duración crece con la distancia (--fdur, la calcula render()). */
-  .cell:has(> .piece.slide){ overflow:visible; z-index:6; }
+  .cell:has(> .piece.slide){ overflow:visible; z-index:2; }   /* 2 < 3 de #crumble-layer: el desmoronamiento de la captura sigue por encima */
   .piece.slide{ animation:slidein var(--fdur,.24s) cubic-bezier(.3,.1,.2,1); }
   @keyframes slidein{
     from{ transform:translate(calc(var(--fdx,0) * 100%), calc(var(--fdy,0) * 100%)); }
@@ -9821,7 +9821,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V259 · 15-oct-2026 · se ve todo el trayecto de la pieza al moverse; shah más grande; piezas del shatranj en los títulos; pellizco seguro en el tablero";
+const BUILD_ID = "V260 · 15-oct-2026 · se ve todo el trayecto de la pieza al moverse (sin tapar el desmoronamiento); shah más grande; piezas del shatranj en los títulos; pellizco seguro en el tablero";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
