@@ -1225,6 +1225,15 @@
      varias veces (los campos Min/Incr., por ejemplo): dentro del Club, hidden siempre manda. */
   #panel-club [hidden]{ display:none !important; }
   .club-tabs{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin:0 0 12px; }
+  .club-tabs.has-admin{ grid-template-columns:repeat(4, 1fr); }   /* V261: el dueño ve una pestaña más */
+  /* V261 · gestión del club (solo el dueño) */
+  .club-admin-row{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0; padding:8px 0; border-bottom:1px solid var(--line); }
+  .club-admin-row .who{ min-width:0; flex:1 1 auto; }
+  .club-admin-row .who strong{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.92rem; }
+  .club-admin-row .who small{ display:block; color:var(--text-dim); font-size:.76rem; line-height:1.3; }
+  .club-admin-row .ctl{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .club-admin-row .ctl label{ display:flex; align-items:center; gap:4px; font-size:.8rem; color:var(--text-dim); cursor:pointer; }
+  .club-admin-row .ctl input[type=checkbox]{ width:20px; height:20px; accent-color:var(--ember); cursor:pointer; margin:0; }
   .club-tabs button{
     font-family:"Cinzel", serif; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase;
     padding:9px 4px; border-radius:3px; cursor:pointer;
@@ -3638,23 +3647,36 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <h2>Club</h2>
         <p class="lib-note" id="club-note"></p>
         <div id="club-joiner">
-          <p class="free-hint" style="margin:0 0 10px">Todav&iacute;a no eres miembro del club. Si alguien te pas&oacute; un c&oacute;digo, p&eacute;galo aqu&iacute;.</p>
-          <div class="btns">
-            <input id="club-code-input" type="text" placeholder="C&oacute;digo de invitaci&oacute;n" aria-label="C&oacute;digo de invitaci&oacute;n">
-            <button class="btn" id="club-join-btn">Unirme</button>
+          <div id="club-join-form">
+            <p class="free-hint" style="margin:0 0 10px">Todav&iacute;a no eres miembro del club. Si alguien te pas&oacute; un c&oacute;digo, p&eacute;galo aqu&iacute;. Quien te invit&oacute; deber&aacute; confirmar tu entrada.</p>
+            <div class="btns">
+              <input id="club-code-input" type="text" placeholder="C&oacute;digo de invitaci&oacute;n" aria-label="C&oacute;digo de invitaci&oacute;n">
+              <button class="btn" id="club-join-btn">Unirme</button>
+            </div>
+          </div>
+          <!-- V261: el c&oacute;digo ya se us&oacute;; falta que quien invit&oacute; confirme. -->
+          <div id="club-pending-wait" hidden>
+            <p class="free-hint" id="club-pending-text" style="margin:0 0 10px"></p>
+            <div class="btns"><button class="btn" id="club-pending-refresh">Revisar ahora</button></div>
           </div>
         </div>
         <div id="club-member-area" hidden>
           <!-- V152: el panel Club se organiza en tres secciones, por lo que la gente hace:
                ver sus partidas y retos (lo primero), retar a alguien, y torneos/trofeos. Los
                contenedores y botones conservan sus ids: todo el JS de antes sigue igual. -->
-          <div class="club-tabs" role="tablist" aria-label="Secciones del Club">
+          <div class="club-tabs" id="club-tabs" role="tablist" aria-label="Secciones del Club">
             <button type="button" role="tab" id="club-tab-games" aria-selected="true" aria-controls="club-view-games">Partidas</button>
             <button type="button" role="tab" id="club-tab-challenge" aria-selected="false" aria-controls="club-view-challenge">Retar</button>
             <button type="button" role="tab" id="club-tab-tournaments" aria-selected="false" aria-controls="club-view-tournaments">Torneos</button>
+            <button type="button" role="tab" id="club-tab-admin" aria-selected="false" aria-controls="club-view-admin" hidden>Admin</button>
           </div>
 
           <div id="club-view-games" class="club-view" role="tabpanel" aria-labelledby="club-tab-games">
+            <div class="club-group" id="club-group-validate" hidden>
+              <h3>Quieren unirse al club</h3>
+              <p class="free-hint" style="margin:0 0 4px">Confirma solo si conoces a la persona.</p>
+              <div id="club-validations"></div>
+            </div>
             <div class="club-group" id="club-group-in" hidden>
               <h3>Te están retando</h3>
               <div id="club-challenges-in"></div>
@@ -3736,7 +3758,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 
             <details id="club-invite-details" class="club-invite">
               <summary>Invitar a alguien al club</summary>
-              <p class="free-hint" style="margin:8px 0 0">Copia un mensaje listo para pegar en WhatsApp, con el enlace y el c&oacute;digo incluidos.</p>
+              <p class="free-hint" style="margin:8px 0 0">Copia un mensaje listo para pegar en WhatsApp, con el enlace y el c&oacute;digo incluidos. Cada invitaci&oacute;n es personal: sirve para una sola persona y vence en 48 horas. Cuando la use, t&uacute; confirmas su entrada. Para invitar a otra persona, pulsa &laquo;C&oacute;digo nuevo&raquo; (m&aacute;ximo 3 c&oacute;digos activos).</p>
               <div class="btns" style="margin-top:8px">
                 <button class="btn" id="club-invite-copy">Copiar invitaci&oacute;n</button>
                 <button class="btn" id="club-invite-share" style="display:none">Compartir&hellip;</button>
@@ -3744,6 +3766,24 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
               </div>
               <p class="lib-note" id="club-invite-note"></p>
             </details>
+
+            <!-- V261: cualquier miembro puede salir del club (el dueño no). -->
+            <details id="club-leave-details" class="club-invite">
+              <summary>Salir del club</summary>
+              <p class="free-hint" style="margin:8px 0 0">Dejar&aacute;s de ver a los miembros y se cancelan tus retos pendientes. Tus trofeos y tus partidas se conservan. Para volver necesitar&aacute;s un c&oacute;digo nuevo. No puedes salir mientras tengas una partida en curso o pendiente en un torneo.</p>
+              <div class="btns" style="margin-top:8px">
+                <button class="btn" id="club-leave-btn">Abandonar el club</button>
+              </div>
+              <p class="lib-note" id="club-leave-note"></p>
+            </details>
+          </div>
+
+          <!-- V261: gesti&oacute;n del club. Solo la ve el due&ntilde;o (la pesta&ntilde;a est&aacute; oculta para los dem&aacute;s,
+               y adem&aacute;s el servidor rechaza set_exento/expel_member si quien llama no es el due&ntilde;o). -->
+          <div id="club-view-admin" class="club-view" role="tabpanel" aria-labelledby="club-tab-admin" hidden>
+            <p class="free-hint" style="margin:0 0 6px">Solo t&uacute; ves esta secci&oacute;n. Se retira autom&aacute;ticamente a quien no se conecta en <strong>30 d&iacute;as</strong> desde que se uni&oacute; (si nunca entr&oacute;) o en <strong>60 d&iacute;as</strong> desde su &uacute;ltima visita. Los <strong>exentos</strong> y t&uacute; nunca salen.</p>
+            <div id="club-admin-list"></div>
+            <p class="lib-note" id="club-admin-note"></p>
           </div>
 
           <div id="club-view-tournaments" class="club-view" role="tabpanel" aria-labelledby="club-tab-tournaments" hidden>
@@ -8088,6 +8128,11 @@ ownerNameEl.addEventListener("input", () => {
 // de tragárselo.
 let accountProfile = null; // {id, username, display_name} o null si no hay sesión
 let clubIsMember = null;   // V203: null = aún no se sabe; true/false tras revisar la membresía (lo usa el reto de claudIA)
+// V261: `var` y arriba del todo porque clearAccountProfile() (más abajo en el archivo) las reinicia.
+var clubWasPending = false;      // true mientras mi invitación espera la confirmación de quien me invitó
+var clubIsOwner = false;         // true si soy el dueño del club (lo decide el servidor: is_club_owner())
+var clubValidationsIds = null;   // ids de solicitudes ya vistas (para avisar solo de las nuevas); null = aún no cargó
+var presenceTouchLast = 0;       // última vez que avisé al servidor que estoy conectado (touch_presence)
 const accountNoteEl = document.getElementById("account-note");
 function noteOwnerSync(msg, isErr){
   if(!accountNoteEl) return;
@@ -8128,6 +8173,7 @@ function clearAccountProfile(){
   accountProfile = null;
   profileLoadFor = null;   // V254
   clubIsMember = null;
+  clubWasPending = false; clubIsOwner = false; clubValidationsIds = null; presenceTouchLast = 0;   // V261
   try{ retoUpdateUI(); }catch(e){}
   if(typeof unsubscribePresence === "function") unsubscribePresence();
   switchToLocalLibrary();
@@ -8253,6 +8299,7 @@ function clubBtn(text, onClick){
 }
 
 // V192: si la persona llegó por un enlace de invitación (o se registró con un código), se canjea sola.
+// V261: canjear ya NO mete al club: deja la solicitud esperando que quien invitó la confirme.
 let autoRedeemRunning = false;
 async function tryAutoRedeemInvite(){
   if(autoRedeemRunning) return false;
@@ -8267,7 +8314,7 @@ async function tryAutoRedeemInvite(){
   }
   if(!code) return false;
   autoRedeemRunning = true;
-  clubNote("Uniéndote al club con tu invitación…");
+  clubNote("Registrando tu invitación…");
   const { error } = await sb.rpc("redeem_invite", { p_code: code });
   autoRedeemRunning = false;
   clearPendingInvite();
@@ -8276,9 +8323,50 @@ async function tryAutoRedeemInvite(){
     clubNote("Tu invitación no se pudo usar (" + error.message + "). Pide un código nuevo y pégalo aquí.", true);
     return false;
   }
-  clubNote("¡Listo, ya eres miembro del club!");
-  showGlobalToast("¡Bienvenido al club!");
+  showGlobalToast("Invitación recibida: falta que quien te invitó la confirme.");
   return true;
+}
+
+// V261: ¿ya canjeé un código y estoy esperando confirmación? (null si no, o si la migración 16 aún no se corrió)
+async function loadMyPending(){
+  try{
+    const { data, error } = await sb.from("club_pending")
+      .select("profile_id, invited_by, created_at, expires_at")
+      .eq("profile_id", accountProfile.id).maybeSingle();
+    if(error || !data) return null;
+    if(new Date(data.expires_at).getTime() < Date.now()) return null;
+    return data;
+  }catch(e){ return null; }
+}
+var clubPendingTimer = null, clubPendingWho = { id: "", name: "" };
+async function renderClubPending(pending){
+  const wait = document.getElementById("club-pending-wait");
+  const form = document.getElementById("club-join-form");
+  if(pending){
+    clubWasPending = true;
+    form.hidden = true; wait.hidden = false;
+    if(clubPendingWho.id !== pending.invited_by){
+      clubPendingWho = { id: pending.invited_by, name: "" };
+      try{
+        const { data: p } = await sb.from("profiles").select("username, display_name").eq("id", pending.invited_by).maybeSingle();
+        if(p) clubPendingWho.name = p.display_name || p.username || "";
+      }catch(e){}
+    }
+    document.getElementById("club-pending-text").textContent =
+      "Tu invitación quedó registrada. Falta que " + (clubPendingWho.name || "quien te invitó") +
+      " confirme tu entrada; en cuanto lo haga, entrarás al club solo (esta pantalla se actualiza cada pocos segundos).";
+    if(!clubPendingTimer){
+      clubPendingTimer = setInterval(() => {
+        if(accountProfile && clubIsMember === false && clubWasPending && document.visibilityState === "visible") refreshClub();
+      }, 15000);
+    }
+  }else{
+    form.hidden = false; wait.hidden = true;
+    if(clubWasPending){
+      clubWasPending = false;
+      clubNote("Tu invitación no fue aceptada o ya venció. Pide un código nuevo y pégalo aquí.", true);
+    }
+  }
 }
 
 async function refreshClub(){
@@ -8292,16 +8380,27 @@ async function refreshClub(){
   const isMember = !!mine;
   clubIsMember = isMember;
   try{ retoUpdateUI(); }catch(e){}
+  let pending = null;
   if(!isMember){
-    const joined = await tryAutoRedeemInvite();
-    if(joined){ return refreshClub(); }
+    // V261: ¿ya canjeé un código y espero confirmación? Si no, probar el código del enlace de invitación.
+    pending = await loadMyPending();
+    if(pending){ clearPendingInvite(); }
+    else{
+      const redeemed = await tryAutoRedeemInvite();
+      if(redeemed){ return refreshClub(); }
+    }
   }
 
   clubJoinerEl.hidden = isMember;
   clubMemberAreaEl.hidden = !isMember;
-  if(!isMember) return;
+  if(!isMember){ await renderClubPending(pending); return; }
 
-  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments()]);
+  if(clubWasPending){
+    clubWasPending = false;
+    showGlobalToast("¡Te aceptaron en el club! Bienvenido.");
+  }
+  await Promise.all([loadClubMembers(), loadClubChallenges(), loadClubActiveGames(), loadClubTournaments(), loadClubValidations(), refreshClubOwner()]);
+  touchClubPresence(true);   // V261: anota mi visita (para la expulsión por inactividad)
   try{ announcePendingChallengesOnEntry(); }catch(e){}   // V249
   subscribeClubChannel();
   subscribePresence();
@@ -9668,19 +9767,22 @@ document.getElementById("club-join-btn").onclick = async () => {
   const input = document.getElementById("club-code-input");
   const code = input.value.trim();
   if(!code){ clubNote("Escribe un código primero.", true); return; }
-  clubNote("Uniéndote…");
+  clubNote("Registrando tu invitación…");
   const { error } = await sb.rpc("redeem_invite", { p_code: code });
-  if(error){ clubNote("No se pudo unir: " + error.message, true); return; }
-  clubNote("¡Listo, ya eres miembro del club!");
+  if(error){ clubNote("No se pudo usar el código: " + error.message, true); return; }
   input.value = "";
-  refreshClub();
+  showGlobalToast("Invitación recibida: falta que quien te invitó la confirme.");
+  refreshClub();   // V261: ahora queda «esperando confirmación» (no entra directo)
 };
+document.getElementById("club-pending-refresh").onclick = () => refreshClub();
 
-// V192 · invitación lista para WhatsApp. Reutiliza el mismo código (hasta INVITE_MAX_USES usos, sin
-// vencimiento) y solo genera otro si se agotó o si se pide "Código nuevo".
+// V192 · invitación lista para WhatsApp.
+// V261: cada invitación es personal: un solo uso y vence en 48 h (lo impone el servidor; aquí solo se refleja).
 const INVITE_BASE_URL = "https://tablero-encantado.pages.dev/";
-const INVITE_MAX_USES = 5;
-const INVITE_MINE_KEY = "tablero-encantado.mi-invitacion.v1";
+const INVITE_MAX_USES = 1;
+const INVITE_MINE_KEY = "tablero-encantado.mi-invitacion.v2";   // guarda {code, exp}; el v1 guardaba solo el código
+const INVITE_TTL_MS = 47 * 3600 * 1000;                          // un poco menos que las 48 h reales
+const INVITE_RULE = "un solo uso, vence en 48 h";
 const clubInviteCopyBtn = document.getElementById("club-invite-copy");
 const clubInviteShareBtn = document.getElementById("club-invite-share");
 function inviteNote(msg, isErr){
@@ -9694,21 +9796,29 @@ function inviteMessage(code){
     "Entra aquí: " + INVITE_BASE_URL + "?invite=" + code + "\n\n" +
     "1. Crea tu cuenta con tu correo y una contraseña.\n" +
     "2. Confirma tu correo (te llega un mensaje).\n" +
-    "3. ¡Listo! Entrarás al club automáticamente. Si te pide un código, escribe: " + code +
+    "3. Entrarás al club cuando yo confirme tu entrada. Si te pide un código, escribe: " + code + "\n\n" +
+    "Este enlace es solo para ti: sirve una vez y vence en 48 horas." +
     (firma ? "\n\n— " + firma : "");
 }
+function readMyInvite(){
+  try{
+    const o = JSON.parse(localStorage.getItem(INVITE_MINE_KEY) || "null");
+    if(o && o.code && o.exp > Date.now()) return o.code;
+  }catch(e){}
+  return "";
+}
 async function ensureMyInviteCode(forceNew){
-  let code = "";
-  if(!forceNew){ try{ code = localStorage.getItem(INVITE_MINE_KEY) || ""; }catch(e){} }
+  let code = forceNew ? "" : readMyInvite();
   if(code){
-    // Si ya se agotó, se genera otro. Si no se puede consultar, se reutiliza.
-    const { data: row } = await sb.from("club_invites").select("uses, max_uses").eq("code", code).maybeSingle();
-    if(row && row.max_uses != null && row.uses >= row.max_uses) code = "";
+    // Si ya se usó o venció, se genera otro. Si no se puede consultar, se reutiliza mientras no pase el plazo local.
+    const { data: row } = await sb.from("club_invites").select("uses, max_uses, expires_at").eq("code", code).maybeSingle();
+    if(row && ((row.max_uses != null && row.uses >= row.max_uses) ||
+               (row.expires_at && new Date(row.expires_at).getTime() < Date.now()))) code = "";
   }
   if(code) return code;
   const { data, error } = await sb.rpc("create_invite", { p_max_uses: INVITE_MAX_USES, p_expires_days: null });
   if(error) throw error;
-  try{ localStorage.setItem(INVITE_MINE_KEY, data); }catch(e){}
+  try{ localStorage.setItem(INVITE_MINE_KEY, JSON.stringify({ code: data, exp: Date.now() + INVITE_TTL_MS })); }catch(e){}
   return data;
 }
 function showInviteFallback(text){
@@ -9732,9 +9842,9 @@ async function copyInvite(useShare){
   catch(e){ inviteNote("No se pudo generar el código: " + e.message, true); return; }
   const text = inviteMessage(code);
   try{
-    if(useShare && navigator.share){ await navigator.share({ text }); inviteNote("Invitación compartida."); return; }
+    if(useShare && navigator.share){ await navigator.share({ text }); inviteNote("Invitación compartida (" + INVITE_RULE + "). Para invitar a otra persona, pulsa «Código nuevo»."); return; }
     await navigator.clipboard.writeText(text);
-    inviteNote("Invitación copiada: pégala en WhatsApp. Código " + code + " (hasta " + INVITE_MAX_USES + " usos, sin vencimiento).");
+    inviteNote("Invitación copiada: pégala en WhatsApp. Código " + code + " (" + INVITE_RULE + "). Para invitar a otra persona, pulsa «Código nuevo».");
   }catch(e){
     if(e && e.name === "AbortError") { inviteNote(""); return; }
     inviteNote("No se pudo copiar solo: selecciona el texto de abajo y cópialo.", true);
@@ -9750,7 +9860,7 @@ document.getElementById("club-invite-btn").onclick = async () => {
   inviteNote("Generando un código nuevo…");
   try{
     const code = await ensureMyInviteCode(true);
-    inviteNote("Código nuevo: " + code + " (hasta " + INVITE_MAX_USES + " usos, sin vencimiento). Las próximas invitaciones copiadas ya llevan este código.");
+    inviteNote("Código nuevo: " + code + " (" + INVITE_RULE + "). Las próximas invitaciones copiadas llevan este código.");
   }catch(e){ inviteNote("No se pudo generar: " + e.message, true); }
 };
 
@@ -9763,6 +9873,194 @@ async function handleNewClubMember(payload){
   showGlobalToast("¡" + who + " se unió al club!");
   loadClubMembers();
 }
+
+/* ============================ V261 · Club: confirmar entradas, salir, dueño y presencia ============================
+   Todo lo que decide quién puede estar en el club vive en el SERVIDOR (migración 16_invitaciones_y_salida.sql):
+   aquí solo se muestran botones. Si la migración aún no se corrió, cada llamada falla en silencio y el Tablero
+   se comporta como antes (nadie ve la pestaña Admin, no hay solicitudes, no se anota la presencia). */
+
+// ---- quien invitó (o el dueño) confirma a quien canjeó un código ----
+var clubValidationsSeq = 0;
+async function loadClubValidations(){
+  const mySeq = ++clubValidationsSeq;
+  let rows = [];
+  try{
+    const { data, error } = await sb.rpc("my_pending_validations");
+    if(!error && Array.isArray(data)) rows = data;
+  }catch(e){}
+  if(mySeq !== clubValidationsSeq) return;
+  const box = document.getElementById("club-validations");
+  if(!box) return;
+  box.innerHTML = "";
+  rows.forEach(r => {
+    const p = r.profile || {};
+    const name = p.display_name || p.username || "Alguien";
+    const byOther = accountProfile && r.invited_by !== accountProfile.id;   // el dueño también ve las de otros miembros
+    const ok = clubBtn("Aceptar", () => answerValidation(r.profile_id, name, true));
+    const no = clubBtn("Rechazar", () => answerValidation(r.profile_id, name, false));
+    const row = clubRow(byOther ? name + " (lo invitó otro miembro)" : name, [ok, no]);
+    row.classList.add("club-member-row");
+    if(row.firstChild) row.firstChild.title = name;
+    box.appendChild(row);
+  });
+  // Aviso solo de las solicitudes nuevas (la primera carga no avisa).
+  const ids = new Set(rows.map(r => r.profile_id));
+  if(clubValidationsIds){
+    const fresh = rows.filter(r => !clubValidationsIds.has(r.profile_id));
+    if(fresh.length){
+      const p = fresh[0].profile || {};
+      const nm = p.display_name || p.username || "Alguien";
+      showGlobalToast(fresh.length === 1
+        ? nm + " quiere unirse al club. Confírmalo en Club → Partidas."
+        : fresh.length + " personas quieren unirse al club. Confírmalas en Club → Partidas.");
+    }
+  }
+  clubValidationsIds = ids;
+  if(typeof clubSyncGroups === "function") clubSyncGroups();
+}
+async function answerValidation(profileId, name, accept){
+  if(!accept && !confirm("¿Rechazar a " + name + "? No entrará al club con ese código.")) return;
+  clubNote(accept ? "Confirmando a " + name + "…" : "Rechazando a " + name + "…");
+  const { error } = await sb.rpc("validate_member", { p_profile_id: profileId, p_accept: !!accept });
+  if(error){ clubNote("No se pudo completar: " + error.message, true); loadClubValidations(); return; }
+  clubNote(accept ? name + " ya es miembro del club." : "Solicitud de " + name + " rechazada.");
+  loadClubValidations();
+  if(accept){ loadClubMembers(); if(clubIsOwner) loadClubAdmin(); }
+}
+
+// ---- abandonar el club ----
+document.getElementById("club-leave-btn").onclick = async () => {
+  const note = document.getElementById("club-leave-note");
+  if(!confirm("¿Abandonar el club? Dejarás de ver a los miembros y se cancelan tus retos pendientes. Tus trofeos y partidas se conservan. Para volver necesitarás un código nuevo.")) return;
+  note.textContent = "Saliendo…"; note.classList.remove("err");
+  const { error } = await sb.rpc("leave_club");
+  if(error){ note.textContent = "No puedes salir todavía: " + error.message; note.classList.add("err"); return; }
+  note.textContent = "";
+  try{ unsubscribeClubChannel(); }catch(e){}
+  try{ unsubscribePresence(); }catch(e){}
+  clubValidationsIds = null; clubIsOwner = false;
+  showGlobalToast("Saliste del club.");
+  refreshClub();
+};
+
+// ---- el dueño: pestaña Admin (exentos y expulsión) ----
+function adminNote(msg, isErr){
+  const el = document.getElementById("club-admin-note");
+  if(!el) return;
+  el.textContent = msg || "";
+  el.classList.toggle("err", !!isErr);
+}
+function clubDaysAgo(iso){
+  if(!iso) return null;
+  const t = new Date(iso).getTime();
+  return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000));
+}
+function applyClubOwnerUI(){
+  const tab = document.getElementById("club-tab-admin"), tabs = document.getElementById("club-tabs");
+  const leave = document.getElementById("club-leave-details");
+  if(tab) tab.hidden = !clubIsOwner;
+  if(tabs) tabs.classList.toggle("has-admin", !!clubIsOwner);
+  if(leave) leave.hidden = !!clubIsOwner;
+  if(!clubIsOwner){
+    const v = document.getElementById("club-view-admin");
+    if(v && !v.hidden && typeof clubShowTab === "function") clubShowTab("games");
+  }
+}
+async function refreshClubOwner(){
+  let owner = false;
+  try{
+    const { data, error } = await sb.rpc("is_club_owner");
+    owner = !error && data === true;
+  }catch(e){}
+  clubIsOwner = owner;
+  applyClubOwnerUI();
+  if(owner) loadClubAdmin();
+}
+var clubAdminSeq = 0;
+async function loadClubAdmin(){
+  if(!clubIsOwner) return;
+  const mySeq = ++clubAdminSeq;
+  const box = document.getElementById("club-admin-list");
+  if(!box) return;
+  const { data, error } = await sb.from("club_members")
+    .select("profile_id, joined_at, last_seen_at, exento, es_dueno, profiles(id, username, display_name)");
+  if(mySeq !== clubAdminSeq) return;
+  if(error){ adminNote("No se pudo cargar la lista: " + error.message, true); return; }
+  const left = r => {   // días que le quedan antes de la limpieza automática (Infinity si está exento)
+    if(r.exento) return Infinity;
+    const seen = clubDaysAgo(r.last_seen_at);
+    return seen === null ? 30 - (clubDaysAgo(r.joined_at) || 0) : 60 - seen;
+  };
+  const rows = (data || []).filter(r => r.profiles && !r.es_dueno).sort((a, b) => left(a) - left(b));
+  box.innerHTML = "";
+  if(!rows.length){
+    box.innerHTML = '<p class="free-hint">Todavía no hay otros miembros en el club.</p>';
+    return;
+  }
+  rows.forEach(r => {
+    const name = r.profiles.display_name || r.profiles.username || "Miembro";
+    const seen = clubDaysAgo(r.last_seen_at);
+    let sub = seen === null ? "Nunca se ha conectado" : (seen < 1 ? "Última visita: hoy" : "Última visita: hace " + seen + " d");
+    const l = left(r);
+    sub += r.exento ? " · exento" : (l <= 0 ? " · sale en la próxima limpieza" : " · sale en " + l + " d si no vuelve");
+
+    const row = document.createElement("div");
+    row.className = "club-admin-row";
+    const who = document.createElement("div");
+    who.className = "who";
+    const st = document.createElement("strong"); st.textContent = name; st.title = name;
+    const sm = document.createElement("small"); sm.textContent = sub;
+    who.append(st, sm);
+
+    const ctl = document.createElement("div");
+    ctl.className = "ctl";
+    const lab = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = !!r.exento;
+    cb.setAttribute("aria-label", "Exento de la expulsión por inactividad: " + name);
+    lab.append(cb, document.createTextNode("Exento"));
+    cb.onchange = async () => {
+      const want = cb.checked;
+      cb.disabled = true;
+      const { error: e1 } = await sb.rpc("set_exento", { p_profile_id: r.profile_id, p_exento: want });
+      if(e1){ cb.checked = !want; cb.disabled = false; adminNote("No se pudo cambiar: " + e1.message, true); return; }
+      adminNote(name + (want ? " ahora está exento." : " ya no está exento."));
+      loadClubAdmin();
+    };
+    const exp = clubBtn("Expulsar", async () => {
+      if(!confirm("¿Expulsar a " + name + " del club? Se cancelan sus retos pendientes; sus trofeos y partidas se conservan. Podrá volver con un código nuevo.")) return;
+      adminNote("Expulsando a " + name + "…");
+      const { error: e2 } = await sb.rpc("expel_member", { p_profile_id: r.profile_id });
+      if(e2){ adminNote("No se pudo expulsar: " + e2.message, true); return; }
+      adminNote(name + " ya no está en el club.");
+      loadClubAdmin(); loadClubMembers();
+    });
+    ctl.append(lab, exp);
+    row.append(who, ctl);
+    box.appendChild(row);
+  });
+}
+
+// ---- presencia para la expulsión por inactividad ----
+// El servidor solo anota la visita una vez por hora y de paso hace la limpieza diaria de inactivos.
+function touchClubPresence(force){
+  if(!accountProfile || clubIsMember !== true) return;
+  const now = Date.now();
+  if(!force && now - presenceTouchLast < 20 * 60 * 1000) return;
+  presenceTouchLast = now;
+  try{ sb.rpc("touch_presence").then(() => {}, () => {}); }catch(e){}
+}
+// Solicitudes nuevas y visita: cada minuto con el Tablero a la vista, y al volver a la pestaña.
+setInterval(() => {
+  if(!accountProfile || clubIsMember !== true || document.visibilityState !== "visible") return;
+  loadClubValidations();
+  touchClubPresence(false);
+}, 60000);
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState !== "visible" || !accountProfile) return;
+  if(clubIsMember === true){ loadClubValidations(); touchClubPresence(false); }
+  else if(clubIsMember === false && clubWasPending){ refreshClub(); }
+});
 
 /* ============================ Partidas en vivo (Fase 2, paso 4, 2026-09-24) ============================
    Conecta una partida ya creada por un reto aceptado al tablero real:
@@ -9821,7 +10119,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V260 · 15-oct-2026 · se ve todo el trayecto de la pieza al moverse (sin tapar el desmoronamiento); shah más grande; piezas del shatranj en los títulos; pellizco seguro en el tablero";
+const BUILD_ID = "V261 · 15-oct-2026 · club privado: invitaciones personales de un solo uso (48 h) que confirma quien invita; abandonar el club; el dueño gestiona exentos y expulsiones; salida automática por inactividad (30 / 60 días)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -11527,9 +11825,9 @@ document.addEventListener("visibilitychange", () => {
 var clubLoaded = { ch: false, active: false };
 var clubComposeKind = "live";
 function clubShowTab(name){
-  const tabs = { games: "club-tab-games", challenge: "club-tab-challenge", tournaments: "club-tab-tournaments" };
-  const views = { games: "club-view-games", challenge: "club-view-challenge", tournaments: "club-view-tournaments" };
-  if(!tabs[name]) name = "games";
+  const tabs = { games: "club-tab-games", challenge: "club-tab-challenge", tournaments: "club-tab-tournaments", admin: "club-tab-admin" };
+  const views = { games: "club-view-games", challenge: "club-view-challenge", tournaments: "club-view-tournaments", admin: "club-view-admin" };
+  if(!tabs[name] || (name === "admin" && !clubIsOwner)) name = "games";   // V261: Admin solo para el dueño
   for(const k of Object.keys(tabs)){
     const t = document.getElementById(tabs[k]), v = document.getElementById(views[k]);
     if(t){ t.setAttribute("aria-selected", String(k === name)); t.tabIndex = k === name ? 0 : -1; }
@@ -11538,7 +11836,7 @@ function clubShowTab(name){
 }
 function clubSyncGroups(){
   const has = id => { const c = document.getElementById(id); return !!c && c.childElementCount > 0; };
-  const pairs = [["club-group-in", "club-challenges-in"], ["club-group-active", "club-active-games"], ["club-group-out", "club-challenges-out"]];
+  const pairs = [["club-group-validate", "club-validations"], ["club-group-in", "club-challenges-in"], ["club-group-active", "club-active-games"], ["club-group-out", "club-challenges-out"]];   // V261: + solicitudes por confirmar
   let any = false;
   pairs.forEach(([g, c]) => { const on = has(c); any = any || on; const grp = document.getElementById(g); if(grp) grp.hidden = !on; });
   const empty = document.getElementById("club-games-empty");
@@ -11557,7 +11855,7 @@ function setClubKind(kind){
 }
 document.getElementById("club-kind-live").onclick = () => setClubKind("live");
 document.getElementById("club-kind-async").onclick = () => setClubKind("async");
-["games", "challenge", "tournaments"].forEach(k => {
+["games", "challenge", "tournaments", "admin"].forEach(k => {
   document.getElementById("club-tab-" + k).onclick = () => clubShowTab(k);
 });
 document.getElementById("club-empty-challenge").onclick = () => clubShowTab("challenge");
