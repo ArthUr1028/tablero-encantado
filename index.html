@@ -3758,11 +3758,9 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
 
             <details id="club-invite-details" class="club-invite">
               <summary>Invitar a alguien al club</summary>
-              <p class="free-hint" style="margin:8px 0 0">Copia un mensaje listo para pegar en WhatsApp, con el enlace y el c&oacute;digo incluidos. Cada invitaci&oacute;n es personal: sirve para una sola persona y vence en 48 horas. Cuando la use, t&uacute; confirmas su entrada. Para invitar a otra persona, pulsa &laquo;C&oacute;digo nuevo&raquo; (m&aacute;ximo 3 c&oacute;digos activos).</p>
+              <p class="free-hint" style="margin:8px 0 0">Cada vez que pulses &laquo;Invitar&raquo; se crea una invitaci&oacute;n nueva y personal, con el mensaje listo para WhatsApp (enlace y c&oacute;digo incluidos). Sirve para una sola persona y vence en 48 horas. Cuando la use, t&uacute; confirmas su entrada (m&aacute;ximo 3 invitaciones activas a la vez).</p>
               <div class="btns" style="margin-top:8px">
-                <button class="btn" id="club-invite-copy">Copiar invitaci&oacute;n</button>
-                <button class="btn" id="club-invite-share" style="display:none">Compartir&hellip;</button>
-                <button class="btn" id="club-invite-btn">C&oacute;digo nuevo</button>
+                <button class="btn" id="club-invite-btn">Invitar</button>
               </div>
               <p class="lib-note" id="club-invite-note"></p>
             </details>
@@ -9780,11 +9778,8 @@ document.getElementById("club-pending-refresh").onclick = () => refreshClub();
 // V261: cada invitación es personal: un solo uso y vence en 48 h (lo impone el servidor; aquí solo se refleja).
 const INVITE_BASE_URL = "https://tablero-encantado.pages.dev/";
 const INVITE_MAX_USES = 1;
-const INVITE_MINE_KEY = "tablero-encantado.mi-invitacion.v2";   // guarda {code, exp}; el v1 guardaba solo el código
-const INVITE_TTL_MS = 47 * 3600 * 1000;                          // un poco menos que las 48 h reales
 const INVITE_RULE = "un solo uso, vence en 48 h";
-const clubInviteCopyBtn = document.getElementById("club-invite-copy");
-const clubInviteShareBtn = document.getElementById("club-invite-share");
+const clubInviteBtn = document.getElementById("club-invite-btn");
 function inviteNote(msg, isErr){
   clubInviteNoteEl.textContent = msg || "";
   clubInviteNoteEl.classList.toggle("err", !!isErr);
@@ -9800,25 +9795,14 @@ function inviteMessage(code){
     "Este enlace es solo para ti: sirve una vez y vence en 48 horas." +
     (firma ? "\n\n— " + firma : "");
 }
-function readMyInvite(){
-  try{
-    const o = JSON.parse(localStorage.getItem(INVITE_MINE_KEY) || "null");
-    if(o && o.code && o.exp > Date.now()) return o.code;
-  }catch(e){}
-  return "";
-}
-async function ensureMyInviteCode(forceNew){
-  let code = forceNew ? "" : readMyInvite();
-  if(code){
-    // Si ya se usó o venció, se genera otro. Si no se puede consultar, se reutiliza mientras no pase el plazo local.
-    const { data: row } = await sb.from("club_invites").select("uses, max_uses, expires_at").eq("code", code).maybeSingle();
-    if(row && ((row.max_uses != null && row.uses >= row.max_uses) ||
-               (row.expires_at && new Date(row.expires_at).getTime() < Date.now()))) code = "";
-  }
-  if(code) return code;
+// V262 · un único botón «Invitar». Cada pulsación crea una invitación nueva (una persona por código).
+// Si el envío se cancela o falla, el código recién creado se conserva en memoria y se reutiliza en la
+// siguiente pulsación, para no gastar códigos activos por un envío que no llegó a salir.
+let inviteDraftCode = "";
+let inviteBusy = false;
+async function createMyInviteCode(){
   const { data, error } = await sb.rpc("create_invite", { p_max_uses: INVITE_MAX_USES, p_expires_days: null });
   if(error) throw error;
-  try{ localStorage.setItem(INVITE_MINE_KEY, JSON.stringify({ code: data, exp: Date.now() + INVITE_TTL_MS })); }catch(e){}
   return data;
 }
 function showInviteFallback(text){
@@ -9835,34 +9819,43 @@ function showInviteFallback(text){
   ta.hidden = false;
   ta.focus(); ta.select();
 }
-async function copyInvite(useShare){
-  inviteNote("Preparando la invitación…");
-  let code;
-  try{ code = await ensureMyInviteCode(false); }
-  catch(e){ inviteNote("No se pudo generar el código: " + e.message, true); return; }
-  const text = inviteMessage(code);
+async function inviteSomeone(){
+  if(inviteBusy) return;
+  inviteBusy = true; clubInviteBtn.disabled = true;
   try{
-    if(useShare && navigator.share){ await navigator.share({ text }); inviteNote("Invitación compartida (" + INVITE_RULE + "). Para invitar a otra persona, pulsa «Código nuevo»."); return; }
-    await navigator.clipboard.writeText(text);
-    inviteNote("Invitación copiada: pégala en WhatsApp. Código " + code + " (" + INVITE_RULE + "). Para invitar a otra persona, pulsa «Código nuevo».");
-  }catch(e){
-    if(e && e.name === "AbortError") { inviteNote(""); return; }
-    inviteNote("No se pudo copiar solo: selecciona el texto de abajo y cópialo.", true);
-    showInviteFallback(text);
+    inviteNote("Preparando la invitación…");
+    const ta = document.getElementById("club-invite-fallback"); if(ta) ta.hidden = true;
+    let code = inviteDraftCode;
+    if(!code){
+      try{ code = await createMyInviteCode(); inviteDraftCode = code; }
+      catch(e){ inviteNote("No se pudo crear la invitación: " + (e && e.message ? e.message : e), true); return; }
+    }
+    const text = inviteMessage(code);
+    // En celular se abre el menú de compartir (WhatsApp, etc.); en computadora se copia al portapapeles.
+    if(navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+      try{
+        await navigator.share({ text });
+        inviteDraftCode = "";
+        inviteNote("Invitación enviada (" + INVITE_RULE + "). Para invitar a otra persona, vuelve a pulsar «Invitar».");
+        return;
+      }catch(e){
+        if(e && e.name === "AbortError"){ inviteNote("Envío cancelado. La invitación sigue lista: pulsa «Invitar» para compartirla."); return; }
+        // cualquier otro fallo: se intenta copiar
+      }
+    }
+    try{
+      await navigator.clipboard.writeText(text);
+      inviteDraftCode = "";
+      inviteNote("Invitación copiada: pégala en WhatsApp. Código " + code + " (" + INVITE_RULE + "). Para invitar a otra persona, vuelve a pulsar «Invitar».");
+    }catch(e){
+      inviteNote("No se pudo copiar solo: selecciona el texto de abajo y cópialo.", true);
+      showInviteFallback(text);
+    }
+  } finally {
+    inviteBusy = false; clubInviteBtn.disabled = false;
   }
 }
-clubInviteCopyBtn.onclick = () => copyInvite(false);
-if(navigator.share){
-  clubInviteShareBtn.style.display = "";
-  clubInviteShareBtn.onclick = () => copyInvite(true);
-}
-document.getElementById("club-invite-btn").onclick = async () => {
-  inviteNote("Generando un código nuevo…");
-  try{
-    const code = await ensureMyInviteCode(true);
-    inviteNote("Código nuevo: " + code + " (" + INVITE_RULE + "). Las próximas invitaciones copiadas llevan este código.");
-  }catch(e){ inviteNote("No se pudo generar: " + e.message, true); }
-};
+clubInviteBtn.onclick = inviteSomeone;
 
 // V192: aviso flotante cuando alguien más entra al club (necesita Realtime activado en club_members).
 async function handleNewClubMember(payload){
