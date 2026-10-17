@@ -1813,6 +1813,11 @@
   .opening-tip{ font-size:.84rem; color:var(--frost); margin:0 0 10px; padding:7px 9px;
     background:rgba(143,176,189,.08); border-left:2px solid var(--frost); border-radius:2px; }
   .opening-tip:empty{ display:none; }
+  #ejer-feedback[data-tono="bien"]{ border-left-color:var(--ember-soft); color:var(--ember-soft); }
+  #ejer-feedback[data-tono="mal"]{ border-left-color:var(--text-faint); color:var(--text-dim); }
+  #ejer-feedback[data-tono="casi"]{ border-left-color:var(--frost); }
+  #ejer-explain{ font-family:"Spectral",serif; line-height:1.45; }
+  #op-nav[hidden]{ display:none; }
   .eco{ font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--ember); letter-spacing:.08em; }
 
   textarea{
@@ -4092,7 +4097,19 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <p class="opening-desc" id="opening-desc"></p>
         <p class="opening-tip" id="opening-tip"></p>
         <p class="opening-tip" id="opening-goal" hidden></p>
-        <div class="btns">
+        <div id="ejer-block" hidden>
+          <p class="opening-tip" id="ejer-feedback" aria-live="polite"></p>
+          <p class="opening-tip" id="ejer-hint" hidden></p>
+          <div class="btns">
+            <button class="btn" id="ejer-hint-btn" hidden>Pista</button>
+            <button class="btn" id="ejer-solution-btn" hidden>Ver solución</button>
+            <button class="btn" id="ejer-retry-btn" hidden>Empezar</button>
+            <button class="btn" id="ejer-next-btn" hidden>Siguiente ejercicio</button>
+          </div>
+          <p class="opening-tip" id="ejer-explain" hidden></p>
+          <p class="lib-note" id="ejer-progress"></p>
+        </div>
+        <div class="btns" id="op-nav">
           <button class="btn" id="op-play">&#x25B6; Reproducir</button>
           <button class="btn" id="op-reset">Reiniciar línea</button>
         </div>
@@ -5457,6 +5474,7 @@ function newGame(fen, meta){
     statusEl.textContent = "Estás en una partida en vivo — sal de ella primero (panel Club) para cargar otra posición.";
     return;
   }
+  if(!ejerKeep && ejerActive){ ejerActive = null; try{ ejerSync(); }catch(e){} }   // V262: cargar otra posición cierra el ejercicio
   const st = parseFEN(fen);
   const m = meta || {};
   branch = null;
@@ -5720,7 +5738,19 @@ const OPENINGS = [
   { id:"tactica-sacrificio-griego", type:"Táctica", name:"El Sacrificio Griego (Bxh7+)", eco:"Táctica", fen:"3q2k1/3p1ppp/8/8/8/3B1N2/8/3Q2K1 w - - 0 1", practice:"w", moves:["d3h7","g8h7","f3g5","h7g8","d1h5"],
     desc:"El sacrificio más famoso contra el enroque corto: con el Alfil apuntando a h7, el Caballo listo para saltar a g5 y la Dama con acceso a la columna h, Bxh7+ obliga casi siempre a capturar (declinar con Rh8 deja a blancas simplemente arriba un peón, con el Alfil todavía en juego, así que tampoco es un desastre si el rival no cae). Tras Rxh7, Cg5+ vuelve a dar jaque y de paso amenaza el peón de f7; el Rey solo tiene dos retiradas razonables — g8 o g6 — y cada una pide una jugada distinta de Dama.",
     tip:"Aquí está el detalle que hace célebre esta combinación, y que casi nadie recuerda bien: si el Rey vuelve a g8, sigue Dh5 amenazando mate en h7. Pero si el Rey se atreve a ir a g6 (la defensa más resistente), Dh5+ es un ERROR que regala la Dama con ...Rxh5 — ahí hace falta Dg4 en su lugar, manteniendo la amenaza sin dejarse capturar. Fíjate bien en qué casilla fue el Rey antes de mover la Dama; no repitas la misma jugada de memoria en las dos ramas.",
-    goal:"Objetivo de la práctica: sacrificar con Bxh7+ y encontrar la jugada de Dama correcta según adónde se retire el Rey de claudIA — ganar material decisivo o rematar el ataque." }
+    goal:"Objetivo de la práctica: sacrificar con Bxh7+ y encontrar la jugada de Dama correcta según adónde se retire el Rey de claudIA — ganar material decisivo o rematar el ataque." },
+  {"id":"ejer-gruenfeld1923","type":"Ejercicio","name":"Mate en 2: la dama sin defensa (Grünfeld–Alekhine, 1923)","eco":"Ejercicio · Nivel 1","fen":"6k1/5pb1/p5pp/1p6/4PP2/P7/NP4PP/3r1QK1 b - - 1 34","practice":"b","moves":["g7d4","g1h1","d1f1"],"desc":"Posición real de una partida de 1923: Grünfeld (blancas) contra Alekhine (negras). Juegan las negras y dan mate en 2.","tip":"El Rey blanco está encerrado por sus propios peones. Busca el jaque que lo obligue a ir a h1 y mira qué pieza tuya ya vigila la primera fila.","ejer":{"nivel":1,"tipo":"mate","meta":"Mate en 2.","steps":[{"acc":["g7d4"],"reply":"g1h1"},{"acc":["d1f1"]}],"explica":"1…Ad4+ quita al Rey la casilla f2 y lo manda a h1; después 2…Txf1# captura la dama con mate: los peones de g2 y h2 le cierran la salida al propio Rey. En la partida, Grünfeld abandonó tras 34…Ad4+, porque el mate ya no tenía defensa."}},
+  {"id":"ejer-rubinstein1925","type":"Ejercicio","name":"Horquilla de caballo: dama y torre a la vez (Tartakower–Rubinstein, 1925)","eco":"Ejercicio · Nivel 1","fen":"4r2k/p2q2rp/1pp2p2/2p1nP1N/4R3/1P1P3P/1PP2QP1/7K w - - 0 32","practice":"w","moves":["h5f6","d7e7","f6e8"],"desc":"Posición real: Tartakower (blancas) contra Rubinstein (negras), Moscú 1925. Juegan las blancas y ganan material.","tip":"Mira la casilla f6. ¿Qué dos piezas rivales atacaría desde allí el Caballo de h5?","ejer":{"nivel":1,"tipo":"gana","meta":"Gana material.","steps":[{"acc":["h5f6"],"reply":"d7e7"},{"acc":["f6e8"]}],"explica":"1.Cxf6 captura un peón y, desde f6, ataca a la vez la dama de d7 y la torre de e8: es una horquilla. Después de 1…De7, 2.Cxe8 Dxe8 deja a las blancas con un peón y la calidad de ventaja (torre por caballo). Así se jugó en la partida."}},
+  {"id":"ejer-kotov1950","type":"Ejercicio","name":"Alfil con jaque que apunta a la torre (Keres–Kotov, 1950)","eco":"Ejercicio · Nivel 1","fen":"r2k1b1r/1p1b1p1p/p2p1p2/6B1/4qP2/8/PPP3PP/R2Q1RK1 w - - 0 16","practice":"w","moves":["g5f6","f8e7","f6h8"],"desc":"Posición real: Keres (blancas) contra Kotov (negras), Torneo de Candidatos, Budapest 1950. Juegan las blancas y ganan material.","tip":"Tu Alfil de g5 puede capturar en f6 con jaque. Mira qué hay al otro lado de ese peón, en la misma diagonal.","ejer":{"nivel":1,"tipo":"gana","meta":"Gana material.","steps":[{"acc":["g5f6"],"reply":"f8e7"},{"acc":["f6h8"]}],"explica":"1.Axf6+ da jaque al Rey de d8 y, a la vez, ataca la torre de h8 por la diagonal larga: el rival solo puede atender el jaque, y 2.Axh8 se lleva la torre. En la partida Kotov respondió 16…Rc7 en vez de 16…Ae7; el resultado es el mismo."}},
+  {"id":"ejer-opera1858","type":"Ejercicio","name":"Mate en 2: el sacrificio de dama de «La Ópera» (Morphy, 1858)","eco":"Ejercicio · Nivel 2","fen":"4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 0 16","practice":"w","moves":["b3b8","d7b8","d1d8"],"desc":"Posición real de «La Ópera»: Morphy (blancas) contra el duque de Brunswick y el conde Isouard, París 1858. Juegan las blancas y dan mate en 2.","tip":"El Caballo de d7 es el único que defiende la casilla d8. ¿Cómo lo obligas a abandonar su puesto?","ejer":{"nivel":2,"tipo":"mate","meta":"Mate en 2.","steps":[{"acc":["b3b8"],"near":["b3b7","b3c3"],"reply":"d7b8"},{"acc":["d1d8"]}],"explica":"1.Db8+!! obliga al Caballo a capturar (nada más puede parar el jaque) y deja la columna d abierta: 2.Td8# es mate, porque el Alfil de g5 cubre e7 y las piezas negras se estorban entre sí. Es el final de «La Ópera»."}},
+  {"id":"ejer-glucksberg1930","type":"Ejercicio","name":"Mate en 2: sacrificio de caballo (Glücksberg–Najdorf, 1930)","eco":"Ejercicio · Nivel 2","fen":"r4rk1/pp4pp/2p3n1/3p2N1/2P2PK1/3B2P1/PP5q/R1BQ1RN1 b - - 0 21","practice":"b","moves":["g6e5","f4e5","h7h5"],"desc":"Posición real: Glücksberg (blancas) contra Najdorf (negras), Varsovia, h. 1930. Juegan las negras y dan mate en 2.","tip":"El Rey blanco está en g4, rodeado de sus propios peones. Busca un jaque de Caballo que lo obligue a capturar.","ejer":{"nivel":2,"tipo":"mate","meta":"Mate en 2.","steps":[{"acc":["g6e5"],"reply":"f4e5"},{"acc":["h7h5"]}],"explica":"1…Ce5+! fuerza 2.fxe5 y entonces 2…h5# es mate: el Rey de g4 se queda sin casillas entre sus propios peones y la Dama de h2. Así terminó la partida."}},
+  {"id":"ejer-tal_smyslov1959","type":"Ejercicio","name":"Jaque intermedio: capturar con jaque antes de tomar la dama (Tal–Smyslov, 1959)","eco":"Ejercicio · Nivel 2","fen":"r1bb3k/p4rpp/2p2n1N/8/2p5/2B2N2/1PPK1PPP/q2R3R w - - 0 21","practice":"w","moves":["h6f7","h8g8","d1a1"],"desc":"Posición real: Tal (blancas) contra Smyslov (negras), Torneo de Candidatos 1959, ronda 8. La dama negra de a1 está atrapada. Juegan las blancas: ¿cuál es la forma más fuerte de aprovecharlo?","tip":"Tomar la dama de inmediato no es lo más fuerte. Mira primero qué hace tu Caballo de h6 sobre la torre de f7.","ejer":{"nivel":2,"tipo":"gana","meta":"Gana material.","steps":[{"acc":["h6f7"],"reply":"h8g8"},{"acc":["d1a1"],"near":["f7h6"]}],"explica":"1.Cxf7+! (jaque intermedio) captura la torre y obliga a mover el Rey; solo después llega 2.Txa1. Si las blancas toman la dama de inmediato, 1…gxh6 les cuesta el Caballo de h6. Tal se lleva la dama y una torre por un caballo."}},
+  {"id":"ejer-siempreviva","type":"Ejercicio","name":"Mate en 3: los dos alfiles de «La Siempreviva» (Anderssen–Dufresne, 1852)","eco":"Ejercicio · Nivel 2","fen":"1r4r1/pbpknp1p/1b3P2/8/8/B1PB1q2/P4PPP/3R2K1 w - - 0 22","practice":"w","moves":["d3f5","d7e8","f5d7","e8f8","a3e7"],"desc":"Posición real de «La Siempreviva»: Anderssen (blancas) contra Dufresne (negras), Berlín 1852. Anderssen acaba de sacrificar la dama y el Rey negro la capturó. Juegan las blancas y dan mate en 3.","tip":"Tienes dos alfiles y el Rey negro está en d7. Empieza con un jaque que lo empuje hacia la fila 8.","ejer":{"nivel":2,"tipo":"mate","meta":"Mate en 3.","steps":[{"acc":["d3f5"],"reply":"d7e8"},{"acc":["f5d7"],"reply":"e8f8"},{"acc":["a3e7"]}],"explica":"1.Af5+ Re8 2.Ad7+ Rf8 3.Axe7#: los dos alfiles persiguen al Rey y el Caballo de e7, que parecía defender, cae con mate. Anderssen había sacrificado antes una torre y la dama."}},
+  {"id":"ejer-vidmar1927","type":"Ejercicio","name":"Mate en 3: la dama y el alfil contra g2 (Vidmar–Nimzowitsch, 1927)","eco":"Ejercicio · Nivel 2","fen":"4rrk1/p6p/1p6/2p2pp1/Q1P1q3/2BRP2b/PP1R3P/6K1 b - - 4 29","practice":"b","moves":["e4g4","g1h1","g4f3","d2g2","f3g2"],"desc":"Posición real: Vidmar (blancas) contra Nimzowitsch (negras), Nueva York 1927. Juegan las negras y dan mate en 3. En la partida, Vidmar abandonó tras 29…Dg4+.","tip":"El Rey blanco está en g1 y el Alfil de h3 vigila la casilla g2. Empieza por un jaque de dama.","ejer":{"nivel":2,"tipo":"mate","meta":"Mate en 3.","steps":[{"acc":["e4g4"],"near":["e8d8","f5f4","b6b5","h7h6","e8e7","e8e6","a7a5"],"reply":"g1h1"},{"acc":["g4f3"],"near":["g4e4","f5f4","b6b5","e8e6","g4f4","h7h6","g4h4"],"reply":"d2g2"},{"acc":["f3g2"],"near":["h3g2","f3f1","e8e4","e8e3","e8d8","f5f4","b6b5"]}],"explica":"1…Dg4+ 2.Rh1 Df3+ 3.Tg2 Dxg2#: el Alfil de h3 sostiene la casilla g2 y el Rey no tiene escapatoria. Con cualquier otra defensa el mate llega igual o antes. Vidmar abandonó sin esperar a verlo."}},
+  {"id":"ejer-staunton1851","type":"Ejercicio","name":"Mate en 3: la dama persigue al rey (Anderssen–Staunton, 1851)","eco":"Ejercicio · Nivel 2","fen":"8/3b4/3PNrk1/1p2Q1p1/4P2p/7P/P5PK/8 w - - 0 42","practice":"w","moves":["e5g5","g6f7","g5g7","f7e6","g7e7"],"desc":"Posición real: Anderssen (blancas) contra Staunton (negras), Torneo de Londres 1851. Juegan las blancas y dan mate en 3.","tip":"Tu Dama puede capturar en g5 con jaque. Fíjate en cómo el Caballo de e6 y el peón de d6 cierran el cerco.","ejer":{"nivel":2,"tipo":"mate","meta":"Mate en 3.","steps":[{"acc":["e5g5"],"near":["e6c5","e6g5","e6d4","e6c7","e6g7","e6d8","a2a4"],"reply":"g6f7"},{"acc":["g5g7"],"near":["e6d8","g5h5","e6c5","e6f4","e6f8","e6c7","e6d4"],"reply":"f7e6"},{"acc":["g7e7"],"near":["a2a4","h2g1","g7g5","a2a3","e4e5","g7h7","g2g4"]}],"explica":"1.Dxg5+ Rf7 2.Dg7+ Rxe6 3.De7#: el peón de d6 sostiene e7 y el de e4 cubre d5 y f5, así que el Rey de e6 no tiene salida. Así terminó la partida."}},
+  {"id":"ejer-k85g16","type":"Ejercicio","name":"Mate en 3: dos sacrificios en la misma casilla (Karpov–Kaspárov, 1985)","eco":"Ejercicio · Nivel 3","fen":"4r3/5pk1/7p/8/1p4P1/1P1R2P1/3N1qBP/3N3K b - - 0 40","practice":"b","moves":["e8e1","d2f1","e1f1","g2f1","f2f1"],"desc":"Posición real: Karpov (blancas) contra Kaspárov (negras), Match por el título mundial, Moscú 1985, partida 16. Juegan las negras y dan mate en 3. En la partida, Karpov abandonó tras 40…Te1+.","tip":"Tu Torre da jaque en e1 y tu Dama ya apunta a f1. ¿Cuántas piezas del rival pueden defender esa casilla?","ejer":{"nivel":3,"tipo":"mate","meta":"Mate en 3.","steps":[{"acc":["e8e1"],"near":["f2e2"],"reply":"d2f1"},{"acc":["e1f1"],"near":["f2c2","f2e2"],"reply":"g2f1"},{"acc":["f2f1"]}],"explica":"1…Te1+ 2.Cf1 Txf1+ 3.Axf1 Dxf1#: dos sacrificios en f1 agotan a los defensores y el Rey se queda sin casillas. Karpov abandonó antes de llegar a verlo."}},
+  {"id":"ejer-inmortal","type":"Ejercicio","name":"Mate en 3: el sacrificio de dama de «La Inmortal» (Anderssen–Kieseritzky, 1851)","eco":"Ejercicio · Nivel 3","fen":"r1b1k1nr/p2p1ppp/n2B4/1p1NPN1P/6P1/3P1Q2/P1P1K3/q5b1 w kq - 2 21","practice":"w","moves":["f5g7","e8d8","f3f6","g8f6","d6e7"],"desc":"Posición real de «La Inmortal»: Anderssen (blancas) contra Kieseritzky (negras), Londres 1851. Anderssen ya ha sacrificado un alfil y las dos torres. Juegan las blancas y dan mate en 3.","tip":"Empieza con el jaque de Caballo que obliga al Rey a ir a d8. Después, lo único que falta es una pieza que se entregue.","ejer":{"nivel":3,"tipo":"mate","meta":"Mate en 3.","steps":[{"acc":["f5g7"],"near":["d3d4","h5h6","f3f4","g4g5","a2a3","a2a4","e2d2"],"reply":"e8d8"},{"acc":["f3f6"],"near":["f3f7","d3d4","f3f5","a2a4","f3f4","e2d2","g4g5"],"reply":"g8f6"},{"acc":["d6e7"]}],"explica":"1.Cxg7+ Rd8 2.Df6+!! Cxf6 3.Ae7#: la dama se entrega para desviar al Caballo y el Alfil da mate con el apoyo del otro Alfil y de un Caballo: mate con tres piezas menores. Es el final de «La Inmortal»."}},
+  {"id":"ejer-bauer1889","type":"Ejercicio","name":"El doble sacrificio de alfil (Lasker–Bauer, 1889)","eco":"Ejercicio · Nivel 3","fen":"r4rk1/1b2bppp/ppq1p3/2ppB2n/5P2/1P1BP3/P1PPQ1PP/R4RK1 w - - 0 15","practice":"w","moves":["d3h7","g8h7","e2h5","h7g8","e5g7"],"desc":"Posición real: Lasker (blancas) contra Bauer (negras), Ámsterdam 1889. Juegan las blancas y desatan un ataque decisivo contra el Rey enrocado.","tip":"El Alfil de d3 apunta a h7. Piensa en un sacrificio en h7 seguido de otra captura con jaque.","ejer":{"nivel":3,"tipo":"gana","meta":"Encuentra la secuencia ganadora: son tres jugadas tuyas.","steps":[{"acc":["d3h7"],"reply":"g8h7"},{"acc":["e2h5"],"reply":"h7g8"},{"acc":["e5g7"]}],"explica":"1.Axh7+ Rxh7 2.Dxh5+ Rg8 3.Axg7!!: el segundo alfil también se sacrifica y el Rey negro queda expuesto (3…Rxg7 4.Dg4+ Rh7 5.Tf3 y las blancas atacan con todo). Es una de las primeras apariciones documentadas del doble sacrificio de alfil."}}
 ];
 
 /* ---------- Identificación automática de apertura (catálogo ECO) ---------- */
@@ -7593,6 +7623,8 @@ function tryMove(from, to){
   // mover en una jugada anterior abre una variante (lo de siempre). Una partida en pausa o por empezar sigue frenada.
   if(!matchStarted || matchPaused){ if(!studyLoaded()) return; }
   if(retoActive && (!atLive() || branch)) return;
+  if(ejerActive && !ejerActive.busy && !ejerActive.solved && !ejerActive.gaveUp && (!atLive() || branch)) return;   // V262
+  if(ejerActive && ejerActive.busy) return;
   // Fase 2 · paso 4: en partida en vivo, ni navegar a una jugada anterior
   // ni mover fuera de tu turno (ver también canPick(), que ya bloquea
   // TOMAR una pieza que no es tuya — esto es la segunda guarda, por si
@@ -7611,6 +7643,7 @@ function tryMove(from, to){
   commitMove(candidates[0]);
 }
 function commitMove(mv){
+  if(ejerActive && !ejerActive.busy && ejerGate(mv)) return;   // V262: ejercicio del Grimorio — solo pasa la jugada buscada
   const line = L();
   const pos = line.states[line.cursor];
   const uci = sqName(mv.from) + sqName(mv.to) + (mv.promo || "");
@@ -8185,9 +8218,11 @@ async function loadAccountProfile(userId){
   refreshAccountLibrary();
   refreshClub();
   checkNewAchievements();
+  try{ ejerPull(); }catch(e){}   // V262: progreso de los ejercicios del Grimorio
 }
 function clearAccountProfile(){
   accountProfile = null;
+  try{ ejerRemoteBad = false; ejerLocalAgain(); }catch(e){}   // V262
   profileLoadFor = null;   // V254
   clubIsMember = null;
   clubWasPending = false; clubIsOwner = false; clubValidationsIds = null; presenceTouchLast = 0;   // V261
@@ -10131,7 +10166,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V261 · 15-oct-2026 · club privado: invitaciones personales de un solo uso (48 h) que confirma quien invita; abandonar el club; el dueño gestiona exentos y expulsiones; salida automática por inactividad (30 / 60 días)";
+const BUILD_ID = "V262 · 16-oct-2026 · Grimorio: ejercicios tácticos con respuesta verificada y progreso en tu cuenta; fin de partida señalado (abandono / tablas); Santuario: Lote 2";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -12107,8 +12142,8 @@ const opNoteEl = document.getElementById("opening-mynote");
 const opGoalEl = document.getElementById("opening-goal");
 const opPracticeBtn = document.getElementById("op-practice");
 
-const GRIMORIO_TYPES = ["Apertura", "Defensa", "Trampa", "Táctica", "Final"];
-const GRIMORIO_TYPE_LABELS = { "Apertura":"Aperturas", "Defensa":"Defensas", "Trampa":"Trampas", "Táctica":"Tácticas de medio juego (con práctica)", "Final":"Finales (con práctica)" };
+const GRIMORIO_TYPES = ["Apertura", "Defensa", "Trampa", "Táctica", "Ejercicio", "Final"];
+const GRIMORIO_TYPE_LABELS = { "Apertura":"Aperturas", "Defensa":"Defensas", "Trampa":"Trampas", "Táctica":"Tácticas de medio juego (con práctica)", "Ejercicio":"Ejercicios tácticos (con respuesta)", "Final":"Finales (con práctica)" };
 for(const t of GRIMORIO_TYPES){
   const entries = OPENINGS.map((o,i) => [o,i]).filter(([o]) => o.type === t);
   if(!entries.length) continue;
@@ -12145,11 +12180,12 @@ opNoteEl.addEventListener("input", () => {
 function showOpeningInfo(i){
   const o = OPENINGS[i];
   opDesc.innerHTML = '<span class="eco">' + o.eco + "</span> — " + o.desc;
-  opTipEl.textContent = o.tip || "";
+  opTipEl.textContent = o.type === "Ejercicio" ? "" : (o.tip || "");   // V262: en un ejercicio la pista se pide aparte
   opGoalEl.hidden = !o.goal;
   opGoalEl.textContent = o.goal || "";
   opPracticeBtn.hidden = !o.fen;
   opNoteEl.value = loadGrimorioNotes()[o.id] || "";
+  try{ ejerSync(); }catch(e){}
 }
 function loadOpening(i){
   stopAuto();
@@ -12172,7 +12208,7 @@ function loadOpening(i){
   game.cursor = 0;
   selected = null; persist(); render();
 }
-opSelect.onchange = () => loadOpening(+opSelect.value);
+opSelect.onchange = () => { const o = OPENINGS[+opSelect.value]; if(o && o.type === "Ejercicio") ejerStart(+opSelect.value); else loadOpening(+opSelect.value); };
 
 /* Practicar un final: posición inicial de la entrada, sin jugadas, contra claudIA.
    El alumno juega el bando de `o.practice` (el que busca ganar, o el que defiende las tablas). */
@@ -12200,6 +12236,208 @@ function practiceOpening(i){
   maybeMachineMove();
 }
 opPracticeBtn.onclick = () => practiceOpening(+opSelect.value);
+
+/* ---------- V262 · Ejercicios del Grimorio ----------
+   Posiciones reales de las partidas del Santuario con UNA solución verificada por el motor: la app comprueba cada jugada del alumno.
+   Entrada: type "Ejercicio" con { fen, practice, moves (línea completa), ejer:{ nivel, tipo:"mate"|"gana", steps:[{acc,near,reply}], explica } }.
+   `acc` = jugadas que cuentan como correctas en ese paso; `near` = jugadas que también ganan pero no son lo buscado; `reply` = respuesta del rival.
+   El progreso (resueltos, fallos, a la primera) vive en el dispositivo y, con sesión iniciada, en la tabla grimorio_ejercicios de la cuenta. */
+var ejerActive = null, ejerKeep = false, ejerRemoteBad = false;
+const ejerBlockEl = document.getElementById("ejer-block");
+const ejerFeedEl = document.getElementById("ejer-feedback");
+const ejerHintEl = document.getElementById("ejer-hint");
+const ejerExplEl = document.getElementById("ejer-explain");
+const ejerProgEl = document.getElementById("ejer-progress");
+const ejerHintBtn = document.getElementById("ejer-hint-btn");
+const ejerSolBtn = document.getElementById("ejer-solution-btn");
+const ejerRetryBtn = document.getElementById("ejer-retry-btn");
+const ejerNextBtn = document.getElementById("ejer-next-btn");
+const opNavEl = document.getElementById("op-nav");
+const EJER_KEY = "tablero-encantado.ejercicios.v1";
+function ejerKey(anon){ return EJER_KEY + ":" + (!anon && accountProfile ? accountProfile.id : "local"); }
+function ejerRead(key){
+  try{ const o = JSON.parse(localStorage.getItem(key) || "{}"); return (o && typeof o === "object") ? o : {}; }catch(e){ return {}; }
+}
+var ejerStats = ejerRead(ejerKey());   // { [id]: { a:resueltos, f:fallos, l:a la primera, v:soluciones vistas, t:última vez (ms) } }
+function ejerSave(){ try{ localStorage.setItem(ejerKey(), JSON.stringify(ejerStats)); }catch(e){} }
+function ejerMerge(a, b){   // de cada contador manda el mayor: idempotente, no suma dos veces lo mismo
+  const out = {};
+  for(const src of [a, b]) for(const id in src){
+    const s = src[id] || {}, d = out[id] || (out[id] = { a:0, f:0, l:0, v:0, t:0 });
+    for(const k of ["a","f","l","v","t"]) d[k] = Math.max(d[k], +s[k] || 0);
+  }
+  return out;
+}
+function ejerEntries(){ return OPENINGS.map((o,i) => [o,i]).filter(([o]) => o.type === "Ejercicio"); }
+function ejerDone(id){ return !!(ejerStats[id] && ejerStats[id].a > 0); }
+function ejerRefreshOptions(){
+  let hechos = 0, limpios = 0, total = 0;
+  for(const opt of opSelect.options){
+    const o = OPENINGS[+opt.value];
+    if(!o || o.type !== "Ejercicio") continue;
+    total++;
+    const s = ejerStats[o.id], ok = !!(s && s.a > 0);
+    if(ok){ hechos++; if(s.l > 0) limpios++; }
+    opt.textContent = (ok ? "✓ " : "") + o.name;
+  }
+  ejerProgEl.textContent = total ? ("Ejercicios resueltos: " + hechos + " de " + total + " · a la primera: " + limpios +
+    (accountProfile ? " · guardado en tu cuenta." : " · guardado en este dispositivo (inicia sesión para vincularlo a tu cuenta).")) : "";
+}
+function ejerCur(){ const o = OPENINGS[+opSelect.value]; return (o && o.type === "Ejercicio") ? o : null; }
+function ejerSync(){   // muestra u oculta el bloque según la entrada elegida y el estado del ejercicio
+  const o = ejerCur(), ea = ejerActive;
+  ejerBlockEl.hidden = !o;
+  const fin = !!(ea && (ea.solved || ea.gaveUp));
+  if(!o){ opNavEl.hidden = false; return; }
+  opNavEl.hidden = !fin;
+  opPracticeBtn.hidden = !fin;
+  ejerHintBtn.hidden = !(ea && !fin);
+  ejerSolBtn.hidden = !(ea && !fin);
+  ejerRetryBtn.hidden = !(!ea || fin || ea.fails > 0 || ea.step > 0);
+  ejerRetryBtn.textContent = !ea ? "Empezar" : "Reintentar";
+  ejerNextBtn.hidden = !fin;
+  ejerHintEl.hidden = !(ea && ea.hintTxt && !fin);
+  if(ea && ea.hintTxt) ejerHintEl.textContent = ea.hintTxt;
+  ejerExplEl.hidden = !(fin && o.ejer.explica);
+  ejerExplEl.textContent = fin ? o.ejer.explica : "";
+}
+function ejerSay(txt, tono){ ejerFeedEl.textContent = txt; ejerFeedEl.dataset.tono = tono || ""; }
+function ejerStart(i){
+  const o = OPENINGS[i];
+  if(!o || !o.ejer) return;
+  if(liveGame || (typeof retoActive !== "undefined" && retoActive)){
+    showOpeningInfo(i);
+    ejerSay("Estás en una partida en vivo o en el Reto de claudIA — sal de ella primero para practicar un ejercicio.", "mal");
+    return;
+  }
+  stopAuto();
+  showOpeningInfo(i);
+  if(currentMode !== "play") setMode("play");
+  if(vsMachine) setVsMachine(false);
+  ejerKeep = true;
+  try{ newGame(o.fen, { white:"", black:"", result:"", resultNote:"" }); }finally{ ejerKeep = false; }
+  matchStarted = true; matchPaused = false;
+  flipped = o.practice === "b";
+  selected = null;
+  ejerActive = { i, id:o.id, step:0, fails:0, hints:0, busy:false, solved:false, gaveUp:false, hintTxt:"" };
+  persist(); render();
+  ejerSay("Tu turno: juegan las " + (o.practice === "b" ? "negras" : "blancas") + ". " + (o.ejer.meta || "Encuentra la mejor jugada."), "");
+  ejerSync();
+}
+// Se llama al principio de commitMove: true = la jugada NO se aplica (no era la buscada).
+function ejerGate(mv){
+  const ea = ejerActive;
+  if(!ea || ea.busy || ea.solved || ea.gaveUp) return false;
+  const o = OPENINGS[ea.i], st = o && o.ejer.steps[ea.step];
+  if(!st) return false;
+  const uci = sqName(mv.from) + sqName(mv.to) + (mv.promo || "");
+  if(st.acc.indexOf(uci) >= 0){ setTimeout(() => ejerAdvance(ea), 60); return false; }
+  selected = null;
+  if(st.near && st.near.indexOf(uci) >= 0){
+    ejerSay("Buena jugada, pero hay otra más fuerte. Sigue buscando.", "casi");
+  }else{
+    ea.fails++;
+    ejerSay((o.ejer.tipo === "mate" ? "Esa jugada no conduce al mate forzado." : "No es esa.") + " Inténtalo de nuevo" +
+      (ea.fails >= 2 ? " (puedes pedir una pista)." : "."), "mal");
+  }
+  render(); ejerSync();
+  return true;
+}
+function ejerAdvance(ea){
+  if(ejerActive !== ea) return;
+  const o = OPENINGS[ea.i], steps = o.ejer.steps, st = steps[ea.step];
+  ea.step++; ea.hintTxt = ""; ea.hints = 0;
+  if(ea.step >= steps.length){ ejerSolved(ea); return; }
+  ea.busy = true;
+  ejerSay("¡Eso es! El rival responde…", "bien");
+  setTimeout(() => {
+    if(ejerActive !== ea){ return; }
+    try{ const mv = matchUci(liveState(), st.reply); if(mv) commitMove(mv); }catch(e){ console.error(e); }
+    ea.busy = false;
+    ejerSay("Sigue la secuencia: ahora juegas tú otra vez.", "");
+    ejerSync();
+  }, 600);
+}
+function ejerSolved(ea){
+  ea.solved = true;
+  const s = ejerStats[ea.id] || (ejerStats[ea.id] = { a:0, f:0, l:0, v:0, t:0 });
+  s.a++; s.f += ea.fails; if(!ea.fails && !ea.usedHint && !ea.usedSol) s.l++; s.t = Date.now();
+  ejerSave(); ejerPush(ea.id);
+  ejerSay("✔ ¡Resuelto!" + (!ea.fails && !ea.usedHint ? " A la primera." : ""), "bien");
+  ejerRefreshOptions(); ejerSync();
+}
+ejerHintBtn.onclick = () => {
+  const ea = ejerActive; if(!ea || ea.solved || ea.gaveUp) return;
+  const o = OPENINGS[ea.i], st = o.ejer.steps[ea.step];
+  ea.usedHint = true;
+  if(ea.hints === 0){ ea.hintTxt = o.tip || "Mira primero los jaques y las capturas."; ea.hints = 1; }
+  else{   // segunda pista: se selecciona la pieza que hay que mover
+    const mv = matchUci(liveState(), st.acc[0]);
+    if(mv){ selected = mv.from; render(); }
+    ea.hints = 2;
+  }
+  ejerSync();
+};
+ejerSolBtn.onclick = () => {
+  const ea = ejerActive; if(!ea || ea.solved || ea.gaveUp) return;
+  const o = OPENINGS[ea.i];
+  ea.gaveUp = true; ea.usedSol = true;
+  const s = ejerStats[ea.id] || (ejerStats[ea.id] = { a:0, f:0, l:0, v:0, t:0 });
+  s.v++; s.f += ea.fails; s.t = Date.now(); ejerSave(); ejerPush(ea.id);
+  ejerKeep = true; try{ loadOpening(ea.i); }finally{ ejerKeep = false; }
+  ejerActive = ea;
+  ejerSay("Solución cargada. Pulsa «Reproducir» para verla jugada a jugada.", "");
+  ejerSync();
+};
+ejerRetryBtn.onclick = () => ejerStart(+opSelect.value);
+ejerNextBtn.onclick = () => {
+  const lista = ejerEntries(); if(!lista.length) return;
+  const cur = +opSelect.value;
+  const pos = lista.findIndex(([, i]) => i === cur);
+  const orden = lista.slice(pos + 1).concat(lista.slice(0, pos + 1));
+  const sig = orden.find(([o]) => !ejerDone(o.id)) || orden[0];
+  opSelect.value = String(sig[1]);
+  ejerStart(sig[1]);
+};
+// ---- cuenta: tabla grimorio_ejercicios (ver 15_grimorio_ejercicios.sql). Si no existe todavía, todo sigue funcionando en local.
+async function ejerPush(id){
+  if(!accountProfile || ejerRemoteBad) return;
+  const s = ejerStats[id]; if(!s) return;
+  try{
+    const { error } = await sb.from("grimorio_ejercicios").upsert({
+      owner_id: accountProfile.id, ejercicio_id: id, resueltos: s.a, fallos: s.f, limpios: s.l, soluciones: s.v,
+      ultimo_at: new Date(s.t || Date.now()).toISOString()
+    }, { onConflict: "owner_id,ejercicio_id" });
+    if(error){ ejerRemoteBad = true; console.warn("grimorio_ejercicios:", error.message); }
+  }catch(e){ ejerRemoteBad = true; }
+}
+async function ejerPull(){
+  if(!accountProfile) return;
+  const anon = ejerRead(ejerKey(true));
+  let stats = ejerMerge(ejerRead(ejerKey()), anon);   // lo practicado antes de entrar pasa a tu cuenta
+  try{ localStorage.removeItem(ejerKey(true)); }catch(e){}
+  try{
+    const { data, error } = await sb.from("grimorio_ejercicios").select("ejercicio_id, resueltos, fallos, limpios, soluciones, ultimo_at")
+      .eq("owner_id", accountProfile.id);
+    if(error) throw error;
+    const remoto = {};
+    (data || []).forEach(r => { remoto[r.ejercicio_id] = { a:r.resueltos, f:r.fallos, l:r.limpios, v:r.soluciones, t:Date.parse(r.ultimo_at) || 0 }; });
+    const antes = stats;
+    stats = ejerMerge(antes, remoto);
+    ejerStats = stats; ejerSave();
+    for(const id in stats){   // lo que el servidor no tiene (o tiene atrasado) se sube
+      const r = remoto[id], s = stats[id];
+      if(!r || r.a < s.a || r.f < s.f || r.l < s.l || r.v < s.v) await ejerPush(id);
+    }
+  }catch(e){
+    ejerRemoteBad = true; console.warn("grimorio_ejercicios:", e && e.message);
+    ejerStats = stats; ejerSave();
+  }
+  ejerRefreshOptions();
+}
+function ejerLocalAgain(){ ejerStats = ejerRead(ejerKey()); ejerRefreshOptions(); }   // al cerrar sesión
+ejerRefreshOptions();
+
 document.getElementById("op-reset").onclick = () => { if(liveFocusActive()) return; branch = null; game.cursor = 0; selected=null; persist(); render(); };
 
 const opPlayBtn = document.getElementById("op-play");
