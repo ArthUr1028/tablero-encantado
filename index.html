@@ -1785,6 +1785,9 @@
   .moverow .n{ color:var(--text-faint); }
   .mv{ padding:2px 6px; border-radius:3px; cursor:pointer; color:var(--text-dim); }
   .mv:hover{ color:var(--text); }
+  .moveend{ display:flex; align-items:baseline; gap:.6em; margin-top:6px; padding:5px 8px; border-top:1px solid rgba(217,138,61,.35); color:var(--text-dim); font-family:"Spectral",serif; font-style:italic; }
+  .moveend .res{ font-style:normal; font-weight:600; color:var(--ember-soft); }
+  .moveend.here{ background:rgba(217,138,61,.12); color:var(--marble); }
   .mv.here{ background:rgba(217,138,61,.22); color:var(--marble); }
   .moves-empty{ color:var(--text-faint); font-style:italic; font-family:"Spectral",serif; }
 
@@ -7443,6 +7446,16 @@ function render(){
 }
 
 const RESULT_LABEL = { "1-0":"1–0 (ganan blancas)", "0-1":"0–1 (ganan negras)", "1/2-1/2":"½–½ (tablas)" };
+// V253: el final de la partida se anuncia con palabras. Un resultado sin mate en el tablero es, casi siempre, un abandono
+// (o tablas pactadas); si la partida trae su propia nota (tiempo agotado, etc.) manda la nota.
+function endHeadline(){
+  const r = game.result, note = (game.resultNote || "").trim();
+  if(note) return note;
+  if(r === "1-0") return "Abandonan las negras";
+  if(r === "0-1") return "Abandonan las blancas";
+  if(r === "1/2-1/2") return "Tablas pactadas";
+  return "";
+}
 function renderStatus(pos, oc){
   statusEl.className = "status free-hide";   // V186: free-hide sobrevive a cada render (en modo libre no se muestra)
   const side = pos.turn === "w" ? "las blancas" : "las negras";
@@ -7466,8 +7479,7 @@ function renderStatus(pos, oc){
   else if(oc === "draw3"){ txt = "Tablas por repetición triple"; statusEl.classList.add("draw"); }
   else if(oc === "material"){ txt = "Tablas por material insuficiente"; statusEl.classList.add("draw"); }
   else if(manualResult){
-    txt = "Partida terminada: " + (RESULT_LABEL[game.result] || game.result);
-    if(game.resultNote) txt += " — " + game.resultNote;
+    txt = "Fin de la partida · " + endHeadline() + " · " + (RESULT_LABEL[game.result] || game.result);
     statusEl.classList.add("result");
   }
   else if(oc === "check"){ txt = "Jaque a " + side; statusEl.classList.add("check"); }
@@ -7491,6 +7503,13 @@ function renderMoves(){
       '<span class="mv' + (game.cursor === i+1 ? " here" : "") + '" data-ply="' + (i+1) + '">' + w + anTag(i) + trTag(i) + "</span>" +
       (b ? '<span class="mv' + (game.cursor === i+2 ? " here" : "") + '" data-ply="' + (i+2) + '">' + b + anTag(i+1) + trTag(i+1) + "</span>" : "<span></span>") +
       "</div>";
+  }
+  if(game.result){   // V253: línea de cierre, como el resultado al final de un PGN
+    const oc = outcome(game.states[game.states.length - 1]);
+    const porReglas = ["checkmate","stalemate","draw50","draw3","material"].includes(oc);
+    const lbl = porReglas ? "Fin de la partida" : endHeadline();
+    html += '<div class="moveend' + (game.cursor === game.sans.length ? " here" : "") + '"><span class="res">' +
+      (game.result === "1/2-1/2" ? "½–½" : game.result.replace("-", "–")) + '</span><span class="why">' + lbl + '</span></div>';
   }
   movesEl.innerHTML = html;
   // Autoscroll deshabilitado a propósito: el usuario prefiere desplazarse
