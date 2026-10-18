@@ -4142,9 +4142,10 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <div class="palette" id="palette"></div>
         <div class="btns" style="margin-top:8px">
           <button class="btn" id="free-turn">Cambiar turno</button>
+          <button class="btn" id="free-play">Jugar desde esta posición</button>
         </div>
         <p class="free-hint">Arrastra piezas por el tablero, suéltalas fuera para retirarlas,
-          o elige una de la cantera y colócala con un toque.</p>
+          o elige una de la cantera y colócala con un toque. El FEN de abajo se actualiza solo: cópialo para compartir la posición o pega otro y pulsa Cargar.</p>
       </section>
 
       <section class="panel">
@@ -8113,7 +8114,7 @@ function updateModalitySelectorsUI(){
   const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveLocked() && !retoActive;
   for(const id of ids){
     const el = document.getElementById(id);
-    if(el) el.disabled = id.indexOf("variant-") === 0 ? !inVariantOk : !inPlay;
+    if(el) el.disabled = (id.indexOf("variant-") === 0 || id === "fen-load") ? !inVariantOk : !inPlay;   // V267: el FEN también se carga en Tablero libre
   }
   for(const id of ["mode-play", "mode-free"]){
     const el = document.getElementById(id);
@@ -8131,7 +8132,7 @@ function updateModalityGuideUI(){
   let v = "clasico"; try{ v = variantOf(liveState().board); }catch(e){}
   const VN = { clasico:"Clásico", capablanca:"Capablanca", maharaja:"Maharajá", amazonas:"Amazonas", shatranj:"Shatranj" };
   if($("mode-hint")) $("mode-hint").textContent = free
-    ? "Coloca y mueve las piezas como quieras para montar una posición. El Oráculo y el Grimorio te acompañan."
+    ? "Coloca y mueve las piezas para montar una posición. Copia su FEN para compartirla, o pulsa «Jugar desde esta posición»."
     : "Partida con turnos, jugadas anotadas y, si quieres, reloj.";
   if($("rival-hint")) $("rival-hint").textContent = vsMachine
     ? "Juegas contra el motor. Elige tu bando y su nivel."
@@ -10312,7 +10313,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V266 · 17-oct-2026 · Oráculo: tú eliges el bando para el cálculo (turno actual, Blancas o Negras) · V265 · Modalidad en 4 pasos con textos guía y resumen; Grimorio, Oráculo y Análisis también en Tablero libre y Solitario · Grimorio: 7 trampas y 7 tácticas nuevas, todas verificadas con motor (pasillo, desviación, doble jaque, mate de Philidor, ahogado); desde un ejercicio puedes repasar la partida completa en el Santuario";
+const BUILD_ID = "V267 · 17-oct-2026 · FEN también en Tablero libre (cargar/copiar con aviso) y «Jugar desde esta posición» · V266 · Oráculo: tú eliges el bando para el cálculo (turno actual, Blancas o Negras) · V265 · Modalidad en 4 pasos con textos guía y resumen; Grimorio, Oráculo y Análisis también en Tablero libre y Solitario · Grimorio: 7 trampas y 7 tácticas nuevas, todas verificadas con motor (pasillo, desviación, doble jaque, mate de Philidor, ahogado); desde un ejercicio puedes repasar la partida completa en el Santuario";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -12266,6 +12267,16 @@ document.getElementById("free-turn").onclick = () => {
   rebuildFree(pos.board, pos.turn === "w" ? "b" : "w");
 };
 
+/* V267 · «Jugar desde esta posición»: pasa de Tablero libre a Partida (Solitario) conservando la posición montada. */
+document.getElementById("free-play").onclick = () => {
+  if(currentMode !== "free" || liveLocked() || retoActive) return;
+  const pos = liveState();
+  if(!kingPos(pos.board,"w") || !kingPos(pos.board,"b")){ showGlobalToast("Coloca los dos reyes antes de jugar."); return; }
+  const other = pos.turn === "w" ? "b" : "w";
+  if(inCheck(pos, other)){ showGlobalToast("Posición imposible: el rey que no tiene el turno está en jaque. Cambia el turno."); return; }
+  setMode("play");
+  showGlobalToast("Listo: juegas desde esta posición. Elige rival y reloj en Modalidad y pulsa Iniciar.");
+};
 document.getElementById("fen-load").onclick = () => {
   try{
     const st = parseFEN(fenEl.value);
@@ -12276,10 +12287,12 @@ document.getElementById("fen-load").onclick = () => {
   }catch(err){
     statusEl.className = "status mate";
     statusEl.textContent = "FEN no válido";
+    try{ showGlobalToast("FEN no válido: revisa el texto (debe incluir los dos reyes)."); }catch(e){}   // V267: en Tablero libre el estado está oculto
   }
 };
 document.getElementById("fen-copy").onclick = async () => {
-  try{ await navigator.clipboard.writeText(fenEl.value); }catch(e){ fenEl.select(); }
+  try{ await navigator.clipboard.writeText(fenEl.value); try{ showGlobalToast("FEN copiado: ya puedes compartir la posición."); }catch(e){} }
+  catch(e){ fenEl.select(); try{ showGlobalToast("Selecciona y copia el FEN manualmente."); }catch(e2){} }
 };
 
 /* ---------- Grimorio ---------- */
