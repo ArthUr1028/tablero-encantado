@@ -4105,6 +4105,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
             <button class="btn" id="ejer-solution-btn" hidden>Ver solución</button>
             <button class="btn" id="ejer-retry-btn" hidden>Empezar</button>
             <button class="btn" id="ejer-next-btn" hidden>Siguiente ejercicio</button>
+            <button class="btn" id="ejer-game-btn" hidden>Repasar la partida completa</button>
           </div>
           <p class="opening-tip" id="ejer-explain" hidden></p>
           <p class="lib-note" id="ejer-progress"></p>
@@ -5668,6 +5669,27 @@ const OPENINGS = [
   { id:"parham", type:"Trampa", name:"Ataque Parham / Dama Descarriada (Danvers Attack)", eco:"C20", moves:["e2e4","e7e5","d1h5","g8f6","h5e5","f8e7"],
     desc:"Una salida temprana de dama que parece torpe pero no lo es: 2.Dh5 amenaza 3.Dxe5+ si las negras no defienden el peón de e5. Si el rival responde con un desarrollo natural que no lo defiende — como 2...Cf6?? —, 3.Dxe5+ gana el peón con jaque y obliga a las negras a perder un tiempo tapando el jaque.",
     tip:"Contra este ataque, defiende e5 de inmediato con 2...Cc6 (el caballo cubre la casilla de recaptura) o 2...d6; nunca ignores la amenaza sobre e5 solo porque la jugada de dama 'se ve mala'. Si tú lo juegas con blancas, tómalo como un recurso de trampa contra quien no lo conoce — no esperes que funcione contra un rival con teoría." },
+  { id:"loco", type:"Trampa", name:"El Mate del Loco (el mate más corto)", eco:"Trampa", moves:["f2f3", "e7e5", "g2g4", "d8h4"],
+    desc:"El mate más rápido que existe: 1.f3 e5 2.g4?? Dh4#. Los dos peones blancos abren la diagonal h4–e1 y el rey se queda sin casillas ni piezas que lo cubran. Nadie lo juega a propósito, pero es la prueba más pura de lo caro que sale debilitar el flanco de rey.",
+    tip:"Antes de mover peones del flanco de rey (f y g) con el rey todavía en e1, pregúntate qué diagonales hacia él estás abriendo. Con negras, recuérdalo: si el rival juega f3 y g4, la dama sale a h4 con jaque mate." },
+  { id:"blackburne", type:"Trampa", name:"Trampa Blackburne–Shilling (Italiana)", eco:"C50", moves:["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "c6d4", "f3e5", "d8g5", "e5f7", "g5g2", "h1f1", "g2e4", "c4e2", "d4f3"],
+    desc:"Tras 1.e4 e5 2.Cf3 Cc6 3.Ac4, las negras ofrecen un peón con 3...Cd4!? Si las blancas lo toman, 4.Cxe5? Dg5! ataca a la vez el caballo de e5 y el peón de g2. Y 5.Cxf7?? —que además ataca dama y torre— pierde de forma fulminante: 5...Dxg2 6.Tf1 Dxe4+ 7.Ae2 Cf3#.",
+    tip:"Las blancas no necesitan aceptar nada: 4.Cxd4 exd4 y 5.O-O dejan una posición cómoda y algo mejor, sin riesgos. Con negras es una trampa de partidas rápidas contra rivales que capturan todo lo que se les ofrece; contra alguien que sabe, saldrás peor." },
+  { id:"elefante", type:"Trampa", name:"La Trampa del Elefante (Gambito de Dama)", eco:"D51", moves:["d2d4", "d7d5", "c2c4", "e7e6", "b1c3", "g8f6", "c1g5", "b8d7", "c4d5", "e6d5", "c3d5", "f6d5", "g5d8", "f8b4", "d1d2", "b4d2", "e1d2", "e8d8"],
+    desc:"1.d4 d5 2.c4 e6 3.Cc3 Cf6 4.Ag5 Cbd7 5.cxd5 exd5. El peón de d5 parece regalado: 6.Cxd5?? Cxd5! 7.Axd8 Ab4+ 8.Dd2 Axd2+ 9.Rxd2 Rxd8. Las blancas se llevan la dama, pero la dama negra no estaba indefensa: el jaque en b4 recupera lo entregado y las negras acaban con una pieza de más a cambio de un peón.",
+    tip:"La clave es que el caballo de f6 «desprotege» a la dama solo en apariencia: al capturar en d5 deja de estorbar, y el jaque de alfil llega con ganancia de tiempo. Con blancas, sigue desarrollando con 6.Cf3 o 6.e3 y no toques d5 hasta que el caballo de f6 se haya ido." },
+  { id:"arca", type:"Trampa", name:"El Arca de Noé (Ruy López)", eco:"C71", moves:["e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "a7a6", "b5a4", "d7d6", "d2d4", "b7b5", "a4b3", "c6d4", "f3d4", "e5d4", "d1d4", "c7c5", "d4d5", "c8e6", "d5c6", "e6d7", "c6d5", "c5c4"],
+    desc:"En la variante Steinitz del Ruy López, tras 5.d4 b5 6.Ab3 Cxd4 7.Cxd4 exd4 las blancas pueden caer en 8.Dxd4? c5! La dama debe huir (9.Dd5 Ae6 10.Dc6+ Ad7 11.Dd5) y 11...c4! encierra al alfil de b3: no tiene casilla de escape y habrá que entregarlo por uno o dos peones. Se llama así por lo antigua que es: se conoce desde hace siglos.",
+    tip:"Con blancas, 8.c3 es la respuesta correcta y mantiene la igualdad. Con negras, la idea de usar peones para atrapar un alfil retirado a b3 aparece en muchas otras aperturas: un alfil sin casillas libres es una pieza perdida." },
+  { id:"budapest", type:"Trampa", name:"Trampa del Gambito Budapest (mate de caballo en d3)", eco:"A52", moves:["d2d4", "g8f6", "c2c4", "e7e5", "d4e5", "f6g4", "c1f4", "b8c6", "g1f3", "f8b4", "b1d2", "d8e7", "a2a3", "g4e5", "a3b4", "e5d3"],
+    desc:"Gambito Budapest: 1.d4 Cf6 2.c4 e5 3.dxe5 Cg4 4.Af4 Cc6 5.Cf3 Ab4+ 6.Cbd2 De7 7.a3 Cgxe5. Ahora 8.axb4?? parece ganar un alfil, pero 8...Cd3# es mate: el rey blanco está rodeado por su propia dama, alfil y caballo, y el peón de e2 no puede capturar en d3 porque está clavado por la dama de e7.",
+    tip:"Las blancas deben jugar 8.Cxe5 o 8.Axe5 y quedan ligeramente mejor. La enseñanza es una clavada «escondida»: cuando mueves una pieza y abres la columna e, comprueba si algún peón o pieza tuya queda clavado contra el rey." },
+  { id:"lasker", type:"Trampa", name:"La Trampa de Lasker (Contragambito Albin)", eco:"D08", moves:["d2d4", "d7d5", "c2c4", "e7e5", "d4e5", "d5d4", "e2e3", "f8b4", "c1d2", "d4e3", "d2b4", "e3f2", "e1e2", "f2g1n", "h1g1", "c8g4", "e2f2", "d8d1"],
+    desc:"1.d4 d5 2.c4 e5 3.dxe5 d4 4.e3 Ab4+ 5.Ad2 dxe3. Si las blancas, tentadas, juegan 6.Axb4?, caen en una de las trampas más bellas del ajedrez: 6...exf2+ 7.Re2 fxg1=C+!! La subpromoción a caballo da jaque (una dama no lo habría dado) y obliga a 8.Txg1; ahora 8...Ag4+ y las negras ganan la dama: 9.Rf2 Dxd1.",
+    tip:"Cuando un peón llega a la última fila, no promociones a dama por reflejo: pregúntate qué pieza da jaque, mate u horquilla. Las blancas evitan todo con 6.fxe3, la jugada correcta (el motor la da como la mejor)." },
+  { id:"carokann", type:"Trampa", name:"Trampa del Caro-Kann (mate de caballo en d6)", eco:"B17", moves:["e2e4", "c7c6", "d2d4", "d7d5", "b1c3", "d5e4", "c3e4", "b8d7", "d1e2", "g8f6", "e4d6"],
+    desc:"Caro-Kann, variante Karpov: 1.e4 c6 2.d4 d5 3.Cc3 dxe4 4.Cxe4 Cd7 5.De2 Cgf6?? 6.Cd6#. El rey negro está encerrado por su dama, su alfil, su caballo y sus peones, y el único peón que podría capturar en d6 (el de e7) está clavado por la dama de e2.",
+    tip:"Tras 5.De2 las negras deben jugar 5...Cdf6 (cambiando en e4) o 5...e6, nunca 5...Cgf6??. Con blancas, 5.De2 es una jugada con verdadero veneno: vale la pena tenerla en el repertorio contra la Caro-Kann." },
   { id:"marshall", type:"Apertura", name:"Ataque Marshall (Ruy López)", eco:"C89", moves:["e2e4","e7e5","g1f3","b8c6","f1b5","a7a6","b5a4","g8f6","e1g1","f8e7","f1e1","b7b5","a4b3","e8g8","c2c3","d7d5","e4d5","f6d5","f3e5","c6e5","e1e5","d5f6","e5e1","e7d6"],
     desc:"Tras 8.c3 las negras sacrifican un peón con 8...d5!?, una idea que Frank Marshall estrenó contra Capablanca en Nueva York, 1918. A cambio del peón, las negras lanzan todas sus piezas contra el rey blanco recién enrocado. Capablanca resistió esa partida y la ganó, pero la línea sobrevivió y hoy es una de las más estudiadas del Ruy López.",
     tip:"Con blancas puedes evitarla con 8.a4 o 8.h3 (líneas «anti-Marshall»); con negras, exige memorizar bastante teoría, pero a cambio ofrece un ataque directo. Sirve para entender que un peón sacrificado puede valer más que su valor material cuando las piezas quedan activas." },
@@ -5739,6 +5761,34 @@ const OPENINGS = [
     desc:"El sacrificio más famoso contra el enroque corto: con el Alfil apuntando a h7, el Caballo listo para saltar a g5 y la Dama con acceso a la columna h, Bxh7+ obliga casi siempre a capturar (declinar con Rh8 deja a blancas simplemente arriba un peón, con el Alfil todavía en juego, así que tampoco es un desastre si el rival no cae). Tras Rxh7, Cg5+ vuelve a dar jaque y de paso amenaza el peón de f7; el Rey solo tiene dos retiradas razonables — g8 o g6 — y cada una pide una jugada distinta de Dama.",
     tip:"Aquí está el detalle que hace célebre esta combinación, y que casi nadie recuerda bien: si el Rey vuelve a g8, sigue Dh5 amenazando mate en h7. Pero si el Rey se atreve a ir a g6 (la defensa más resistente), Dh5+ es un ERROR que regala la Dama con ...Rxh5 — ahí hace falta Dg4 en su lugar, manteniendo la amenaza sin dejarse capturar. Fíjate bien en qué casilla fue el Rey antes de mover la Dama; no repitas la misma jugada de memoria en las dos ramas.",
     goal:"Objetivo de la práctica: sacrificar con Bxh7+ y encontrar la jugada de Dama correcta según adónde se retire el Rey de claudIA — ganar material decisivo o rematar el ataque." },
+  { id:"tactica-pasillo", type:"Táctica", name:"El Mate del Pasillo y la desviación (Te8+!)", eco:"Táctica", fen:"1q4k1/5ppp/8/r7/8/4R3/5PPP/4R1K1 w - - 0 1", practice:"w", moves:["e3e8", "b8e8", "e1e8"],
+    desc:"El Rey negro está encerrado en su última fila por sus propios peones f7, g7 y h7: no tiene «luft» (ventana). Cuando pasa eso, una torre en la fila 8 es mate. Aquí la Dama negra cuida esa fila, pero Te8+ la obliga a capturar (es la única respuesta) y la fila queda sin defensa: la segunda Torre remata con Txe8#. Es la desviación: forzar a la pieza que protege la casilla clave a abandonarla.",
+    tip:"Antes de buscar una combinación, cuenta los defensores de la casilla de mate: aquí solo la Dama cuida la fila 8. Y por tu propio rey: abre un «luft» (h3 o g3) cuando tengas la primera fila expuesta, o este mismo mate caerá sobre ti.",
+    goal:"Objetivo de la práctica: dar mate con Te8+ y Txe8# contra claudIA." },
+  { id:"tactica-pasillo-dama", type:"Táctica", name:"El sacrificio de dama en la última fila (Dd8+!)", eco:"Táctica", fen:"6k1/pp3ppp/5Q2/3q4/3Rr3/8/5PPP/6K1 w - - 0 1", practice:"w", moves:["f6d8", "d5d8", "d4d8", "e4e8", "d8e8"],
+    desc:"Dama y Torre contra Dama y Torre: material igualado. Pero el Rey negro sigue sin «luft» y la Torre blanca domina la columna d. Dd8+!! obliga a capturar con la dama (si interponen Te8, Dxe8# gana más rápido); después de Txd8+ solo queda interponer la torre en e8, y Txe8# da mate. Un único sacrificio, el de la dama, basta para forzar el mate.",
+    tip:"Cuando el rey enemigo no tiene casillas de huida, el valor de las piezas deja de importar: cuenta solo los jaques. La pregunta no es «¿qué pierdo?» sino «¿tiene salida su rey?». Y busca siempre el jaque que obliga a la defensa a contestar con la pieza equivocada.",
+    goal:"Objetivo de la práctica: encontrar Dd8+! contra claudIA y rematar con Txd8+ y Txe8#." },
+  { id:"tactica-mate-primero", type:"Táctica", name:"Mate antes de que te maten (Ta8+!)", eco:"Táctica", fen:"6k1/5ppp/6r1/8/R7/5q2/5PPP/R5K1 w - - 0 1", practice:"w", moves:["a4a8", "f3a8", "a1a8"],
+    desc:"Las negras amenazan mate en g2 (Dama en f3 y Torre en g6). Pero es turno de las blancas, y el Rey negro tampoco tiene «luft»: Ta8+! obliga a Dxa8 (no hay otra jugada) y Txa8# da mate. Es una lección de tempo: cuando tu rey está en peligro, la mejor defensa suele ser dar mate primero.",
+    tip:"Antes de defenderte de una amenaza, revisa tus propios jaques: en este orden, ¿tengo jaques?, ¿tengo capturas?, ¿tengo amenazas? Si un jaque forzado termina en mate, te ahorras toda la defensa.",
+    goal:"Objetivo de la práctica: dar mate con Ta8+ y Txa8# contra claudIA antes de que ejecute su mate en g2." },
+  { id:"tactica-doble-jaque", type:"Táctica", name:"El Doble Jaque (solo el rey puede huir)", eco:"Táctica", fen:"3qkr2/3p1p2/3P4/8/4N3/8/8/4R1K1 w - - 0 1", practice:"w", moves:["e4f6"],
+    desc:"Un doble jaque es un jaque dado por dos piezas a la vez: no se puede capturar ni interponer, solo mover el Rey. Aquí el Caballo de e4 tapa la columna e a la Torre; al saltar a f6 da jaque él mismo y descubre el de la Torre. El Rey negro no tiene dónde ir: d8 y f8 están ocupadas por sus piezas, d7 y f7 por sus peones, y e7 está cubierta por la Torre y por el peón de d6. Mate.",
+    tip:"Si el Caballo hubiera descubierto solo con jaque simple, la dama negra podría interponerse en e7 y no habría mate: por eso hay que buscar la casilla desde donde el propio caballo da jaque. Las piezas que rodean a un rey son sus peores carceleros.",
+    goal:"Objetivo de la práctica: dar mate con Cf6++ contra claudIA." },
+  { id:"tactica-philidor", type:"Táctica", name:"El Mate de Philidor (mate ahogado)", eco:"Táctica", fen:"5r1k/6pp/4Q3/6N1/2B5/8/8/6K1 w - - 0 1", practice:"w", moves:["e6g8", "f8g8", "g5f7"],
+    desc:"El Rey negro en h8 está asfixiado por sus propias piezas: la Torre en f8 y los peones en g7 y h7 le quitan todas las casillas. Dg8+!! Txg8 y Cf7# es mate: la dama se sacrifica para que su propia torre tape la casilla g8. Es el llamado «legado de Philidor», asociado al gran maestro francés del siglo XVIII.",
+    tip:"La clave es el Alfil de c4: protege g8, así que el Rey no puede capturar la dama y la Torre queda obligada. Antes de sacrificar una dama, cuenta quién protege la casilla del sacrificio y quién puede capturarla.",
+    goal:"Objetivo de la práctica: dar mate con Dg8+!, Txg8 y Cf7# contra claudIA." },
+  { id:"tactica-ahogado", type:"Táctica", name:"El Ahogado: la torre ofrecida (Tf5+!)", eco:"Táctica", fen:"5k1K/8/8/4R3/5q2/8/8/8 w - - 0 1", practice:"w", moves:["e5f5", "f4f5"],
+    desc:"El recurso del bando que pierde: el ahogado. Las blancas tienen Torre contra Dama y su Rey está en el rincón, sin casillas. Perderían por la fuerza, salvo por Tf5+!: si la Dama negra captura, el Rey blanco no está en jaque pero no tiene ninguna jugada legal: ahogado, tablas. Y si las negras no capturan, la Torre se llevará a la dama en f4.",
+    tip:"Un ahogado ocurre cuando quien mueve no está en jaque y no tiene jugada legal. Para el bando que gana: antes de capturar o de dar jaque, comprueba que al rival le quede alguna jugada. Para el que pierde: busca el sacrificio que deje a su propio rey sin casillas.",
+    goal:"Objetivo de la práctica: jugar Tf5+! contra claudIA. Si captura con la dama, tablas por ahogado; si no, tu Torre se lleva su dama en f4 y ganas." },
+  { id:"tactica-ahogado-rincon", type:"Táctica", name:"El Ahogado en el rincón (Txf3+!)", eco:"Táctica", fen:"8/8/8/8/8/R4bk1/6r1/7K w - - 0 1", practice:"w", moves:["a3f3", "g3f3"],
+    desc:"Mismo recurso, otro escenario: el Rey blanco en h1, con la torre negra de g2 quitándole g1 y h2. Con Txf3+! las blancas capturan el alfil dando jaque: si el Rey negro recoge la torre, Rxf3, el Rey blanco no puede tomar la torre de g2 (ahora la defiende el rey) y no tiene otra casilla: ahogado. Si el Rey negro no captura, las blancas se llevan además la torre de g2 y ganan.",
+    tip:"Observa que a las blancas les falta una pieza y aun así dan el primer golpe: un buen ahogado solo funciona cuando todas las alternativas del rival son peores para él. El rey en el rincón, rodeado por piezas rivales, es el escenario ideal.",
+    goal:"Objetivo de la práctica: igualar con Txf3+! y forzar el ahogado contra claudIA." },
   {"id":"ejer-gruenfeld1923","type":"Ejercicio","name":"Mate en 2: la dama sin defensa (Grünfeld–Alekhine, 1923)","eco":"Ejercicio · Nivel 1","fen":"6k1/5pb1/p5pp/1p6/4PP2/P7/NP4PP/3r1QK1 b - - 1 34","practice":"b","moves":["g7d4","g1h1","d1f1"],"desc":"Posición real de una partida de 1923: Grünfeld (blancas) contra Alekhine (negras). Juegan las negras y dan mate en 2.","tip":"El Rey blanco está encerrado por sus propios peones. Busca el jaque que lo obligue a ir a h1 y mira qué pieza tuya ya vigila la primera fila.","ejer":{"nivel":1,"tipo":"mate","meta":"Mate en 2.","steps":[{"acc":["g7d4"],"reply":"g1h1"},{"acc":["d1f1"]}],"explica":"1…Ad4+ quita al Rey la casilla f2 y lo manda a h1; después 2…Txf1# captura la dama con mate: los peones de g2 y h2 le cierran la salida al propio Rey. En la partida, Grünfeld abandonó tras 34…Ad4+, porque el mate ya no tenía defensa."}},
   {"id":"ejer-rubinstein1925","type":"Ejercicio","name":"Horquilla de caballo: dama y torre a la vez (Tartakower–Rubinstein, 1925)","eco":"Ejercicio · Nivel 1","fen":"4r2k/p2q2rp/1pp2p2/2p1nP1N/4R3/1P1P3P/1PP2QP1/7K w - - 0 32","practice":"w","moves":["h5f6","d7e7","f6e8"],"desc":"Posición real: Tartakower (blancas) contra Rubinstein (negras), Moscú 1925. Juegan las blancas y ganan material.","tip":"Mira la casilla f6. ¿Qué dos piezas rivales atacaría desde allí el Caballo de h5?","ejer":{"nivel":1,"tipo":"gana","meta":"Gana material.","steps":[{"acc":["h5f6"],"reply":"d7e7"},{"acc":["f6e8"]}],"explica":"1.Cxf6 captura un peón y, desde f6, ataca a la vez la dama de d7 y la torre de e8: es una horquilla. Después de 1…De7, 2.Cxe8 Dxe8 deja a las blancas con un peón y la calidad de ventaja (torre por caballo). Así se jugó en la partida."}},
   {"id":"ejer-kotov1950","type":"Ejercicio","name":"Alfil con jaque que apunta a la torre (Keres–Kotov, 1950)","eco":"Ejercicio · Nivel 1","fen":"r2k1b1r/1p1b1p1p/p2p1p2/6B1/4qP2/8/PPP3PP/R2Q1RK1 w - - 0 16","practice":"w","moves":["g5f6","f8e7","f6h8"],"desc":"Posición real: Keres (blancas) contra Kotov (negras), Torneo de Candidatos, Budapest 1950. Juegan las blancas y ganan material.","tip":"Tu Alfil de g5 puede capturar en f6 con jaque. Mira qué hay al otro lado de ese peón, en la misma diagonal.","ejer":{"nivel":1,"tipo":"gana","meta":"Gana material.","steps":[{"acc":["g5f6"],"reply":"f8e7"},{"acc":["f6h8"]}],"explica":"1.Axf6+ da jaque al Rey de d8 y, a la vez, ataca la torre de h8 por la diagonal larga: el rival solo puede atender el jaque, y 2.Axh8 se lleva la torre. En la partida Kotov respondió 16…Rc7 en vez de 16…Ae7; el resultado es el mismo."}},
@@ -10215,7 +10265,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V263 · 16-oct-2026 · Grimorio: «¿Qué jugó el maestro?» (posiciones reales verificadas con motor) y un ejercicio nuevo; botón en el Santuario; ejercicios con progreso en tu cuenta";
+const BUILD_ID = "V264 · 17-oct-2026 · Grimorio: 7 trampas y 7 tácticas nuevas, todas verificadas con motor (pasillo, desviación, doble jaque, mate de Philidor, ahogado); desde un ejercicio puedes repasar la partida completa en el Santuario";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -12301,6 +12351,7 @@ const ejerHintBtn = document.getElementById("ejer-hint-btn");
 const ejerSolBtn = document.getElementById("ejer-solution-btn");
 const ejerRetryBtn = document.getElementById("ejer-retry-btn");
 const ejerNextBtn = document.getElementById("ejer-next-btn");
+const ejerGameBtn = document.getElementById("ejer-game-btn");   // V264: salta a la partida completa del Santuario
 const opNavEl = document.getElementById("op-nav");
 const EJER_KEY = "tablero-encantado.ejercicios.v1";
 function ejerKey(anon){ return EJER_KEY + ":" + (!anon && accountProfile ? accountProfile.id : "local"); }
@@ -12349,6 +12400,7 @@ function ejerSync(){   // muestra u oculta el bloque según la entrada elegida y
   ejerRetryBtn.hidden = !(!ea || fin || ea.fails > 0 || ea.step > 0);
   ejerRetryBtn.textContent = !ea ? "Empezar" : "Reintentar";
   ejerNextBtn.hidden = !fin;
+  ejerGameBtn.hidden = !(fin && ejerGameRef(o));
   ejerHintEl.hidden = !(ea && ea.hintTxt && !fin);
   if(ea && ea.hintTxt) ejerHintEl.textContent = ea.hintTxt;
   ejerExplEl.hidden = !(fin && o.ejer.explica);
@@ -12451,6 +12503,38 @@ ejerNextBtn.onclick = () => {
   const sig = orden.find(([o]) => !ejerDone(o.id)) || orden[0];
   opSelect.value = String(sig[1]);
   ejerStart(sig[1]);
+};
+// V264: de un ejercicio («¿Qué jugó el maestro?» o ejercicio táctico de una partida célebre) a la partida completa del Santuario.
+// El id del ejercicio lleva el id de la partida: «maestro-<partida>-<jugada>» o «ejer-<partida>». Los 60 ejercicios con partida casan.
+function ejerGameRef(o){
+  try{
+    if(!o || !o.ejer) return null;
+    let gid = o.id.replace(/^(maestro|ejer)-/, "");
+    if(o.type === "Maestro") gid = gid.replace(/-\d+$/, "");
+    for(const m of HOF.masters){
+      const g = m.games.find(x => x.id === gid);
+      if(g) return { m, g };
+    }
+  }catch(e){}   // HOF se declara más abajo: si aún no existe, simplemente no hay enlace
+  return null;
+}
+ejerGameBtn.onclick = () => {
+  const o = ejerCur(), ref = ejerGameRef(o);
+  if(!ref) return;
+  if(liveGame || (typeof retoActive !== "undefined" && retoActive)){ showGlobalToast("Termina primero la partida en curso para repasar la partida completa."); return; }
+  // El ejercicio ya terminó: su posición no es una partida que valga la pena guardar, así que no se pregunta si reemplazarla.
+  prepareForLoadedGame();
+  const prev = game;
+  importPGN(ref.g.pgn);   // newGame() cierra el ejercicio (ejerKeep es false)
+  if(game !== prev) rememberBoardGame();
+  // Se coloca el visor en la posición del ejercicio: mismas piezas, mismo turno y mismo número de jugada.
+  const f = o.fen.split(" ");
+  const mismas = t => t[0] === f[0] && t[1] === f[1];
+  let idx = game.states.findIndex(s => { const t = toFEN(s).split(" "); return mismas(t) && t[5] === f[5]; });
+  if(idx < 0) idx = game.states.findIndex(s => mismas(toFEN(s).split(" ")));
+  if(idx >= 0){ branch = null; game.cursor = idx; selected = null; persist(); render(); }
+  openPartidaPanel();
+  showGlobalToast("«" + ref.g.title + "» — " + (idx >= 0 ? "estás en la posición del ejercicio; avanza o retrocede con las flechas." : "avanza jugada a jugada con las flechas."));
 };
 // ---- cuenta: tabla grimorio_ejercicios (ver 15_grimorio_ejercicios.sql). Si no existe todavía, todo sigue funcionando en local.
 async function ejerPush(id){
