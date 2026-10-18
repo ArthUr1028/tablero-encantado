@@ -1001,6 +1001,10 @@
   /* V201 · Panel Modalidad: rótulos de cada grupo y botón «Iniciar» destacado. */
   .mod-cap{ margin:14px 0 6px; }
   #panel-variant h2 + .mod-cap{ margin-top:2px; }
+  .mod-hint{ margin:-4px 0 8px; font-size:.78rem; line-height:1.4; }
+  .mod-summary{ margin:14px 0 0; padding:7px 10px; border:1px dashed var(--line); border-radius:6px; text-align:center;
+    font-size:.78rem; letter-spacing:.04em; color:var(--text-dim); }
+  #mod-lock-note{ margin:10px 0 0; color:var(--ember); }
   .btn.btn-iniciar{ flex:1 1 100%; justify-content:center; font-family:"Cinzel", serif; font-weight:700; letter-spacing:.2em; text-transform:uppercase;
     padding:12px 14px; margin-top:14px; color:#fff;
     background:linear-gradient(180deg, color-mix(in srgb, var(--ember) 62%, #000), color-mix(in srgb, var(--ember) 34%, #000));
@@ -3848,13 +3852,14 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <!-- V201 · Orden de lo general a lo particular: Modo (si hay partida o tablero libre; en Libre lo demás se oculta) →
              Variante (qué ajedrez) → Rival (y, si es claudIA, su bando/nivel/entrenamiento) → Reloj (y su control de tiempo) →
              Iniciar. «Reto de claudIA» es un atajo que se salta todo lo anterior, así que queda después de Iniciar. -->
-        <p class="lib-label mod-cap">Modo</p>
+        <p class="lib-label mod-cap">1 · ¿Qué quieres hacer?</p>
         <div class="seg" role="group" aria-label="Modo">
-          <button id="mode-play" aria-pressed="true">Partida</button>
-          <button id="mode-free" aria-pressed="false">Libre</button>
+          <button id="mode-play" aria-pressed="true">Jugar una partida</button>
+          <button id="mode-free" aria-pressed="false">Tablero libre</button>
         </div>
+        <p class="free-hint mod-hint" id="mode-hint"></p>
 
-        <p class="lib-label mod-cap">Variante</p>
+        <p class="lib-label mod-cap">2 · ¿Con qué piezas?</p>
         <div class="seg seg4" role="group" aria-label="Variante">
           <button id="variant-clasica" aria-pressed="true">Clásico</button>
           <button id="variant-capablanca" aria-pressed="false">Capablanca</button>
@@ -3865,7 +3870,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
         <p class="free-hint" id="variant-note" style="margin:0 0 12px">Ajedrez clásico de toda la vida — 8×8, piezas estándar.</p>
         <button class="btn mini" id="shat-info" type="button" hidden style="margin:-4px 0 12px">Leyenda y reglas del Shatranj</button>
 
-        <p class="lib-label mod-cap free-hide">Rival</p>
+        <p class="lib-label mod-cap free-hide">3 · ¿Contra quién?</p>
         <!-- Fase 3 (2026-09-15): jugar contra la máquina reutilizando el
              mismo Stockfish incrustado que usa El Oráculo (sin motor nuevo,
              sin tokens de IA) — ver updateMachineUI()/maybeMachineMove() en
@@ -3875,6 +3880,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <button id="rival-humano" aria-pressed="true">Solitario</button>
           <button id="rival-maquina" aria-pressed="false">claudIA</button>
         </div>
+        <p class="free-hint mod-hint free-hide" id="rival-hint"></p>
         <div id="machine-panel" class="free-hide" hidden>
           <div class="seg" role="group" aria-label="Tu bando contra la máquina">
             <button id="machine-side-w" aria-pressed="true">Juegas Blancas</button>
@@ -3894,7 +3900,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           <p class="free-hint" id="trainer-note" style="margin-top:0"></p>
         </div>
 
-        <p class="lib-label mod-cap free-hide">Reloj</p>
+        <p class="lib-label mod-cap free-hide">4 · ¿Con reloj?</p>
         <!-- Ronda "reloj" (2026-09-17): pedido de Arthur, siempre opcional
              ("Sin reloj" por defecto) y en el panel Modalidad, junto a los
              demás selectores de cómo se juega esta sesión — no en "La
@@ -3904,7 +3910,8 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
              humano pensando su jugada. Ver resetClock()/clockTick() en el
              script para la mecánica completa. -->
         <div class="seg free-hide" role="group" aria-label="Reloj" id="clock-seg">
-          <button id="clock-toggle" aria-pressed="false">Reloj</button>
+          <button id="clock-off" aria-pressed="true">Sin reloj</button>
+          <button id="clock-toggle" aria-pressed="false">Con reloj</button>
         </div>
         <div id="clock-config" class="free-hide" hidden>
           <label class="lib-label" for="clock-preset" style="margin-top:8px">Control de tiempo</label>
@@ -3936,9 +3943,11 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
           </div>
         </div>
         <!-- V201: «Iniciar» vuelve a Modalidad, al final de la configuración (en pantalla completa viaja al panel de la partida, ver zgPlaceInner). -->
+        <p class="mod-summary free-hide" id="mod-summary" aria-live="polite"></p>
         <div class="btns free-hide" id="start-box">
           <button class="btn btn-iniciar" id="match-start">Iniciar</button>
         </div>
+        <p class="free-hint mod-hint" id="mod-lock-note" hidden></p>
       </section>
 
       <!-- V202 · Apartado propio para el Reto de claudIA (antes dentro de Modalidad): un clic y claudIA sortea modalidad y color; nivel según
@@ -8091,7 +8100,7 @@ function updateModalitySelectorsUI(){
   const ids = [
     "variant-clasica", "variant-capablanca", "variant-maharaja", "variant-amazonas", "variant-shatranj",
     "rival-humano", "rival-maquina", "machine-side-w", "machine-side-b", "machine-level",
-    "clock-toggle", "clock-preset", "clock-custom-min", "clock-custom-inc",
+    "clock-toggle", "clock-off", "clock-preset", "clock-custom-min", "clock-custom-inc",
     "fen-load", "pgn-import"
   ];
   const inVariantOk = (currentMode === "play" || currentMode === "free") && !liveLocked() && !retoActive;
@@ -8103,14 +8112,42 @@ function updateModalitySelectorsUI(){
     const el = document.getElementById(id);
     if(el) el.disabled = !!retoActive || liveLocked();
   }
+  try{ updateModalityGuideUI(); }catch(e){}
   const clr = document.getElementById("btn-clear");   // V187: Vaciar tablero vive solo en modo libre
   if(clr) clr.disabled = currentMode !== "free" || liveLocked() || !!retoActive;
+}
+/* V265 · Textos guía del panel Modalidad: cada grupo dice en una línea qué hace la opción elegida, el resumen de abajo recoge la
+   configuración completa antes de pulsar Iniciar, y cuando algo está bloqueado se explica por qué (sin controles apagados mudos). */
+function updateModalityGuideUI(){
+  const $ = id => document.getElementById(id);
+  const free = currentMode === "free";
+  let v = "clasico"; try{ v = variantOf(liveState().board); }catch(e){}
+  const VN = { clasico:"Clásico", capablanca:"Capablanca", maharaja:"Maharajá", amazonas:"Amazonas", shatranj:"Shatranj" };
+  if($("mode-hint")) $("mode-hint").textContent = free
+    ? "Coloca y mueve las piezas como quieras para montar una posición. El Oráculo y el Grimorio te acompañan."
+    : "Partida con turnos, jugadas anotadas y, si quieres, reloj.";
+  if($("rival-hint")) $("rival-hint").textContent = vsMachine
+    ? "Juegas contra el motor. Elige tu bando y su nivel."
+    : "Mueves tú los dos bandos: para estudiar o jugar de a dos en este dispositivo. Aquí tienes Grimorio, Oráculo y Análisis.";
+  const sum = $("mod-summary");
+  if(sum){
+    const parts = [VN[v] || "Clásico", vsMachine ? "contra claudIA (" + machineLevelLabel(machineLevel).split(" · ")[1] + ")" : "Solitario", clockEnabled ? "reloj " + ($("clock-preset") && $("clock-preset").value !== "custom" ? $("clock-preset").value.replace("+", " | ") : "personalizado") : "sin reloj"];
+    sum.textContent = parts.join(" · ");
+  }
+  const note = $("mod-lock-note");
+  if(note){
+    let msg = "";
+    if(liveLocked()) msg = "Hay una partida en vivo en curso: Variante, rival y reloj se desbloquean al terminarla (o al salir desde el panel Club).";
+    else if(retoActive) msg = "Hay un reto de claudIA en curso: la modalidad se desbloquea al terminarlo o abandonarlo.";
+    note.hidden = !msg; note.textContent = msg;
+  }
 }
 function updatePanelVisibility(variant){
   const showPlayPanels = currentMode === "play";
   document.body.classList.toggle("is-free", currentMode === "free");
   document.getElementById("panel-free").hidden = currentMode !== "free";
-  document.getElementById("panel-openings").hidden = !showPlayPanels || variant !== "clasico";
+  // V265: el Grimorio, el Oráculo y el Análisis están disponibles también en Tablero libre (y en Solitario, que es Partida).
+  document.getElementById("panel-openings").hidden = variant !== "clasico";
   document.getElementById("panel-library").hidden = !showPlayPanels;
   // El Oráculo no tiene motor de análisis en Modo Maharajá (decisión de
   // Arthur, ver VARIANT_NOTE) — antes se dejaba el panel visible pero
@@ -8118,9 +8155,9 @@ function updatePanelVisibility(variant){
   // como "inservible". A partir de la Versión 82 el panel entero
   // desaparece en esta variante en vez de mostrarse inerte; reaparece
   // solo al volver a Clásico o Capablanca.
-  document.getElementById("panel-oracle").hidden = variant === "maharaja" || variant === "shatranj" || currentMode === "free";   // V187: tampoco en modo libre
+  document.getElementById("panel-oracle").hidden = variant === "maharaja" || variant === "shatranj";   // V265: ya sí en Tablero libre (analiza cualquier posición válida)
   // V155: el análisis de partida es solo para el clásico y para partidas (no Modo Libre).
-  document.getElementById("panel-analysis").hidden = !showPlayPanels || variant !== "clasico";
+  document.getElementById("panel-analysis").hidden = variant !== "clasico";
 }
 function updateVariantUI(variant){
   const btnClasica = document.getElementById("variant-clasica");
@@ -8145,7 +8182,7 @@ function updateVariantUI(variant){
   // Modo Maharajá — decisión explícita de Arthur, sin motor de análisis en
   // esta variante por ahora.
   const liveBlock = liveFocusActive();
-  const oracleOff = vsMachine || variant === "maharaja" || variant === "shatranj" || liveBlock;
+  const oracleOff = (vsMachine && currentMode === "play") || variant === "maharaja" || variant === "shatranj" || liveBlock;
   if(oracleOff){
     oracleAskBtn.disabled = true;
     if(!oracleForcedNote){ oracleResultEl.innerHTML = ""; clearArrow(); }
@@ -9293,6 +9330,7 @@ function retoApplyRuntime(r){
   vsMachine = true; machineHumanColor = r.color; machineLevel = r.level;
   clockEnabled = true; clockPresetKey = "custom"; clockBaseMin = RETO_MIN; clockIncSec = RETO_INC;
   document.getElementById("clock-toggle").setAttribute("aria-pressed", "true");
+  document.getElementById("clock-off").setAttribute("aria-pressed", "false");
   document.getElementById("clock-config").hidden = true;
 }
 function retoSave(){
@@ -10265,7 +10303,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "V264 · 17-oct-2026 · Grimorio: 7 trampas y 7 tácticas nuevas, todas verificadas con motor (pasillo, desviación, doble jaque, mate de Philidor, ahogado); desde un ejercicio puedes repasar la partida completa en el Santuario";
+const BUILD_ID = "V265 · 17-oct-2026 · Modalidad en 4 pasos con textos guía y resumen; Grimorio, Oráculo y Análisis también en Tablero libre y Solitario · Grimorio: 7 trampas y 7 tácticas nuevas, todas verificadas con motor (pasillo, desviación, doble jaque, mate de Philidor, ahogado); desde un ejercicio puedes repasar la partida completa en el Santuario";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 const LIVE_KEY = "tablero-encantado.live.v1";
 function saveLiveKey(gameId){
@@ -10850,7 +10888,6 @@ function restoreLocalGame(){
   document.getElementById("mode-play").setAttribute("aria-pressed", String(currentMode === "play"));
   document.getElementById("mode-free").setAttribute("aria-pressed", String(currentMode === "free"));
   document.getElementById("panel-free").hidden = currentMode !== "free";
-  document.getElementById("panel-openings").hidden = currentMode !== "play";
   document.getElementById("panel-library").hidden = currentMode !== "play";
   renderPalette();
   selected = null;
@@ -11332,6 +11369,7 @@ function restoreClockPrefs(){
   clockBaseMin = (saved && Number.isFinite(saved.min)) ? saved.min : 3;
   clockIncSec = (saved && Number.isFinite(saved.inc)) ? saved.inc : 2;
   document.getElementById("clock-toggle").setAttribute("aria-pressed", String(clockEnabled));
+  document.getElementById("clock-off").setAttribute("aria-pressed", String(!clockEnabled));
   document.getElementById("clock-config").hidden = !clockEnabled;
   const presetSel = document.getElementById("clock-preset");
   if(clockPresetKey !== "custom" && CLOCK_PRESETS[clockPresetKey]){
@@ -11347,12 +11385,14 @@ function restoreClockPrefs(){
 function setClockEnabled(on){
   clockEnabled = on;
   document.getElementById("clock-toggle").setAttribute("aria-pressed", String(on));
+  document.getElementById("clock-off").setAttribute("aria-pressed", String(!on));
   document.getElementById("clock-config").hidden = !on;
   persistClockPrefs();
   resetClock();
   persist(); render();
 }
-document.getElementById("clock-toggle").onclick = () => setClockEnabled(!clockEnabled);   // V202: un solo botón enciende y apaga el reloj
+document.getElementById("clock-toggle").onclick = () => { if(!clockEnabled) setClockEnabled(true); };    // V265: dos botones, «Sin reloj» / «Con reloj»
+document.getElementById("clock-off").onclick = () => { if(clockEnabled) setClockEnabled(false); };
 document.getElementById("match-start").onclick = () => {
   if(currentMode !== "play" || liveLocked() || retoActive) return;
   if(matchStarted || game.sans.length > 0 || game.result){
@@ -12290,7 +12330,7 @@ function loadOpening(i){
   stopAuto();
   const o = OPENINGS[i];
   showOpeningInfo(i);
-  if(currentMode !== "play") setMode("play");
+  if(currentMode !== "play"){ setMode("play"); try{ showGlobalToast("Pasaste a «Jugar una partida» (Solitario) para estudiar la línea."); }catch(e){} }
   // Al estudiar una línea no hay rival: con la Máquina activa, su placa taparía un bando con "claudIA".
   if(vsMachine && !liveGame) setVsMachine(false);
   newGame(o.fen || START, {
@@ -12886,13 +12926,22 @@ function handleFsfLine(line){
 
 function askOracle(){
   if(liveFocusActive()) return; // V148: nunca durante una partida en vivo en curso
-  if(sfBusy || fsfBusy || vsMachine) return; // el botón ya está deshabilitado en Modo Máquina; esto es un segundo seguro
+  if(sfBusy || fsfBusy || (vsMachine && currentMode === "play")) return; // el botón ya está deshabilitado en Modo Máquina; esto es un segundo seguro
   const pos = liveState();
   if(variantOf(pos.board) === "maharaja" || variantOf(pos.board) === "shatranj") return; // el botón ya está deshabilitado en Modo Maharajá; segundo seguro
   if(!kingPos(pos.board,"w") || !kingPos(pos.board,"b")){
     oracleNote("Coloca ambos reyes antes de consultar al Oráculo.", true);
     return;
   }
+  // V265: en Tablero libre cualquier posición es posible; el motor solo entiende las legales.
+  try{
+    const other = pos.turn === "w" ? "b" : "w";
+    if(inCheck(pos, other)){
+      oracleNote("Posición imposible: el rey que no tiene el turno está en jaque. Cambia el turno o mueve una pieza.", true);
+      oracleResultEl.innerHTML = "";
+      return;
+    }
+  }catch(e){}
   const oc = outcome(pos);
   if(oc === "checkmate" || oc === "stalemate"){
     oracleNote("La partida ya terminó en esta posición; no hay jugada que sugerir.");
@@ -14592,9 +14641,13 @@ function anSyncUI(){
   }
   if(!anRun){
     const plies = game.states.length - 1;
-    anEl.start.disabled = plies < 1;
+    anEl.start.disabled = plies < 1 || currentMode === "free";
+    if(currentMode === "free" && !anResult){
+      anEl.note.textContent = "En Tablero libre no se guardan jugadas. Pasa a «Jugar una partida» (Solitario) o carga una partida de la Biblioteca para analizarla.";
+      anEl.note.className = "oracle-note"; anEl.note.dataset.est = "1";
+    }
     anEl.speed.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.ms === anMs)));
-    if(!anResult && (!anEl.note.textContent || anEl.note.dataset.est === "1")){
+    if(!anResult && currentMode !== "free" && (!anEl.note.textContent || anEl.note.dataset.est === "1")){
       anEl.note.textContent = plies < 1 ? "" : "Tiempo estimado: ≈ " + anFmtTime((plies + 1) * anMs) + " para " + plies + " jugadas.";
       anEl.note.className = "oracle-note";
       if(plies >= 1) anEl.note.dataset.est = "1"; else delete anEl.note.dataset.est;
@@ -16022,7 +16075,6 @@ applyAutoNames();
 document.getElementById("mode-play").setAttribute("aria-pressed", currentMode === "play");
 document.getElementById("mode-free").setAttribute("aria-pressed", currentMode === "free");
 document.getElementById("panel-free").hidden = currentMode !== "free";
-document.getElementById("panel-openings").hidden = currentMode !== "play";
 document.getElementById("panel-library").hidden = currentMode !== "play";
 showOpeningInfo(0);
 renderPalette();
