@@ -8913,11 +8913,11 @@ function toastSparks(el, on){
   el.appendChild(svg);
   const mk = (cls, w) => { const p = document.createElementNS(NS, "polyline"); p.setAttribute("class", cls); p.setAttribute("stroke-width", w); svg.appendChild(p); return p; };
   const glow = mk("g", 3), core = mk("c", .9);
-  const dots = [0, 1, 2].map(() => { const c = document.createElementNS(NS, "circle"); c.setAttribute("r", 1.1); svg.appendChild(c); return c; });
+  const dots = [0, 1].map(() => { const c = document.createElementNS(NS, "circle"); c.setAttribute("r", 1.1); svg.appendChild(c); return c; });
   function tick(){
     const w = el.offsetWidth, h = el.offsetHeight;
     svg.setAttribute("viewBox", "0 0 " + w + " " + h);
-    if(Math.random() < .62){
+    if(Math.random() < .45){
       // arco corto: nace en el borde del rostro o del aviso y serpentea unos píxeles
       const fromAv = Math.random() < .5;
       let x = fromAv ? 18 + 40 * Math.random() : Math.random() * w, y = fromAv ? (Math.random() < .5 ? 2 : h - 2) : (Math.random() < .5 ? 0 : h);
@@ -8926,9 +8926,9 @@ function toastSparks(el, on){
       for(let i = 0; i < n; i++){ ang += (Math.random() - .5) * 2.2; x += Math.cos(ang) * len; y += Math.sin(ang) * len; pts.push(x.toFixed(1) + "," + y.toFixed(1)); }
       glow.setAttribute("points", pts.join(" ")); core.setAttribute("points", pts.join(" "));
     } else { glow.setAttribute("points", ""); core.setAttribute("points", ""); }
-    dots.forEach(d => { const v = Math.random() < .35; d.setAttribute("opacity", v ? 1 : 0); if(v){ d.setAttribute("cx", (Math.random() * w).toFixed(1)); d.setAttribute("cy", (Math.random() < .5 ? -2 + Math.random() * 6 : h - 4 + Math.random() * 6).toFixed(1)); } });
+    dots.forEach(d => { const v = Math.random() < .28; d.setAttribute("opacity", v ? 1 : 0); if(v){ d.setAttribute("cx", (Math.random() * w).toFixed(1)); d.setAttribute("cy", (Math.random() < .5 ? -2 + Math.random() * 6 : h - 4 + Math.random() * 6).toFixed(1)); } });
   }
-  tick(); toastSparkTimer = setInterval(tick, 170);
+  tick(); toastSparkTimer = setInterval(tick, 250);
 }
 
 function clubNote(msg, isErr){
