@@ -11392,7 +11392,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
     if(!w || !h) return false;
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const SPAWN_END = long ? 6600 : 3400, BOLT_END = long ? 6800 : 3000, HARD_CAP = long ? 16000 : 10500, t0 = performance.now();   // long: rayos y bruma cubren todo el video
+    const SPAWN_END = long ? 6600 : 3400, BOLT_END = long ? 6400 : 3000, HARD_CAP = long ? 16000 : 10500, t0 = performance.now();   // long: rayos y bruma cubren todo el video
     const puffs = [], bolts = [], glows = [];
     let lastSpawn = 0, nextBolt = 300, prev = t0;
     function puffAlpha(age){ // sube rápido, se disipa lento y llega a 0 con pendiente nula
@@ -11400,6 +11400,18 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       if(age < up) return Math.sin(age / up * Math.PI / 2);
       return Math.pow(1 - (age - up) / (1 - up), 1.8);
     }
+    // descarga que cruza el velo desde un borde hasta cerca del holograma
+    function mk(life, big){
+      const edge = Math.random();
+      const sx = edge < .5 ? (Math.random() < .5 ? 0 : w) : Math.random() * w, sy = edge < .5 ? Math.random() * h * .8 : (Math.random() < .5 ? 0 : h);
+      const tx = Math.random() < .5 ? w * .34 : w * (.3 + Math.random() * .4), ty = Math.random() < .5 ? h * .77 : h * (.35 + Math.random() * .4);
+      return addBolt(sx, sy, tx, ty, life || 560 + Math.random() * 520, big !== false);
+    }
+    // 2.97 · cola de la tormenta (solo en modo largo): tras el último rayo, unos pocos más, cada vez más espaciados y menos intensos,
+    // como si el caos del inicio se fuera calmando; cuando el espectador lo nota ya solo queda la imagen
+    const tail = [];
+    if(long){ let tt = 7000 + Math.random() * 400; for(let n = 0; n < 5 && tt < 12500; n++){ tail.push(tt); tt += 800 + n * 450 + Math.random() * 800; } }
+    let tailN = 0;
     function addBolt(sx, sy, tx, ty, life, big){
       const len = Math.hypot(tx - sx, ty - sy);
       const b = { pts: bolt(sx, sy, tx, ty, len * .22, 5), born: performance.now(), life, big, seed: Math.random() * 6.28 };
@@ -11437,12 +11449,6 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       // ---- electricidad: descargas que cruzan el velo, varias apuntan al holograma (abajo a la izquierda)
       if(t > 250 && t < BOLT_END && now >= nextBolt){
         nextBolt = now + (long && t > 3000 ? 220 + Math.random() * 380 : 170 + Math.random() * 300);
-        const mk = () => {
-          const edge = Math.random();
-          const sx = edge < .5 ? (Math.random() < .5 ? 0 : w) : Math.random() * w, sy = edge < .5 ? Math.random() * h * .8 : (Math.random() < .5 ? 0 : h);
-          const tx = Math.random() < .5 ? w * .34 : w * (.3 + Math.random() * .4), ty = Math.random() < .5 ? h * .77 : h * (.35 + Math.random() * .4);
-          return addBolt(sx, sy, tx, ty, 560 + Math.random() * 520, true);
-        };
         const main = mk();
         if(Math.random() < .22) mk();
         if(Math.random() < .3){ // ramal: más fino y se apaga antes
@@ -11451,6 +11457,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
           glows.pop();
         }
       }
+      if(tail.length && t >= tail[0]){ tail.shift(); mk(480 + Math.random() * 420, tailN++ < 2); }
       // brillo suave donde cae cada descarga (sin relleno de pantalla)
       for(let i = glows.length - 1; i >= 0; i--){
         const g = glows[i], age = (now - g.born) / g.life;
@@ -11476,7 +11483,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         x.strokeStyle = "rgba(240,248,255," + aCore * .9 + ")"; x.lineWidth = (1.1 + .5 * (1 - age)) * th; x.stroke();
         x.shadowBlur = 0; x.shadowColor = "transparent";
       }
-      if(t < SPAWN_END + 200 || alive || glows.length){
+      if(t < SPAWN_END + 200 || alive || glows.length || tail.length){
         if(t < HARD_CAP){ raf = requestAnimationFrame(frame); return; }
       }
       raf = 0; x.clearRect(0, 0, w, h);
