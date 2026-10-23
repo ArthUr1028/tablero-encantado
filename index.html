@@ -1682,6 +1682,9 @@
   .cl-stage.vid img{ visibility:hidden; }
   .cl-stage.vid.pre video{ opacity:0; filter:blur(16px) brightness(2.6) saturate(.5); transform:scale(1.07); }
   .cl-stage.vid.pre.on video{ opacity:1; filter:none; transform:none; transition:opacity 2.2s ease, filter 2.5s ease, transform 2.8s ease; }
+  /* 2.97 · cierre: el video se funde hacia la imagen estática bajo una ráfaga de bruma */
+  .cl-stage.vid.fade img{ visibility:visible; }
+  .cl-stage.vid.fade video, .cl-stage.vid.pre.on.fade video{ opacity:0; filter:none; transform:none; transition:opacity .9s ease; }
   .cl-stage canvas{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; mix-blend-mode:screen; }
   .cl-stage::after{ content:""; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 40px rgba(0,0,0,.55); }
   .cl-name{ text-align:center; margin:0 0 6px; }
@@ -11313,9 +11316,9 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
   /* 2.97 · claudIA en video. Se baja una vez (claudia-reto.mp4, ~650 KB, sin audio) cuando el navegador está ocioso, salvo con
      «ahorro de datos», conexión 2G o «reducir movimiento»; el service worker lo guarda. Al abrir el panel el video entra por el
      mismo velo que antes la imagen (rayos y bruma encima, sin cambios) y se reproduce una sola vez: termina en la pose de la imagen
-     y se queda en su último cuadro. Si el video no está listo o el navegador no lo reproduce, todo sigue como antes, con la imagen. */
+     y al final se funde, bajo una ráfaga de bruma, hacia la imagen estática (más nítida), que es el estado final. Si el video no está listo o el navegador no lo reproduce, todo sigue como antes, con la imagen. */
   const vid = document.getElementById("cl-vid");
-  let vidP = null, vidOk = false, vidPlaying = false;
+  let vidP = null, vidOk = false, vidPlaying = false, closing = false, boostUntil = 0;
   function loadVideo(){
     if(!vid || vidP) return vidP;
     vidP = fetch("claudia-reto.mp4").then(r => { if(!r.ok) throw new Error("video"); return r.blob(); })
@@ -11328,9 +11331,17 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       .catch(() => { vidP = null; });   // si falló, se reintenta en la próxima apertura
     return vidP;
   }
-  function vidEnd(){ try{ vid.pause(); if(isFinite(vid.duration)) vid.currentTime = Math.max(0, vid.duration - .04); }catch(e){} }
+  // cierre: la bruma sube (≈1.5 s) y, ya cubierta, el video se funde hacia la imagen; después el video se apaga
+  function closeVideo(){
+    if(closing) return; closing = true;
+    boostUntil = performance.now() + 1500;
+    if(!raf) run(true);
+    later(() => stage.classList.add("fade"), 450);
+    later(() => { stage.classList.remove("vid", "fade"); vidPlaying = false; try{ vid.pause(); }catch(e){} }, 1450);
+  }
   if(vid){
-    vid.addEventListener("ended", () => { vidPlaying = false; });
+    vid.addEventListener("timeupdate", () => { if(vidPlaying && vid.duration && vid.currentTime >= vid.duration - .45) closeVideo(); });
+    vid.addEventListener("ended", () => { closeVideo(); });
     document.addEventListener("visibilitychange", () => {
       if(document.hidden){ if(vidPlaying) vid.pause(); }
       else if(vidPlaying && !vid.ended) vid.play().catch(() => {});
@@ -11346,7 +11357,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
     stop();
     panel.classList.remove("seq", "t-name", "t-note", "t-btn");
     stage.classList.remove("pre", "on");
-    if(vid && stage.classList.contains("vid")){ vidPlaying = false; vidEnd(); }   // saltar: el video queda en su último cuadro
+    if(vid && stage.classList.contains("vid")){ vidPlaying = false; stage.classList.remove("vid", "fade"); try{ vid.pause(); }catch(e){} }   // saltar: directo a la imagen
     const x = cv.getContext("2d"); x.clearRect(0, 0, cv.width, cv.height);
   }
   function bolt(ax, ay, bx, by, jag, depth){
@@ -11377,15 +11388,15 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
        Ya no hay parpadeo aleatorio por cuadro ni relleno de pantalla: el destello es un brillo suave donde cae la descarga.
      - Bruma: ya no se corta al terminar la animación. Deja de nacer poco a poco, cada voluta se ensancha, se aclara y se
        disuelve con una curva suave, y el lienzo solo se limpia cuando la última se extinguió. */
-  function run(){
+  function run(quiet){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = stage.clientWidth, h = stage.clientHeight;
     if(!w || !h) return false;
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const SPAWN_END = 3400, HARD_CAP = 10500, t0 = performance.now();
+    const SPAWN_END = quiet ? 0 : 3400, HARD_CAP = 12000, t0 = performance.now();
     const puffs = [], bolts = [], glows = [];
-    let lastSpawn = 0, nextBolt = 300, prev = t0;
+    let lastSpawn = 0, lastBoost = 0, nextBolt = 300, prev = t0;
     function puffAlpha(age){ // sube rápido, se disipa lento y llega a 0 con pendiente nula
       const up = .16;
       if(age < up) return Math.sin(age / up * Math.PI / 2);
@@ -11409,7 +11420,13 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
           y: h * (.82 + Math.random() * .25), r: w * (.16 + Math.random() * .16), vx: (Math.random() - .5) * .35, vy: -(.35 + Math.random() * .6),
           a: .34 + Math.random() * .3, born: t, life: 2600 + Math.random() * 2200, g: Math.random() * .35 });
       }
-      const ramp = .35 + .65 * Math.min(1, t / 1300);
+      // 2.97 · ráfaga de cierre: volutas más cortas, repartidas por toda la imagen, para cubrir el fundido video → imagen
+      if(now < boostUntil && now - lastBoost > 22){
+        lastBoost = now;
+        puffs.push({ x: Math.random() * w, y: h * (.5 + Math.random() * .55), r: w * (.2 + Math.random() * .16), vx: (Math.random() - .5) * .3, vy: -(.25 + Math.random() * .4),
+          a: .36 + Math.random() * .26, born: t, life: 1500 + Math.random() * 900, g: Math.random() * .35 });
+      }
+      const ramp = quiet ? 1 : .35 + .65 * Math.min(1, t / 1300);
       let alive = 0;
       for(let i = puffs.length - 1; i >= 0; i--){
         const p = puffs[i], age = (t - p.born) / p.life;
@@ -11424,7 +11441,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         x.fillStyle = gr; x.beginPath(); x.arc(p.x, p.y, rr, 0, 7); x.fill();
       }
       // ---- electricidad: descargas que cruzan el velo, varias apuntan al holograma (abajo a la izquierda)
-      if(t > 250 && t < 3000 && now >= nextBolt){
+      if(!quiet && t > 250 && t < 3000 && now >= nextBolt){
         nextBolt = now + 170 + Math.random() * 300;
         const mk = () => {
           const edge = Math.random();
@@ -11465,7 +11482,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         x.strokeStyle = "rgba(240,248,255," + aCore * .9 + ")"; x.lineWidth = (1.1 + .5 * (1 - age)) * th; x.stroke();
         x.shadowBlur = 0; x.shadowColor = "transparent";
       }
-      if(t < SPAWN_END + 200 || alive || glows.length){
+      if(t < SPAWN_END + 200 || alive || glows.length || now < boostUntil){
         if(t < HARD_CAP){ raf = requestAnimationFrame(frame); return; }
       }
       raf = 0; x.clearRect(0, 0, w, h);
@@ -11476,7 +11493,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
   function play(){
     stop();
     if(!img.getAttribute("src")) img.src = window.CLAUDIA_FULL;
-    stage.classList.remove("vid"); vidPlaying = false;
+    stage.classList.remove("vid", "fade"); vidPlaying = false; closing = false; boostUntil = 0;
     if(vid){ try{ vid.pause(); }catch(e){} }
     if(reduce() || (typeof retoActive !== "undefined" && retoActive)){ showAll(); return; }
     panel.classList.add("seq"); panel.classList.remove("t-name", "t-note", "t-btn");
