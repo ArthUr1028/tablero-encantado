@@ -11392,7 +11392,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
     if(!w || !h) return false;
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const SPAWN_END = long ? 6600 : 3400, BOLT_END = long ? 6800 : 3000, HARD_CAP = long ? 13500 : 10500, t0 = performance.now();   // long: rayos y bruma cubren todo el video
+    const SPAWN_END = long ? 6600 : 3400, BOLT_END = long ? 6800 : 3000, HARD_CAP = long ? 16000 : 10500, t0 = performance.now();   // long: rayos y bruma cubren todo el video
     const puffs = [], bolts = [], glows = [];
     let lastSpawn = 0, nextBolt = 300, prev = t0;
     function puffAlpha(age){ // sube rápido, se disipa lento y llega a 0 con pendiente nula
@@ -11411,14 +11411,14 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       const t = now - t0, dt = Math.min(48, now - prev); prev = now; const k = dt / 16.7;
       x.clearRect(0, 0, w, h);
       // ---- bruma: nace abajo y a los lados, sube, se ensancha y se disuelve
-      // en el modo largo la bruma baja a menos de la mitad de densidad (y algo más tenue) a partir de ~2.6 s, para sostenerse sin tapar el video
+      // en el modo largo, a partir de ~2.6 s la bruma nace con menos densidad (y algo más tenue) pero dura 1.4 veces más: se sostiene sin tapar el video y se disipa despacio
       const lg = long ? Math.min(1, Math.max(0, (t - 2600) / 1500)) : 0;
-      if(t < SPAWN_END && now - lastSpawn > 24 && Math.random() < (1 - .55 * lg) * Math.min(1, (SPAWN_END - t) / 1500)){
+      if(t < SPAWN_END && now - lastSpawn > 24 && Math.random() < (1 - .65 * lg) * Math.min(1, (SPAWN_END - t) / 1500)){
         lastSpawn = now;
         const side = Math.random();
         puffs.push({ x: side < .3 ? Math.random() * w * .25 : side < .6 ? w * (.75 + Math.random() * .25) : Math.random() * w,
           y: h * (.82 + Math.random() * .25), r: w * (.16 + Math.random() * .16), vx: (Math.random() - .5) * .35, vy: -(.35 + Math.random() * .6),
-          a: (.34 + Math.random() * .3) * (1 - .25 * lg), born: t, life: 2600 + Math.random() * 2200, g: Math.random() * .35 });
+          a: (.34 + Math.random() * .3) * (1 - .25 * lg), born: t, life: (2600 + Math.random() * 2200) * (1 + .4 * lg), g: Math.random() * .35 });
       }
       const ramp = .35 + .65 * Math.min(1, t / 1300);
       let alive = 0;
