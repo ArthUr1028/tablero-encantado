@@ -11398,7 +11398,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
     const puffs = [], bolts = [], glows = [];
     let lastSpawn = 0, lastBoost = 0, nextBolt = 300, prev = t0;
     function edgeFade(p){ // 1 en el interior, 0 al llegar a los bordes (suavizado)
-      const e = Math.min(p.x, w - p.x, p.y, h - p.y), u = Math.max(0, Math.min(1, (e - w * .04) / (w * .26)));
+      const e = Math.min(p.x, w - p.x, p.y, h - p.y), u = Math.max(0, Math.min(1, e / (w * .13)));
       return u * u * (3 - 2 * u);
     }
     function puffAlpha(age){ // sube rápido, se disipa lento y llega a 0 con pendiente nula
@@ -11432,10 +11432,11 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         lastBoost = now;
         if(Math.random() < Math.max(0, 1 - be / 1000)){
           for(let n = 0; n < 3; n++){
-            const ang = Math.random() * 6.2832, sp = (.7 + Math.random() * 1.5) * sc;
-            puffs.push({ x: ox + (Math.random() - .5) * w * .05, y: oy + (Math.random() - .5) * h * .05, r: w * (.1 + Math.random() * .08),
+            // la mitad hacia arriba (donde está la mano, que es lo que hay que cubrir), la otra mitad en todas direcciones
+            const up = Math.random() < .5, ang = up ? -2.6 + Math.random() * 2.06 : Math.random() * 6.2832, sp = (.7 + Math.random() * 1.5) * sc;
+            puffs.push({ x: ox + (Math.random() - .5) * w * .05, y: oy + (Math.random() - .5) * h * .05, r: w * (.11 + Math.random() * .09),
               vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, fr: .985, edge: true,
-              a: .2 + Math.random() * .15, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
+              a: .34 + Math.random() * .2, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
           }
         }
       }
