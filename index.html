@@ -11397,6 +11397,10 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
     const SPAWN_END = quiet ? 0 : 3400, HARD_CAP = 12000, t0 = performance.now();
     const puffs = [], bolts = [], glows = [];
     let lastSpawn = 0, lastBoost = 0, nextBolt = 300, prev = t0;
+    function edgeFade(p){ // 1 en el interior, 0 al llegar a los bordes (suavizado)
+      const e = Math.min(p.x, w - p.x, p.y, h - p.y), u = Math.max(0, Math.min(1, (e - w * .04) / (w * .26)));
+      return u * u * (3 - 2 * u);
+    }
     function puffAlpha(age){ // sube rápido, se disipa lento y llega a 0 con pendiente nula
       const up = .16;
       if(age < up) return Math.sin(age / up * Math.PI / 2);
@@ -11420,16 +11424,18 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
           y: h * (.82 + Math.random() * .25), r: w * (.16 + Math.random() * .16), vx: (Math.random() - .5) * .35, vy: -(.35 + Math.random() * .6),
           a: .34 + Math.random() * .3, born: t, life: 2600 + Math.random() * 2200, g: Math.random() * .35 });
       }
-      // 2.97 · cierre: al tocar la pieza el tablero, una onda de bruma sale hacia los lados a ras de la mesa (más fuerte al impacto, luego se apaga)
+      // 2.97 · cierre: al tocar la pieza el tablero, una onda de bruma se abre en todas direcciones desde su base (más fuerte al impacto, luego
+      // se apaga) y se desvanece al acercarse a los bordes del recuadro, de modo que al disiparse solo queda la imagen estática
       if(now < boostUntil && now - lastBoost > 22){
         const be = now - (boostUntil - 1500), ox = w * .33, oy = h * .86, sc = w / 360;
         if(!lastBoost) glows.push({ x: ox, y: oy, born: now, life: 1100, r: w * .15, a: .32 });   // destello tenue en la base de la pieza
         lastBoost = now;
         if(Math.random() < Math.max(0, 1 - be / 1000)){
-          for(let d = -1; d <= 1; d += 2){
+          for(let n = 0; n < 3; n++){
+            const ang = Math.random() * 6.2832, sp = (.7 + Math.random() * 1.5) * sc;
             puffs.push({ x: ox + (Math.random() - .5) * w * .05, y: oy + (Math.random() - .5) * h * .05, r: w * (.1 + Math.random() * .08),
-              vx: d * (.7 + Math.random() * 1.5) * sc, vy: -(.04 + Math.random() * .16), fr: .985,
-              a: .29 + Math.random() * .17, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
+              vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, fr: .985, edge: true,
+              a: .2 + Math.random() * .15, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
           }
         }
       }
@@ -11439,8 +11445,8 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         const p = puffs[i], age = (t - p.born) / p.life;
         if(age >= 1){ puffs.splice(i, 1); continue; }
         alive++;
-        p.x += p.vx * k; p.y += p.vy * k; p.vx += (Math.random() - .5) * .04 * k; p.vy *= Math.pow(.9985, k); if(p.fr) p.vx *= Math.pow(p.fr, k);
-        const rr = p.r * (.7 + age * 1.5), a = p.a * puffAlpha(age) * ramp;
+        p.x += p.vx * k; p.y += p.vy * k; p.vx += (Math.random() - .5) * .04 * k; p.vy *= Math.pow(.9985, k); if(p.fr){ const fk = Math.pow(p.fr, k); p.vx *= fk; p.vy *= fk; }
+        const rr = p.r * (.7 + age * 1.5), a = p.a * puffAlpha(age) * ramp * (p.edge ? edgeFade(p) : 1);
         const gr = x.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr);
         gr.addColorStop(0, "rgba(" + Math.round(150 + p.g * 90) + "," + Math.round(178 + p.g * 60) + ",255," + a + ")");
         gr.addColorStop(.55, "rgba(70,105,190," + a * .55 + ")");
