@@ -11316,9 +11316,9 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
   /* 2.97 · claudIA en video. Se baja una vez (claudia-reto.mp4, ~650 KB, sin audio) cuando el navegador está ocioso, salvo con
      «ahorro de datos», conexión 2G o «reducir movimiento»; el service worker lo guarda. Al abrir el panel el video entra por el
      mismo velo que antes la imagen (rayos y bruma encima, sin cambios) y se reproduce una sola vez: termina en la pose de la imagen
-     y al final se funde, bajo una ráfaga de bruma, hacia la imagen estática (más nítida), que es el estado final. Si el video no está listo o el navegador no lo reproduce, todo sigue como antes, con la imagen. */
+     mientras los rayos y la bruma se alargan hasta cubrir todo el video; al terminar se funde, a plena descarga, hacia la imagen estática (más nítida), que es el estado final: cuando la bruma se disipa ya está en su lugar. Si el video no está listo o el navegador no lo reproduce, todo sigue como antes, con la imagen. */
   const vid = document.getElementById("cl-vid");
-  let vidP = null, vidOk = false, vidPlaying = false, closing = false, boostUntil = 0;
+  let vidP = null, vidOk = false, vidPlaying = false, closing = false;
   function loadVideo(){
     if(!vid || vidP) return vidP;
     vidP = fetch("claudia-reto.mp4").then(r => { if(!r.ok) throw new Error("video"); return r.blob(); })
@@ -11331,11 +11331,9 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       .catch(() => { vidP = null; });   // si falló, se reintenta en la próxima apertura
     return vidP;
   }
-  // cierre: la bruma sube (≈1.5 s) y, ya cubierta, el video se funde hacia la imagen; después el video se apaga
+  // cierre: al terminar el video se funde hacia la imagen estática, a plena descarga de rayos y bruma; después el video se apaga
   function closeVideo(){
     if(closing) return; closing = true;
-    boostUntil = performance.now() + 1500;
-    if(!raf) run(true);
     later(() => stage.classList.add("fade"), 450);
     later(() => { stage.classList.remove("vid", "fade"); vidPlaying = false; try{ vid.pause(); }catch(e){} }, 1450);
   }
@@ -11388,19 +11386,15 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
        Ya no hay parpadeo aleatorio por cuadro ni relleno de pantalla: el destello es un brillo suave donde cae la descarga.
      - Bruma: ya no se corta al terminar la animación. Deja de nacer poco a poco, cada voluta se ensancha, se aclara y se
        disuelve con una curva suave, y el lienzo solo se limpia cuando la última se extinguió. */
-  function run(quiet){
+  function run(long){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = stage.clientWidth, h = stage.clientHeight;
     if(!w || !h) return false;
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const SPAWN_END = quiet ? 0 : 3400, HARD_CAP = 12000, t0 = performance.now();
+    const SPAWN_END = long ? 6600 : 3400, BOLT_END = long ? 6800 : 3000, HARD_CAP = long ? 13500 : 10500, t0 = performance.now();   // long: rayos y bruma cubren todo el video
     const puffs = [], bolts = [], glows = [];
-    let lastSpawn = 0, lastBoost = 0, nextBolt = 300, prev = t0;
-    function edgeFade(p){ // 1 en el interior, 0 al llegar a los bordes (suavizado)
-      const e = Math.min(p.x, w - p.x, p.y, h - p.y), u = Math.max(0, Math.min(1, e / (w * .13)));
-      return u * u * (3 - 2 * u);
-    }
+    let lastSpawn = 0, nextBolt = 300, prev = t0;
     function puffAlpha(age){ // sube rápido, se disipa lento y llega a 0 con pendiente nula
       const up = .16;
       if(age < up) return Math.sin(age / up * Math.PI / 2);
@@ -11417,37 +11411,23 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       const t = now - t0, dt = Math.min(48, now - prev); prev = now; const k = dt / 16.7;
       x.clearRect(0, 0, w, h);
       // ---- bruma: nace abajo y a los lados, sube, se ensancha y se disuelve
-      if(t < SPAWN_END && now - lastSpawn > 24 && Math.random() < Math.min(1, (SPAWN_END - t) / 1500)){
+      // en el modo largo la bruma baja a menos de la mitad de densidad (y algo más tenue) a partir de ~2.6 s, para sostenerse sin tapar el video
+      const lg = long ? Math.min(1, Math.max(0, (t - 2600) / 1500)) : 0;
+      if(t < SPAWN_END && now - lastSpawn > 24 && Math.random() < (1 - .55 * lg) * Math.min(1, (SPAWN_END - t) / 1500)){
         lastSpawn = now;
         const side = Math.random();
         puffs.push({ x: side < .3 ? Math.random() * w * .25 : side < .6 ? w * (.75 + Math.random() * .25) : Math.random() * w,
           y: h * (.82 + Math.random() * .25), r: w * (.16 + Math.random() * .16), vx: (Math.random() - .5) * .35, vy: -(.35 + Math.random() * .6),
-          a: .34 + Math.random() * .3, born: t, life: 2600 + Math.random() * 2200, g: Math.random() * .35 });
+          a: (.34 + Math.random() * .3) * (1 - .25 * lg), born: t, life: 2600 + Math.random() * 2200, g: Math.random() * .35 });
       }
-      // 2.97 · cierre: al tocar la pieza el tablero, una onda de bruma se abre en todas direcciones desde su base (más fuerte al impacto, luego
-      // se apaga) y se desvanece al acercarse a los bordes del recuadro, de modo que al disiparse solo queda la imagen estática
-      if(now < boostUntil && now - lastBoost > 22){
-        const be = now - (boostUntil - 1500), ox = w * .33, oy = h * .86, sc = w / 360;
-        if(!lastBoost) glows.push({ x: ox, y: oy, born: now, life: 1100, r: w * .15, a: .32 });   // destello tenue en la base de la pieza
-        lastBoost = now;
-        if(Math.random() < Math.max(0, 1 - be / 1000)){
-          for(let n = 0; n < 3; n++){
-            // la mitad hacia arriba (donde está la mano, que es lo que hay que cubrir), la otra mitad en todas direcciones
-            const up = Math.random() < .5, ang = up ? -2.6 + Math.random() * 2.06 : Math.random() * 6.2832, sp = (.7 + Math.random() * 1.5) * sc;
-            puffs.push({ x: ox + (Math.random() - .5) * w * .05, y: oy + (Math.random() - .5) * h * .05, r: w * (.11 + Math.random() * .09),
-              vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, fr: .985, edge: true,
-              a: .34 + Math.random() * .2, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
-          }
-        }
-      }
-      const ramp = quiet ? 1 : .35 + .65 * Math.min(1, t / 1300);
+      const ramp = .35 + .65 * Math.min(1, t / 1300);
       let alive = 0;
       for(let i = puffs.length - 1; i >= 0; i--){
         const p = puffs[i], age = (t - p.born) / p.life;
         if(age >= 1){ puffs.splice(i, 1); continue; }
         alive++;
-        p.x += p.vx * k; p.y += p.vy * k; p.vx += (Math.random() - .5) * .04 * k; p.vy *= Math.pow(.9985, k); if(p.fr){ const fk = Math.pow(p.fr, k); p.vx *= fk; p.vy *= fk; }
-        const rr = p.r * (.7 + age * 1.5), a = p.a * puffAlpha(age) * ramp * (p.edge ? edgeFade(p) : 1);
+        p.x += p.vx * k; p.y += p.vy * k; p.vx += (Math.random() - .5) * .04 * k; p.vy *= Math.pow(.9985, k);
+        const rr = p.r * (.7 + age * 1.5), a = p.a * puffAlpha(age) * ramp;
         const gr = x.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr);
         gr.addColorStop(0, "rgba(" + Math.round(150 + p.g * 90) + "," + Math.round(178 + p.g * 60) + ",255," + a + ")");
         gr.addColorStop(.55, "rgba(70,105,190," + a * .55 + ")");
@@ -11455,8 +11435,8 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         x.fillStyle = gr; x.beginPath(); x.arc(p.x, p.y, rr, 0, 7); x.fill();
       }
       // ---- electricidad: descargas que cruzan el velo, varias apuntan al holograma (abajo a la izquierda)
-      if(!quiet && t > 250 && t < 3000 && now >= nextBolt){
-        nextBolt = now + 170 + Math.random() * 300;
+      if(t > 250 && t < BOLT_END && now >= nextBolt){
+        nextBolt = now + (long && t > 3000 ? 220 + Math.random() * 380 : 170 + Math.random() * 300);
         const mk = () => {
           const edge = Math.random();
           const sx = edge < .5 ? (Math.random() < .5 ? 0 : w) : Math.random() * w, sy = edge < .5 ? Math.random() * h * .8 : (Math.random() < .5 ? 0 : h);
@@ -11496,7 +11476,7 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
         x.strokeStyle = "rgba(240,248,255," + aCore * .9 + ")"; x.lineWidth = (1.1 + .5 * (1 - age)) * th; x.stroke();
         x.shadowBlur = 0; x.shadowColor = "transparent";
       }
-      if(t < SPAWN_END + 200 || alive || glows.length || now < boostUntil){
+      if(t < SPAWN_END + 200 || alive || glows.length){
         if(t < HARD_CAP){ raf = requestAnimationFrame(frame); return; }
       }
       raf = 0; x.clearRect(0, 0, w, h);
@@ -11507,16 +11487,17 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
   function play(){
     stop();
     if(!img.getAttribute("src")) img.src = window.CLAUDIA_FULL;
-    stage.classList.remove("vid", "fade"); vidPlaying = false; closing = false; boostUntil = 0;
+    stage.classList.remove("vid", "fade"); vidPlaying = false; closing = false;
     if(vid){ try{ vid.pause(); }catch(e){} }
     if(reduce() || (typeof retoActive !== "undefined" && retoActive)){ showAll(); return; }
     panel.classList.add("seq"); panel.classList.remove("t-name", "t-note", "t-btn");
     stage.classList.add("pre"); stage.classList.remove("on");
-    if(!run()){ showAll(); return; }
+    const useVid = !!(vid && vidOk);   // con video, rayos y bruma se alargan para cubrir toda su duración
+    if(!run(useVid)){ showAll(); return; }
     if(vid && !vidOk) loadVideo();
-    if(vid && vidOk){ try{ vid.currentTime = 0; }catch(e){} }   // primer cuadro listo detrás del velo
+    if(useVid){ try{ vid.currentTime = 0; }catch(e){} }   // primer cuadro listo detrás del velo
     later(() => {
-      if(vid && vidOk){ stage.classList.add("vid"); try{ vid.currentTime = 0; }catch(e){} }
+      if(useVid){ stage.classList.add("vid"); try{ vid.currentTime = 0; }catch(e){} }
       stage.classList.add("on");
     }, 900);
     later(() => {
