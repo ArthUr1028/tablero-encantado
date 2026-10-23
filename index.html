@@ -11423,13 +11423,13 @@ window.CLAUDIA_FULL = "data:image/webp;base64,UklGRrjbAABXRUJQVlA4IKzbAACwVwOdAS
       // 2.97 · cierre: al tocar la pieza el tablero, una onda de bruma sale hacia los lados a ras de la mesa (más fuerte al impacto, luego se apaga)
       if(now < boostUntil && now - lastBoost > 22){
         const be = now - (boostUntil - 1500), ox = w * .33, oy = h * .86, sc = w / 360;
-        if(!lastBoost) glows.push({ x: ox, y: oy, born: now, life: 1100, r: w * .15, a: .26 });   // destello tenue en la base de la pieza
+        if(!lastBoost) glows.push({ x: ox, y: oy, born: now, life: 1100, r: w * .15, a: .32 });   // destello tenue en la base de la pieza
         lastBoost = now;
         if(Math.random() < Math.max(0, 1 - be / 1000)){
           for(let d = -1; d <= 1; d += 2){
             puffs.push({ x: ox + (Math.random() - .5) * w * .05, y: oy + (Math.random() - .5) * h * .05, r: w * (.1 + Math.random() * .08),
               vx: d * (.7 + Math.random() * 1.5) * sc, vy: -(.04 + Math.random() * .16), fr: .985,
-              a: .2 + Math.random() * .14, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
+              a: .29 + Math.random() * .17, born: t, life: 1500 + Math.random() * 700, g: Math.random() * .35 });
           }
         }
       }
