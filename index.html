@@ -6048,6 +6048,16 @@ function sfxOnRender(lastMv, oc, hadAnim){
   const stepped = sfxPrev.line === line && cur === sfxPrev.cursor + 1;
   sfxPrev = { line, cursor: cur };
   if(!lastMv || !(stepped || hadAnim)) return;
+  // Dark Chess: bajo niebla, el sonido de una jugada rival no debe delatar
+  // enroque, coronación ni invocación. La captura (espadazo) sí se conserva:
+  // es parte del misterio. El jaque no existe en esta variante.
+  try{
+    const pos = liveState(), fv = fogViewer(pos, oc);
+    if(fv && pos.turn === fv){ // acaba de mover el rival
+      lastMv = Object.assign({}, lastMv, { castle: null, promo: null, gate: null });
+      if(oc === "check") oc = "normal";
+    }
+  }catch(e){}
   SFX.move(lastMv, oc);
 }
 
