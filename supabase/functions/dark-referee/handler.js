@@ -71,7 +71,10 @@ if(typeof Deno !== "undefined" && Deno.serve){
     try {
       if(!admin){
         const { createClient } = await import("npm:@supabase/supabase-js@2");
-        admin = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+        // Llaves nuevas de Supabase: SUPABASE_SECRET_KEYS es un JSON {"default": "..."}; la antigua sigue de respaldo.
+        let key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        try { const ks = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"); key = ks.default || Object.values(ks)[0] || key; } catch(e){}
+        admin = createClient(Deno.env.get("SUPABASE_URL"), key, { auth: { persistSession: false } });
       }
       const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
       const { data, error } = await admin.auth.getUser(token);
