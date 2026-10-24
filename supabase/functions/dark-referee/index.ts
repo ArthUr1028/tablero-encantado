@@ -510,7 +510,11 @@ function legalMoves(s){
     if(!p || p[0] !== s.turn) continue;
     for(const base of pseudoMoves(s,r,c)){
       for(const mv of (seir ? gateVariants(s, base) : [base])){
-        if(s.board.dark){ out.push(mv); continue; }   // 2.103: Dark Chess — sin jaque: toda jugada pseudolegal vale
+        if(s.board.dark){   // 2.103: Dark Chess — sin jaque: toda jugada pseudolegal vale
+          // 2.109: en línea solo se ofrecen destinos iluminados (el servidor ilumina todo lo alcanzable; un peón tapado por una pieza oculta no ve la casilla)
+          if(s.darkLit && !s.darkLit.has(mv.to[0] + "," + mv.to[1])) continue;
+          out.push(mv); continue;
+        }
         const n = applyMove(s, mv);
         const k = kingPos(n.board, s.turn);
         if(k && !attacked(n.board, k[0], k[1], s.turn === "w" ? "b" : "w")) out.push(mv);
@@ -586,6 +590,7 @@ function repCount(s, prev){
   return n;
 }
 function outcome(s, prev){
+  if(s.darkLit) return "normal";   // 2.109: posición dibujada desde las observaciones de una partida oscura en línea: el cliente no conoce al rival, no hay nada que juzgar
   if(s.board.dark){   // 2.103 · Dark Chess: pierde quien se queda sin rey (se codifica como "checkmate": pierde quien tiene el turno)
     if(!kingPos(s.board, s.turn)) return "checkmate";
     if(!kingPos(s.board, s.turn === "w" ? "b" : "w")) return "nokings";
@@ -665,6 +670,7 @@ function moveWithSAN(s, mv){
 }
 
 function fogVisible(pos, color){
+  if(pos.darkLit) return pos.darkLit;   // 2.109: en línea, la luz la calculó el servidor
   const b = pos.board, cols = b[0].length, vis = new Set();
   const st = { board: b, turn: color, castle: pos.castle, ep: color === pos.turn ? pos.ep : null, half: pos.half, full: pos.full };
   for(let r = 0; r < 8; r++) for(let c = 0; c < cols; c++){
@@ -692,7 +698,8 @@ function observationFor(n, color, ply, mover, mv, san, capSq){
     const [r, c] = key.split(",").map(Number);
     if(n.board[r][c]) pieces[key] = n.board[r][c];
   }
-  const obs = { ply, mover, turn: n.turn, lit, pieces, capture: !!capSq, capSq: capSq || null };
+  // castle: lado del enroque («K» corto, «Q» largo) o null. Lo saben AMBOS bandos, solo como sonido: ni pieza, ni origen, ni destino.
+  const obs = { ply, mover, turn: n.turn, lit, pieces, capture: !!capSq, capSq: capSq || null, castle: mv.castle || null };
   if(color === mover) obs.mine = { from: mv.from, to: mv.to, promo: mv.promo || null, san };
   return obs;
 }

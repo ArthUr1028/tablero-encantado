@@ -195,6 +195,41 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r4.reveal.revelada && r4.reveal.jugadas === 4 && r4.reveal.san2 === "d5", "al terminar se revela la película verdadera (4 jugadas, la 2.ª es d5)");
   ok(r4.reveal.sinNiebla === 0 && r4.reveal.negras === 15, "terminada la partida cae la niebla (" + r4.reveal.sinNiebla + " casillas en niebla, " + r4.reveal.negras + " negras visibles)");
 
+  // 5) Los pasos del rival suenan (con el lado del enroque) y avisan cuando te toca
+  const r5 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111";
+    game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; darkRebuild(); render();
+    const sonidos = [], avisos = []; const m0 = SFX.move, t0 = SFX.turn;
+    SFX.move = (mv, oc) => sonidos.push(JSON.stringify({ cap: !!(mv && mv.capture), castle: mv && mv.castle || null, side: !!(mv && mv.dkSide), promo: mv && mv.promo || null }));
+    SFX.turn = () => avisos.push(1);
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    const lit = ["7,4", "6,4", "5,4"], pieces = { "7,4": "wk", "6,4": "wp" };
+    const mia = { ply: 1, mover: "w", turn: "b", lit, pieces, capture: false, capSq: null, castle: null, mine: { from: [6,4], to: [5,4], promo: null, san: "e3" } };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 1, obs: mia } }); await tick(900);
+    const trasMia = { sonidos: sonidos.length, avisos: avisos.length };            // mi propia jugada: suena, NO avisa turno
+    sonidos.length = 0;
+    const riv1 = { ply: 2, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: null };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: riv1 } }); await tick(900);
+    const paso = { sonidos: sonidos.slice(), avisos: avisos.length };              // paso oculto del rival: suena + avisa
+    sonidos.length = 0; avisos.length = 0;
+    const mia2 = { ply: 3, mover: "w", turn: "b", lit, pieces, capture: false, capSq: null, castle: null, mine: { from: [5,4], to: [4,4], promo: null, san: "e4" } };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 3, obs: mia2 } }); await tick(300); sonidos.length = 0; avisos.length = 0;
+    const riv2 = { ply: 4, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: "Q", promo: "q" };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: riv2 } }); await tick(900);
+    const largo = { sonidos: sonidos.slice(), avisos: avisos.length };
+    sonidos.length = 0; avisos.length = 0;
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: riv2 } }); await tick(900);   // repetido: ni suena ni avisa otra vez
+    const repetido = { sonidos: sonidos.length, avisos: avisos.length };
+    SFX.move = m0; SFX.turn = t0;
+    return { trasMia, paso, largo, repetido };
+  });
+  console.log("  datos5:", JSON.stringify(r5));
+  ok(r5.trasMia.sonidos === 1 && r5.trasMia.avisos === 0, "mi propia jugada suena pero no me avisa de turno");
+  ok(r5.paso.sonidos.length === 1 && JSON.parse(r5.paso.sonidos[0]).cap === false && r5.paso.avisos === 1, "el paso oculto del rival suena y me avisa que me toca");
+  ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === null, "el enroque largo del rival llega al sonido con su lado y sin delatar coronación");
+  ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
+  ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
+
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 
   await browser.close(); srv.close();

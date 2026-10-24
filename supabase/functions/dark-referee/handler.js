@@ -13,7 +13,8 @@ function observationFor(n, color, ply, mover, mv, san, capSq){
     const [r, c] = key.split(",").map(Number);
     if(n.board[r][c]) pieces[key] = n.board[r][c];
   }
-  const obs = { ply, mover, turn: n.turn, lit, pieces, capture: !!capSq, capSq: capSq || null };
+  // castle: lado del enroque («K» corto, «Q» largo) o null. Lo saben AMBOS bandos, solo como sonido: ni pieza, ni origen, ni destino.
+  const obs = { ply, mover, turn: n.turn, lit, pieces, capture: !!capSq, capSq: capSq || null, castle: mv.castle || null };
   if(color === mover) obs.mine = { from: mv.from, to: mv.to, promo: mv.promo || null, san };
   return obs;
 }

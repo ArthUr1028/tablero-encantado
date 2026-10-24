@@ -27,6 +27,18 @@ const prueba = async (nombre, fn) => { total++; try { await fn(); console.log(" 
   const mover = (db, who, a, b, promo) => darkMove(db, who, { game_id: G, from: sq(a), to: sq(b), promo });
   console.log("Árbitro de Dark Chess");
 
+  await prueba("enroque: ambos bandos saben el lado (K/Q) y nada más; una jugada normal no trae enroque", async () => {
+    const db = fakeDb("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1 dark");
+    const r = await mover(db, W, "e1", "g1");
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(db.s.obs[0].w.castle, "K"); assert.strictEqual(db.s.obs[0].b.castle, "K");
+    assert.ok(!("from" in db.s.obs[0].b) && !db.s.obs[0].b.mine, "el rival no recibe origen/destino");
+    const r2 = await mover(db, B, "e8", "c8");
+    assert.strictEqual(db.s.obs[1].w.castle, "Q");
+    const db2 = fakeDb(); await mover(db2, W, "e2", "e4");
+    assert.strictEqual(db2.s.obs[0].b.castle, null);
+  });
+
   await prueba("1.e4 válida: se guarda y avanza el turno", async () => {
     const db = fakeDb(); const r = await mover(db, W, "e2", "e4");
     assert.equal(r.status, 200); assert.equal(db.s.ply, 1); assert.match(db.s.fen, /^rnbqkbnr\/pppppppp\/8\/8\/4P3\/8\/PPPP1PPP\/RNBQKBNR b /);
