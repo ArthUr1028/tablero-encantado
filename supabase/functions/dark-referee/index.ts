@@ -705,7 +705,12 @@ async function darkMove(db, userId, body){
   if(promo !== null && !/^[qrbn]$/.test(promo)) return jerr(400, "Coronación inválida.");
 
   let st;
-  try { st = await db.getState(gameId); } catch(e){ return jerr(404, "No encontré esa partida oscura."); }
+  try { st = await db.getState(gameId); } catch(e){
+    const m = String(e && e.message || e);
+    // Solo «no existe / no es oscura» es un 404 honesto; cualquier otro fallo (permisos, llave, SQL) se muestra tal cual para poder diagnosticarlo.
+    if(/No es una partida oscura|sin estado inicial/.test(m)) return jerr(404, "No encontré esa partida oscura.");
+    return jerr(500, "Error del servidor: " + m);
+  }
   if(st.status !== "en_curso") return jerr(409, "La partida ya terminó.");
   const color = userId === st.white_id ? "w" : userId === st.black_id ? "b" : null;
   if(!color) return jerr(403, "Esta partida no es tuya.");
