@@ -81,20 +81,12 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       jugadasLocales: game.sans.length,
       piezasVisibles: boardEl.querySelectorAll(".piece").length, piezasNegras: boardEl.querySelectorAll(".piece.b").length, casillasEnNiebla: boardEl.querySelectorAll(".cell.fog").length
     };
-    // 3) Mover no debe escribir nada ni avanzar el tablero local
-    const pos = liveState();
-    const mv = legalMoves(pos).find(m => m.from[0] === 6 && m.from[1] === 4);   // e2 (blancas)
-    const antes = llamadas.length;
-    commitMove(mv);
-    await new Promise(r => setTimeout(r, 300));
-    info.movioLocal = game.sans.length;
-    info.escrituras = llamadas.slice(antes).filter(c => c[0] !== "rpc" || !/presence|heartbeat/i.test(c[1])).map(c => c[0] + ":" + c[1]);
-    info.toast = Array.from(document.querySelectorAll("[class*=toast], #global-toast, .toast")).map(e => e.textContent).join(" | ").slice(0, 160);
     // 4) Una observación nueva por Realtime se guarda (sin dibujar todavía)
-    handleDarkObs({ new: { game_id: GID, viewer: YO, ply: 1, obs: { ply: 1, test: true } } });
+    handleDarkObs({ new: { game_id: GID, viewer: YO, ply: 1, obs: { ply: 1, mover: "w", turn: "b", lit: ["7,4"], pieces: { "7,4": "wk" }, capture: false, capSq: null, mine: { from: [6,4], to: [4,4], promo: null, san: "e4" } } } });
     info.obsTrasEvento = liveGame.darkObs.length;
     handleDarkObs({ new: { game_id: GID, viewer: RIVAL, ply: 2, obs: { ply: 2 } } });   // de otro espectador: se ignora
     info.obsAjenaIgnorada = liveGame.darkObs.length === 1;
+    liveGame.darkObs.length = 0; darkRebuild(); render();   // dejar la partida limpia para la prueba siguiente
     return info;
   });
   console.log("  datos:", JSON.stringify(r2));
@@ -104,9 +96,105 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r2.jugadasLocales === 0, "el tablero local arranca sin jugadas");
   ok(r2.piezasVisibles === 16 && r2.piezasNegras === 0, "la niebla oculta al rival desde el DOM: solo se ven mis 16 piezas (" + r2.piezasVisibles + " visibles, " + r2.piezasNegras + " negras)");
   ok(r2.casillasEnNiebla === 32, "32 casillas en niebla: de 64, 32 quedan iluminadas (mis 16 piezas + las 16 casillas de las filas 3 y 4 que alcanzan los peones) — real: " + r2.casillasEnNiebla);
-  ok(r2.movioLocal === 0, "intentar mover NO avanza el tablero local");
-  ok(r2.escrituras.length === 0, "intentar mover NO escribe nada en la base (" + r2.escrituras.join(",") + ")");
   ok(r2.obsTrasEvento === 1 && r2.obsAjenaIgnorada, "una observación propia nueva se guarda y una ajena se ignora");
+  // 3) Jugar de verdad contra un árbitro simulado: el cliente pide, el «servidor» responde con observaciones
+  const r3 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111";
+    const out = {};
+    let truth = parseFEN(VARIANT_START.dark), ply = 0;
+    const sqs = m => m ? (m.capture ? (m.ep ? [m.from[0], m.to[1]] : m.to) : null) : null;
+    const obsFor = (n, color, mover, mv, san, cap) => {
+      const lit = [], pieces = {};
+      for(const k of fogVisible(n, color)){ lit.push(k); const [r, c] = k.split(",").map(Number); if(n.board[r][c]) pieces[k] = n.board[r][c]; }
+      const o = { ply, mover, turn: n.turn, lit, pieces, capture: !!cap, capSq: cap };
+      if(color === mover) o.mine = { from: mv.from, to: mv.to, promo: mv.promo || null, san };
+      return o;
+    };
+    const jugar = (uci) => { const mv = matchUci(truth, uci); const r = moveWithSAN(truth, mv); const cap = sqs(mv); const by = truth.turn; truth = r.n; ply++;
+      return { w: obsFor(truth, "w", by, mv, r.san, cap), b: obsFor(truth, "b", by, mv, r.san, cap) }; };
+    const llamadas = []; let modo = "ok";
+    Object.defineProperty(sb, "functions", { configurable: true, value: { invoke: async (nombre, args) => {
+      llamadas.push([nombre, args.body]);
+      if(modo === "ilegal") return { data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: async () => ({ error: "Jugada ilegal." }) } } };
+      const mv = legalMoves(truth).find(m => sameSq(m.from, args.body.from) && sameSq(m.to, args.body.to));
+      const o = jugar(moveUci(mv, truth.board));
+      return { data: { ok: true, ply, result: null, obs: o.w }, error: null };
+    } } });
+    const tick = () => new Promise(r => setTimeout(r, 120));
+    const negras = () => boardEl.querySelectorAll(".piece.b").length;
+    liveGame.darkObs.length = 0; darkRebuild(); render();
+    out.antes = { turno: liveState().turn, objetivosE2: legalMoves(liveState()).filter(m => sameSq(m.from, [6,4])).map(m => sqName(m.to)).join(",") };
+    tryMove([6,4], [4,4]); await tick();
+    out.llamada = llamadas[0] ? JSON.stringify(llamadas[0][1]) : null;
+    out.tras1 = { jugadas: game.sans.length, turno: liveState().turn, negras: negras(), obs: liveGame.darkObs.length };
+    if(!llamadas.length) return out;
+    const o2 = jugar("e7e5");
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: o2.w } }); await tick();
+    out.tras2 = { jugadas: game.sans.length, turno: liveState().turn, negras: negras(), jugadaRival: game.moves[1], lista: movesEl.textContent.replace(/\s+/g, " ").trim() };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: o2.w } }); await tick();
+    out.sinDuplicar = game.sans.length === 2;
+    modo = "ilegal";
+    tryMove([6,3], [4,3]); await tick();
+    out.rechazo = { jugadas: game.sans.length, turno: liveState().turn, toast: Array.from(document.querySelectorAll("[class*=toast], #global-toast, .toast")).map(e => e.textContent).join(" | ") };
+    return out;
+  });
+  console.log("  datos3:", JSON.stringify(r3));
+  ok(r3.antes.turno === "w" && r3.antes.objetivosE2 === "e3,e4", "al inicio mueven blancas y e2 ofrece e3,e4 (" + r3.antes.objetivosE2 + ")");
+  ok(r3.llamada && JSON.parse(r3.llamada).game_id && JSON.stringify(JSON.parse(r3.llamada).from) === "[6,4]" && JSON.stringify(JSON.parse(r3.llamada).to) === "[4,4]", "mover llama al árbitro con origen y destino como [fila,col]: " + r3.llamada);
+  ok(r3.tras1.jugadas === 1 && r3.tras1.turno === "b" && r3.tras1.negras === 0 && r3.tras1.obs === 1, "tras mi jugada: 1 jugada, turno de negras, ninguna negra a la vista, 1 observación");
+  ok(r3.tras2.jugadas === 2 && r3.tras2.turno === "w" && r3.tras2.negras === 0, "tras la jugada oculta del rival: 2 jugadas, mi turno, sin negras a la vista (" + r3.tras2.negras + ")");
+  ok(r3.tras2.jugadaRival === null, "de la jugada del rival no queda origen, destino ni pieza");
+  ok(!/e5|e7/.test(r3.tras2.lista), "la lista de jugadas no delata la jugada del rival: «" + r3.tras2.lista + "»");
+  ok(r3.sinDuplicar, "la misma observación por Realtime y por respuesta no duplica la jugada");
+  ok(r3.rechazo.jugadas === 2 && r3.rechazo.turno === "w" && /ilegal/i.test(r3.rechazo.toast), "una jugada rechazada se deshace sola y avisa (" + r3.rechazo.toast + ")");
+
+  // 4) Capturas en ambos sentidos, sonido de captura del rival y revelación al terminar
+  const r4 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111";
+    const out = {};
+    let truth = parseFEN(VARIANT_START.dark), ply = 0; const hist = [];
+    const obsFor = (n, color, mover, mv, san, cap) => {
+      const lit = [], pieces = {};
+      for(const k of fogVisible(n, color)){ lit.push(k); const [r, c] = k.split(",").map(Number); if(n.board[r][c]) pieces[k] = n.board[r][c]; }
+      const o = { ply, mover, turn: n.turn, lit, pieces, capture: !!cap, capSq: cap };
+      if(color === mover) o.mine = { from: mv.from, to: mv.to, promo: mv.promo || null, san };
+      return o;
+    };
+    const jugar = uci => { const mv = matchUci(truth, uci); const r = moveWithSAN(truth, mv); const cap = mv.capture ? (mv.ep ? [mv.from[0], mv.to[1]] : mv.to) : null; const by = truth.turn; truth = r.n; ply++;
+      hist.push({ ply, uci, san: r.san, by });
+      return { w: obsFor(truth, "w", by, mv, r.san, cap) }; };
+    Object.defineProperty(sb, "functions", { configurable: true, value: { invoke: async (n, a) => {
+      const mv = legalMoves(truth).find(m => sameSq(m.from, a.body.from) && sameSq(m.to, a.body.to));
+      const o = jugar(moveUci(mv, truth.board)); return { data: { ok: true, ply, result: null, obs: o.w }, error: null };
+    } } });
+    const sonidos = []; const sfxOrig = SFX.move; SFX.move = (mv, oc) => { sonidos.push(mv && mv.capture ? "captura" : "paso"); };
+    const tick = () => new Promise(r => setTimeout(r, 150));
+    liveGame.darkObs.length = 0; darkRebuild(); render(); await tick();
+    tryMove([6,4], [4,4]); await tick();                       // 1. e4
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: jugar("d7d5").w } }); await tick();   // ...d5 (oculta: e4 no la alumbra)
+    out.d5Visible = !!boardEl.querySelector(".cell:not(.fog) .piece.b");
+    tryMove([4,4], [3,3]); await tick();                       // 2. exd5 (captura: d5 estaba iluminada)
+    out.miCaptura = { jugadas: game.sans.length, cap: game.moves[2] && game.moves[2].capture, negrasEnVista: boardEl.querySelectorAll(".piece.b").length };
+    sonidos.length = 0;
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: jugar("d8d5").w } }); await tick();   // ...Dxd5: la dama captura mi peón
+    out.capturaRival = { jugadas: game.sans.length, mov: game.moves[3], sonidos: sonidos.slice(), lista: movesEl.textContent.replace(/\s+/g, " ").trim(), negrasEnVista: boardEl.querySelectorAll(".piece.b").length };
+    // Fin de partida: la fila games trae el resultado y dark_reveal entrega la película verdadera
+    sb.rpc = async (n, a) => n === "dark_reveal" ? { data: { fen: toFEN(truth), moves: hist, result: "0-1" }, error: null } : { data: null, error: null };
+    applyGameRow({ id: liveGame.id, status: "finalizada", result: "0-1", winner_id: "22222222-2222-2222-2222-222222222222", draw_offered_by: null, paused_by: null });
+    await tick(); await tick();
+    out.reveal = { revelada: !!liveGame.darkRevealed, jugadas: game.sans.length, san2: game.sans[1], sinNiebla: boardEl.querySelectorAll(".cell.fog").length, negras: boardEl.querySelectorAll(".piece.b").length, bloqueado: darkLocked() };
+    SFX.move = sfxOrig;
+    return out;
+  });
+  console.log("  datos4:", JSON.stringify(r4));
+  ok(r4.d5Visible, "el peón negro en d5 SÍ se ve: mi peón de e4 lo amenaza (una pieza capturable está iluminada)");
+  ok(r4.miCaptura.jugadas === 3 && r4.miCaptura.cap === "bp", "mi captura queda registrada con la pieza capturada (bp)");
+  ok(r4.capturaRival.jugadas === 4 && r4.capturaRival.mov && r4.capturaRival.mov.capture === "wp" && r4.capturaRival.mov.hidden, "la captura del rival sobre mi peón se registra sin delatar de dónde vino");
+  ok(r4.capturaRival.sonidos.includes("captura"), "suena la captura aunque la haya hecho el rival (" + r4.capturaRival.sonidos.join(",") + ")");
+  ok(/×d5/.test(r4.capturaRival.lista) && !/[DQ]x?d5/.test(r4.capturaRival.lista), "la lista dice «×d5» y no la notación del rival: «" + r4.capturaRival.lista + "»");
+  ok(r4.reveal.revelada && r4.reveal.jugadas === 4 && r4.reveal.san2 === "d5", "al terminar se revela la película verdadera (4 jugadas, la 2.ª es d5)");
+  ok(r4.reveal.sinNiebla === 0 && r4.reveal.negras === 15, "terminada la partida cae la niebla (" + r4.reveal.sinNiebla + " casillas en niebla, " + r4.reveal.negras + " negras visibles)");
+
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 
   await browser.close(); srv.close();
