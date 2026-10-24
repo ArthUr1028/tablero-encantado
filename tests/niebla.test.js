@@ -112,5 +112,14 @@ prueba("el rey ve sus ocho casillas vecinas", () => {
   assert(!v("d6") && !v("b4"));
 });
 
+prueba("1.e4 e5 2.Nf3 f5: el peón e4 solo ve f5; e5 se ve únicamente porque el caballo de f3 lo amenaza", () => {
+  const con = lit("rnbqkbnr/pppp2pp/8/4pp2/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq f6 0 3", "w");
+  assert(con("f5"), "f5: el peón la captura");
+  assert(con("e5"), "e5: la ve el caballo de f3");
+  const sin = lit("rnbqkbnr/pppp2pp/8/4pp2/4P3/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3", "w");   // sin caballo en f3
+  assert(sin("f5"), "f5 sigue visible por el peón");
+  assert(!sin("e5"), "e5 queda en sombra: el peón bloqueado no la ve");
+});
+
 console.log("\n" + (total - fallos) + "/" + total + " pruebas pasan");
 process.exit(fallos ? 1 : 0);
