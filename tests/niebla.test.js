@@ -8,16 +8,17 @@ const assert = require("assert");
 const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").split("\n");
 const find = re => { const i = src.findIndex(l => re.test(l)); if (i < 0) throw new Error("No encontré " + re); return i; };
 
-// Región del motor: desde las constantes hasta justo antes de applyMove (incluye parseFEN y pseudoMoves)
-const a = find(/^const FILES = /), z = find(/^function applyMove\(/);
-// fogVisible completa
-const f0 = find(/^function fogVisible\(/);
-let f1 = f0; while(!/^}/.test(src[f1])) f1++;
+// Región del motor: desde las constantes hasta justo antes de «Sonidos» (incluye parseFEN, pseudoMoves, applyMove, legalMoves y outcome)
+const a = find(/^const FILES = /), z = find(/Sonidos \(V218\)/);
+// funciones de niebla (cada una termina en la primera llave de cierre en la columna 0)
+const grab = name => { const f0 = find(new RegExp("^function " + name + "\\(")); let f1 = f0; while(!/^}/.test(src[f1])) f1++; return src.slice(f0, f1 + 1).join("\n"); };
 
-const code = src.slice(a, z).join("\n") + "\n" + src.slice(f0, f1 + 1).join("\n") + "\nthis.__api = { parseFEN, fogVisible };";
+const code = "var game = null, liveGame = null, currentMode = 'play', darkReveal = false, branch = null; function L(){ return branch || game; }\n" +
+  src.slice(a, z).join("\n") + "\n" + ["fogVisible", "fogViewer", "darkLocked"].map(grab).join("\n") +
+  "\nthis.__api = { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq };";
 const ctx = vm.createContext({ document: {}, window: {}, console });
 vm.runInContext(code, ctx);
-const { parseFEN, fogVisible } = ctx.__api;
+const { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq } = ctx.__api;
 
 const sq = name => { const c = "abcdefghij".indexOf(name[0]), r = 8 - Number(name[1]); return r + "," + c; };
 const lit = (fen, color) => { const v = fogVisible(parseFEN(fen + " dark"), color); return n => v.has(sq(n)); };
@@ -119,6 +120,70 @@ prueba("1.e4 e5 2.Nf3 f5: el peón e4 solo ve f5; e5 se ve únicamente porque el
   const sin = lit("rnbqkbnr/pppp2pp/8/4pp2/4P3/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3", "w");   // sin caballo en f3
   assert(sin("f5"), "f5 sigue visible por el peón");
   assert(!sin("e5"), "e5 queda en sombra: el peón bloqueado no la ve");
+});
+
+// ---- 2.106: punto de vista fijo al rebobinar y bloqueos ----
+const rc = n => [8 - Number(n[1]), "abcdefghij".indexOf(n[0])];
+const jugar = (s, de, a) => {
+  const m = legalMoves(s).find(x => sameSq(x.from, rc(de)) && sameSq(x.to, rc(a)));
+  if(!m) throw new Error("jugada no encontrada " + de + a);
+  return applyMove(s, m);
+};
+const partida = (fen, jugadas) => {
+  const states = [parseFEN(fen + " dark")];
+  for(const [de, a] of jugadas) states.push(jugar(states[states.length - 1], de, a));
+  return { startFEN: fen, states, sans: jugadas.map(() => "x"), cursor: states.length - 1, result: "" };
+};
+const reset = () => { ctx.liveGame = null; ctx.currentMode = "play"; ctx.darkReveal = false; ctx.branch = null; };
+const INI = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+console.log("\nRebobinado y bloqueos (2.106)");
+
+prueba("el punto de vista es fijo: el mismo en todas las posiciones que se repasan", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"], ["e7","e5"], ["g1","f3"]]);   // le toca a las negras en la posición final
+  const vistas = ctx.game.states.map(st => fogViewer(st, outcome(st)));
+  assert.deepStrictEqual(vistas, ["b","b","b","b"], "siempre el lado al que le toca al final");
+});
+
+prueba("una partida terminada (rey capturado) sigue revelada al rebobinar a cualquier jugada", () => {
+  reset(); ctx.game = partida("4k3/8/8/8/8/8/8/4RK2 w - - 0 1", [["e1","e8"]]);   // la torre captura al rey
+  assert.strictEqual(outcome(ctx.game.states[1]), "checkmate");
+  for(const st of ctx.game.states) assert.strictEqual(fogViewer(st, outcome(st)), null, "sin niebla en ninguna posición");
+  assert.strictEqual(darkLocked(), false);
+});
+
+prueba("en curso, retroceder NO levanta la niebla", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"], ["e7","e5"]]);
+  ctx.game.cursor = 0;
+  const st = ctx.game.states[0];
+  assert.notStrictEqual(fogViewer(st, outcome(st)), null);
+  assert.strictEqual(darkLocked(), true);
+});
+
+prueba("en una partida en vivo el punto de vista es tu color, vayas a la jugada que vayas", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"], ["e7","e5"], ["g1","f3"]]);
+  ctx.liveGame = { myColor: "w" };
+  assert.deepStrictEqual(ctx.game.states.map(st => fogViewer(st, outcome(st))), ["w","w","w","w"]);
+});
+
+prueba("darkLocked: se levanta con resultado, con «ver todo» y en Tablero libre", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"]]);
+  assert.strictEqual(darkLocked(), true);
+  ctx.game.result = "1-0"; assert.strictEqual(darkLocked(), false); ctx.game.result = "";
+  ctx.darkReveal = true; assert.strictEqual(darkLocked(), false); ctx.darkReveal = false;
+  ctx.currentMode = "free"; assert.strictEqual(darkLocked(), false);
+});
+
+prueba("darkLocked no bloquea el ajedrez clásico", () => {
+  reset(); ctx.game = { startFEN: INI, states: [parseFEN(INI)], cursor: 0, result: "" };
+  assert.strictEqual(darkLocked(), false);
+});
+
+prueba("el PGN y el guardado de partidas llaman a darkLocked() (que nadie quite el candado)", () => {
+  const todo = src.join("\n");
+  assert(/pgn-export"\)\.onclick[\s\S]{0,600}darkLocked\(\)/.test(todo), "exportar PGN");
+  assert(/async function saveCurrentGame\(name\)\{[\s\S]{0,300}darkLocked\(\)/.test(todo), "guardar en La Antología");
+  assert(/askReplaceGame\(darkLocked\(\)\)/.test(todo), "aviso al reemplazar sin ofrecer guardar");
 });
 
 console.log("\n" + (total - fallos) + "/" + total + " pruebas pasan");
