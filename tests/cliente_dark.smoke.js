@@ -203,9 +203,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const r5 = await page.evaluate(async () => {
     const YO = "11111111-1111-1111-1111-111111111111";
     game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; darkRebuild(); render();
-    const sonidos = [], avisos = []; const m0 = SFX.move, t0 = SFX.turn;
+    const sonidos = [], avisos = []; const m0 = SFX.move, g0 = showGlobalToast;
     SFX.move = (mv, oc) => sonidos.push(JSON.stringify({ cap: !!(mv && mv.capture), castle: mv && mv.castle || null, side: !!(mv && mv.dkSide), promo: mv && mv.promo || null }));
-    SFX.turn = () => avisos.push(1);
+    showGlobalToast = m => { if(/turno/i.test(m)) avisos.push(m); };
     const tick = ms => new Promise(r => setTimeout(r, ms || 150));
     const lit = ["7,4", "6,4", "5,4"], pieces = { "7,4": "wk", "6,4": "wp" };
     const mia = { ply: 1, mover: "w", turn: "b", lit, pieces, capture: false, capSq: null, castle: null, mine: { from: [6,4], to: [5,4], promo: null, san: "e3" } };
@@ -224,7 +224,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     sonidos.length = 0; avisos.length = 0;
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: riv2 } }); await tick(900);   // repetido: ni suena ni avisa otra vez
     const repetido = { sonidos: sonidos.length, avisos: avisos.length };
-    SFX.move = m0; SFX.turn = t0;
+    SFX.move = m0; showGlobalToast = g0;
     return { trasMia, paso, largo, repetido };
   });
   console.log("  datos5:", JSON.stringify(r5));
@@ -233,6 +233,37 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === "q", "el enroque del rival llega al sonido con su lado y la coronación se oye tal cual (sin decir a qué pieza)");
   ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
   ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
+
+  // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
+  const r7 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; darkRebuild(); render();
+    const litBase = ["7,4", "6,4"], piezas = { "7,4": "wk", "6,4": "wp" };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 1, obs: { ply: 1, mover: "w", turn: "b", lit: litBase, pieces: piezas, capture: false, capSq: null, castle: null, promoted: false, mine: { from: [6,4], to: [5,4], promo: null, san: "e3" } } } });
+    await tick(900);
+    // el rival corona en d1 (fila 7 para mí = su casilla de coronación) y esa casilla SÍ está iluminada
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: { ply: 2, mover: "b", turn: "w", lit: ["7,4", "6,4", "7,3"], pieces: { "7,4": "wk", "6,4": "wp", "7,3": "bq" }, capture: false, capSq: null, castle: null, promoted: true } } });
+    await tick(120); out.visible = boardEl.querySelectorAll(".piece.summon").length;
+    await tick(1500);
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 3, obs: { ply: 3, mover: "w", turn: "b", lit: litBase, pieces: piezas, capture: false, capSq: null, castle: null, promoted: false, mine: { from: [5,4], to: [4,4], promo: null, san: "e4" } } } });
+    await tick(900);
+    // otra coronación del rival, con la casilla en niebla: solo sonido
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: { ply: 4, mover: "b", turn: "w", lit: litBase, pieces: piezas, capture: false, capSq: null, castle: null, promoted: true } } });
+    await tick(120); out.oculta = boardEl.querySelectorAll(".piece.summon").length; out.efectos = document.querySelectorAll(".gatefx").length;
+    // partida local clásica: coronar propio peón
+    liveGame = null; persistFrozen = false;
+    newGame("4k3/P7/8/8/8/8/8/4K3 w - - 0 1"); render();
+    const mv = legalMoves(liveState()).find(m => sameSq(m.from, [1,0]) && sameSq(m.to, [0,0]) && m.promo === "q");
+    commitMove(mv); await tick(120);
+    out.local = boardEl.querySelectorAll(".piece.summon").length;
+    await tick(1800);   // que termine la sacudida de la invocación antes de la prueba siguiente
+    return out;
+  });
+  console.log("  datos7:", JSON.stringify(r7));
+  ok(r7.visible === 1, "coronación del rival en casilla visible: se anima la invocación (" + r7.visible + ")");
+  ok(r7.oculta === 0 && r7.efectos === 0, "coronación del rival en niebla: no se anima nada (solo suena) (" + r7.oculta + "/" + r7.efectos + ")");
+  ok(r7.local === 1, "coronación propia en partida local: usa la animación de invocación (" + r7.local + ")");
 
   // 6) La sacudida también va en variantes sin niebla (partida local clásica)
   const r6 = await page.evaluate(async () => {
