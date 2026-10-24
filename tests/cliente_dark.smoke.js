@@ -174,9 +174,12 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: jugar("d7d5").w } }); await tick();   // ...d5 (oculta: e4 no la alumbra)
     out.d5Visible = !!boardEl.querySelector(".cell:not(.fog) .piece.b");
     tryMove([4,4], [3,3]); await tick();                       // 2. exd5 (captura: d5 estaba iluminada)
+    out.quakeMia = boardEl.classList.contains("quake");
+    await new Promise(r => setTimeout(r, 600));
     out.miCaptura = { jugadas: game.sans.length, cap: game.moves[2] && game.moves[2].capture, negrasEnVista: boardEl.querySelectorAll(".piece.b").length };
     sonidos.length = 0;
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: jugar("d8d5").w } }); await tick();   // ...Dxd5: la dama captura mi peón
+    out.quakeRival = boardEl.classList.contains("quake");
     out.capturaRival = { jugadas: game.sans.length, mov: game.moves[3], sonidos: sonidos.slice(), lista: movesEl.textContent.replace(/\s+/g, " ").trim(), negrasEnVista: boardEl.querySelectorAll(".piece.b").length };
     // Fin de partida: la fila games trae el resultado y dark_reveal entrega la película verdadera
     sb.rpc = async (n, a) => n === "dark_reveal" ? { data: { fen: toFEN(truth), moves: hist, result: "0-1" }, error: null } : { data: null, error: null };
@@ -188,6 +191,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   });
   console.log("  datos4:", JSON.stringify(r4));
   ok(r4.d5Visible, "el peón negro en d5 SÍ se ve: mi peón de e4 lo amenaza (una pieza capturable está iluminada)");
+  ok(r4.quakeMia && r4.quakeRival, "el tablero se sacude en mi captura y también en la del rival (" + r4.quakeMia + "/" + r4.quakeRival + ")");
   ok(r4.miCaptura.jugadas === 3 && r4.miCaptura.cap === "bp", "mi captura queda registrada con la pieza capturada (bp)");
   ok(r4.capturaRival.jugadas === 4 && r4.capturaRival.mov && r4.capturaRival.mov.capture === "wp" && r4.capturaRival.mov.hidden, "la captura del rival sobre mi peón se registra sin delatar de dónde vino");
   ok(r4.capturaRival.sonidos.includes("captura"), "suena la captura aunque la haya hecho el rival (" + r4.capturaRival.sonidos.join(",") + ")");
@@ -229,6 +233,18 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === "q", "el enroque del rival llega al sonido con su lado y la coronación se oye tal cual (sin decir a qué pieza)");
   ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
   ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
+
+  // 6) La sacudida también va en variantes sin niebla (partida local clásica)
+  const r6 = await page.evaluate(async () => {
+    liveGame = null; persistFrozen = false;
+    newGame("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1"); render();
+    const mv = legalMoves(liveState()).find(m => sameSq(m.from, [4,4]) && sameSq(m.to, [3,3]));
+    commitMove(mv); await new Promise(r => setTimeout(r, 150));
+    const hit = boardEl.classList.contains("quake");
+    await new Promise(r => setTimeout(r, 600));
+    return { hit, apagada: !boardEl.classList.contains("quake") };
+  });
+  ok(r6.hit && r6.apagada, "en una partida clásica, capturar sacude el tablero y la sacudida termina sola (" + JSON.stringify(r6) + ")");
 
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 
