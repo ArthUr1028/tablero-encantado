@@ -214,7 +214,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     sonidos.length = 0; avisos.length = 0;
     const mia2 = { ply: 3, mover: "w", turn: "b", lit, pieces, capture: false, capSq: null, castle: null, mine: { from: [5,4], to: [4,4], promo: null, san: "e4" } };
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 3, obs: mia2 } }); await tick(300); sonidos.length = 0; avisos.length = 0;
-    const riv2 = { ply: 4, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: "Q", promo: "q" };
+    const riv2 = { ply: 4, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: "Q", promoted: true };
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 4, obs: riv2 } }); await tick(900);
     const largo = { sonidos: sonidos.slice(), avisos: avisos.length };
     sonidos.length = 0; avisos.length = 0;
@@ -226,7 +226,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   console.log("  datos5:", JSON.stringify(r5));
   ok(r5.trasMia.sonidos === 1 && r5.trasMia.avisos === 0, "mi propia jugada suena pero no me avisa de turno");
   ok(r5.paso.sonidos.length === 1 && JSON.parse(r5.paso.sonidos[0]).cap === false && r5.paso.avisos === 1, "el paso oculto del rival suena y me avisa que me toca");
-  ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === null, "el enroque largo del rival llega al sonido con su lado y sin delatar coronación");
+  ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === "q", "el enroque del rival llega al sonido con su lado y la coronación se oye tal cual (sin decir a qué pieza)");
   ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
   ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
 
