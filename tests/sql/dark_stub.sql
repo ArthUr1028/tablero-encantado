@@ -9,7 +9,8 @@ create table games (id uuid primary key default gen_random_uuid(), async_days sm
  created_at timestamptz default now(), current_fen text, draw_offered_by uuid, mode game_mode, ply_count int default 0,
  result text, status game_status default 'esperando_rival', time_control_increment_seconds int, time_control_initial_seconds int,
  tournament_match_id uuid, turn_started_at timestamptz, updated_at timestamptz default now(), variant game_variant, white_id uuid,
- white_time_left_ms bigint, winner_id uuid);
+ white_time_left_ms bigint, winner_id uuid,
+ paused_by uuid, paused_at timestamptz, white_pauses_used int not null default 0, black_pauses_used int not null default 0);
 create table game_moves (id bigserial primary key, fen_after text, game_id uuid, made_at timestamptz default now(), made_by uuid, ply int, san text);
 create table game_challenges (id uuid primary key default gen_random_uuid(), created_by uuid, invited_id uuid, variant game_variant, mode game_mode,
  creator_color text, status text default 'pendiente', responded_at timestamptz, game_id uuid, tournament_match_id uuid,
