@@ -184,7 +184,7 @@ create or replace function public.dark_commit_move(
  returns jsonb language plpgsql security definer set search_path to 'public' as $$
 declare
   g games%rowtype; v_white boolean; v_left bigint; v_elapsed bigint; v_inc bigint;
-  v_wl bigint; v_bl bigint; v_status text := 'en_curso';
+  v_wl bigint; v_bl bigint; v_status game_status := 'en_curso';
 begin
   perform set_config('tablero.dark_writer', '1', true);   -- solo dura esta transacción
   select * into g from games where id = p_game for update;
