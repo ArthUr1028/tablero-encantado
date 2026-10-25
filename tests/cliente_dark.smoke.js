@@ -271,9 +271,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     await tick(1500); render();
     out.termina = { lift: boardEl.querySelectorAll(".cell.fog-lift").length, emerge: boardEl.querySelectorAll(".emerge").length };
     handleDarkObs(obs(3, base, pz)); await tick(150);
-    out.cae = { fall: boardEl.querySelectorAll(".cell.fog.fog-fall").length, piezaNegra: boardEl.querySelectorAll(".piece.b").length };
+    out.cae = { fall: boardEl.querySelectorAll(".cell.fog.fog-fall").length, piezaNegra: boardEl.querySelectorAll(".piece.b:not(.ghost-out)").length, fantasma: boardEl.querySelectorAll(".piece.b.ghost-out").length };
     // el rival llega desde la niebla a una casilla que YA estaba iluminada: también emerge
-    await tick(1700);
+    await tick(1700); render(); out.cae.fantasmaFin = boardEl.querySelectorAll(".ghost-out").length;
     handleDarkObs(obs(4, base.concat(["3,3", "4,3"]), Object.assign({ "4,3": "bp" }, pz))); await tick(1700); render();
     handleDarkObs(obs(5, base.concat(["3,3", "4,3"]), Object.assign({ "3,3": "bp" }, pz))); await tick(150);
     out.llega = boardEl.querySelectorAll(".piece.b.emerge").length;
@@ -300,6 +300,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r9.parpadeo.fotogramas > 20 && r9.parpadeo.malos === 0, "la niebla no parpadea: ningún fotograma sin niebla al cambiar las casillas iluminadas (" + r9.parpadeo.malos + " malos de " + r9.parpadeo.fotogramas + ")");
   ok(r9.llega === 1 && r9.llegaSigue === 1, "la pieza enemiga que llega a una casilla ya iluminada también emerge, y un redibujo no la corta (" + r9.llega + "/" + r9.llegaSigue + ")");
   ok(r9.cae.fall === 2 && r9.cae.piezaNegra === 0, "al dejar de ver las casillas la niebla vuelve a caer y la pieza ya no se dibuja");
+  ok(r9.cae.fantasma === 1 && r9.cae.fantasmaFin === 0, "la pieza enemiga que se esconde en la niebla se desvanece (fantasma " + r9.cae.fantasma + ") y pasado el tiempo no queda rastro (" + r9.cae.fantasmaFin + ")");
 
   // 10) Cuaderno: carga, guardado automático (general y por jugada), borrado al vaciar, reintento ante fallo y solo en Dark
   const r10 = await page.evaluate(async () => {
