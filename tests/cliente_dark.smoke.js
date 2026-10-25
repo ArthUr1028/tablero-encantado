@@ -244,6 +244,34 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
   ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
 
+  // 9) Niebla viva: bruma enmascarada, la niebla se levanta al iluminar, la pieza enemiga emerge, y todo sigue aunque se redibuje
+  const r9 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; fogPrev = null; fogFx.clear(); darkRebuild(); render();
+    const base = ["7,4", "6,4"], pz = { "7,4": "wk", "6,4": "wp" };
+    const obs = (ply, lit, pieces) => ({ new: { game_id: liveGame.id, viewer: YO, ply, obs: { ply, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: null, promoted: false } } });
+    handleDarkObs(obs(1, base, pz)); await tick(100); fogPrev = null; fogFx.clear(); render(); await tick(100);   // primer dibujo "limpio" de esta posición
+    const m0 = boardEl.querySelector(".fog-mist");
+    out.bruma = { hay: !!m0, capas: m0 ? m0.querySelectorAll("i").length : 0, mascara: !!(m0 && (m0.style.maskImage || m0.style.webkitMaskImage)), sinEfectos: boardEl.querySelectorAll(".fog-lift,.emerge,.fog-fall").length };
+    handleDarkObs(obs(2, base.concat(["3,3", "4,3"]), Object.assign({ "3,3": "bp" }, pz))); await tick(150);
+    out.levanta = { lift: boardEl.querySelectorAll(".cell.fog-lift").length, emerge: boardEl.querySelectorAll(".piece.b.emerge").length, propiasEmergen: boardEl.querySelectorAll(".piece.w.emerge").length };
+    render(); await tick(300);   // un redibujo a mitad de la animación NO la corta
+    out.continua = boardEl.querySelectorAll(".piece.b.emerge").length;
+    await tick(1500); render();
+    out.termina = { lift: boardEl.querySelectorAll(".cell.fog-lift").length, emerge: boardEl.querySelectorAll(".emerge").length };
+    handleDarkObs(obs(3, base, pz)); await tick(150);
+    out.cae = { fall: boardEl.querySelectorAll(".cell.fog.fog-fall").length, piezaNegra: boardEl.querySelectorAll(".piece.b").length };
+    return out;
+  });
+  console.log("  datos9:", JSON.stringify(r9));
+  ok(r9.bruma.hay && r9.bruma.capas === 2 && r9.bruma.mascara, "en Dark hay una capa de bruma de dos velos, enmascarada a las casillas en niebla");
+  ok(r9.bruma.sinEfectos === 0, "al primer dibujo no hay transiciones falsas");
+  ok(r9.levanta.lift === 2 && r9.levanta.emerge === 1 && r9.levanta.propiasEmergen === 0, "al iluminarse dos casillas la niebla se levanta y SOLO la pieza enemiga emerge (" + JSON.stringify(r9.levanta) + ")");
+  ok(r9.continua === 1, "un redibujo a mitad de la emergencia la continúa en vez de cortarla");
+  ok(r9.termina.lift === 0 && r9.termina.emerge === 0, "pasado el tiempo, las clases de animación desaparecen");
+  ok(r9.cae.fall === 2 && r9.cae.piezaNegra === 0, "al dejar de ver las casillas la niebla vuelve a caer y la pieza ya no se dibuja");
+
   // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
   const r7 = await page.evaluate(async () => {
     const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
