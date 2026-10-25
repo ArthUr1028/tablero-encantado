@@ -12,7 +12,7 @@ ini = s.index("window.SFX_AUDIO={"); fin = s.index("\n", ini)
 obj, fin_obj = json.JSONDecoder().raw_decode(s[ini + len("window.SFX_AUDIO="):fin])
 resto = s[ini + len("window.SFX_AUDIO=") + fin_obj:fin]          # normalmente ";</script>"
 d = dict(obj)
-for tipo in "pnbrqkacf":
+for tipo in "pnbrqkacfm":
     ruta = os.path.join(RAIZ, "sonidos", "piezas", tipo + ".mp3")
     if os.path.exists(ruta): d["pz_" + tipo] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))

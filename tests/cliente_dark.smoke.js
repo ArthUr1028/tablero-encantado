@@ -280,18 +280,25 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
 
   // 8) Los sonidos grabados están incrustados y se oye la pieza de MIS jugadas (viene de la posición anterior)
   const r8 = await page.evaluate(async () => {
-    const A = window.SFX_AUDIO || {}; const out = { claves: ["pz_p","pz_n","pz_b","pz_r","pz_q","pz_k","pz_a","pz_c","pz_f"].filter(k => A[k] && A[k].length > 1000).length, caps: (A.cap || []).length };
+    const A = window.SFX_AUDIO || {}; const out = { claves: ["pz_p","pz_n","pz_b","pz_r","pz_q","pz_k","pz_a","pz_c","pz_f","pz_m"].filter(k => A[k] && A[k].length > 1000).length, caps: (A.cap || []).length };
     liveGame = null; persistFrozen = false;
     newGame("4k3/8/8/3p4/8/4N3/8/4K3 w - - 0 1"); render();
-    const vistos = []; const m0 = SFX.move; SFX.move = (mv, oc) => vistos.push({ piece: mv && mv.piece, cap: !!(mv && mv.capture) });
+    const vistos = []; const m0 = SFX.move; SFX.move = (mv, oc) => vistos.push({ piece: mv && mv.piece, cap: !!(mv && mv.capture), variant: mv && mv.variant });
     const mv = legalMoves(liveState()).find(m => sameSq(m.from, [5,4]) && sameSq(m.to, [3,3]));   // Cxd5
     commitMove(mv); await new Promise(r => setTimeout(r, 150));
+    out.vars = {};
+    for(const [nom, fen, from] of [["seirawan", SEIRAWAN_START, [6,4]], ["shatranj", SHATRANJ_START, [6,4]], ["maharaja", MAHARAJA_START, [7,4]]]){
+      newGame(fen); render();
+      const m1 = legalMoves(liveState()).find(m => sameSq(m.from, from) && !m.gate && !m.castle) || legalMoves(liveState()).find(m => sameSq(m.from, from));
+      vistos.length = 0; commitMove(m1); await new Promise(r => setTimeout(r, 120));
+      out.vars[nom] = vistos[0] ? { piece: vistos[0].piece, variant: vistos[0].variant } : null;
+    }
     SFX.move = m0; out.vistos = vistos;
     return out;
   });
   console.log("  datos8:", JSON.stringify(r8));
-  ok(r8.claves === 9 && r8.caps === 14, "los 9 sonidos de pieza y las 14 capturas (11 + 3 nuevas) están incrustados (" + r8.claves + "/" + r8.caps + ")");
-  ok(r8.vistos.length === 1 && r8.vistos[0].piece === "n" && r8.vistos[0].cap, "una captura de caballo suena como caballo + espadazo: " + JSON.stringify(r8.vistos));
+  ok(r8.claves === 10 && r8.caps === 14, "los 10 sonidos de pieza y las 14 capturas (11 + 3 nuevas) están incrustados (" + r8.claves + "/" + r8.caps + ")");
+  ok(r8.vars.seirawan && r8.vars.seirawan.variant === "seirawan" && r8.vars.shatranj && r8.vars.shatranj.variant === "shatranj" && r8.vars.maharaja && r8.vars.maharaja.piece === "m" && r8.vars.maharaja.variant === "maharaja", "el sonido sabe la variante (Seirawan, Shatranj) y la pieza del Maharajá: " + JSON.stringify(r8.vars));
 
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 
