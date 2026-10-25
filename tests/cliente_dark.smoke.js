@@ -394,6 +394,52 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   });
   ok(r6.hit && r6.apagada, "en una partida clásica, capturar sacude el tablero y la sacudida termina sola (" + JSON.stringify(r6) + ")");
 
+  // 12) Háptica: un patrón por evento, solo si el dispositivo vibra; un interruptor; fin de partida una sola vez
+  const r12 = await page.evaluate(async () => {
+    const out = {}; const reg = [];
+    Object.defineProperty(navigator, "vibrate", { configurable: true, value: p => { reg.push(JSON.stringify(p)); return true; } });
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    const jugar = (fen, de, a2, promo) => { liveGame = null; persistFrozen = false; if(fen) newGame(fen); render(); };
+    const mover = async (de, a2, promo) => { const mv = legalMoves(liveState()).find(m => sameSq(m.from, de) && sameSq(m.to, a2) && (!promo || m.promo === promo)); commitMove(mv); await tick(200); };
+    const ultimo = () => reg[reg.length - 1];
+    newGame("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1"); render(); await tick(100); reg.length = 0; hapWasEnded = null;
+    await mover([4,4], [3,4]); out.jugada = ultimo();                       // e4-e5: jugada simple
+    await mover([0,4], [0,3]); out.rival = ultimo();
+    newGame("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1"); render(); await tick(100); reg.length = 0;
+    await mover([4,4], [3,3]); out.captura = ultimo();                      // exd5
+    newGame("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"); render(); await tick(100); reg.length = 0;
+    await mover([7,4], [7,6]); out.enroqueCorto = ultimo();
+    newGame("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"); render(); await tick(100); reg.length = 0;
+    await mover([7,4], [7,2]); out.enroqueLargo = ultimo();
+    newGame("8/P7/7k/8/8/8/8/4K3 w - - 0 1"); render(); await tick(100); reg.length = 0;
+    await mover([1,0], [0,0], "q"); out.coronacion = ultimo();
+    newGame("6k1/8/8/8/8/8/5q2/6K1 b - - 0 1"); render(); await tick(100); reg.length = 0;
+    await mover([6,5], [6,6]); out.jaque = ultimo();                        // Dg2+... (la dama da jaque)
+    // fin de partida: una sola vez, y no al abrir una partida ya terminada
+    newGame("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"); render(); await tick(100); reg.length = 0; hapEndKey = null; hapWasEnded = null; render();
+    game.result = "1-0"; render(); await tick(100); out.fin = reg.filter(r => r === "[140,90,260]").length;
+    render(); render(); await tick(100); out.finUnaVez = reg.filter(r => r === "[140,90,260]").length;
+    reg.length = 0; hapEndKey = null; hapWasEnded = null; render(); render(); await tick(100); out.alAbrirTerminada = reg.length;
+    // interruptor
+    game.result = ""; newGame("4k3/8/8/8/4P3/8/8/4K3 w - - 0 1"); render(); await tick(100);
+    const btn = document.getElementById("hap-toggle"); out.botonVisible = !btn.hidden; btn.click(); reg.length = 0;
+    await mover([4,4], [3,4]); out.apagada = reg.length; out.guardado = localStorage.getItem("tablero-encantado.haptica");
+    out.etiqueta = btn.getAttribute("aria-pressed"); btn.click(); out.encendida = HAP.isOn();
+    // sin soporte: ni se muestra ni falla
+    Object.defineProperty(navigator, "vibrate", { configurable: true, value: undefined });
+    out.sinSoporte = HAP.supported(); let err = null; try{ HAP.buzz("move"); }catch(e){ err = String(e); } out.sinError = err === null;
+    return out;
+  });
+  console.log("  datos12:", JSON.stringify(r12));
+  ok(r12.jugada === "[14]" && r12.rival === "[14]", "una jugada simple vibra corto, la mía y la del rival (" + r12.jugada + ", " + r12.rival + ")");
+  ok(r12.captura === "[40,35,70]", "una captura vibra con su patrón (" + r12.captura + ")");
+  ok(r12.enroqueCorto === "[22,60,22]" && r12.enroqueLargo === "[22,60,22,60,22]", "el enroque corto vibra dos veces y el largo tres (" + r12.enroqueCorto + " / " + r12.enroqueLargo + ")");
+  ok(r12.coronacion === "[18,40,70]", "la coronación tiene su patrón (" + r12.coronacion + ")");
+  ok(r12.jaque === "[35,70,35,70]", "el jaque vibra doble (" + r12.jaque + ")");
+  ok(r12.fin === 1 && r12.finUnaVez === 1 && r12.alAbrirTerminada === 0, "el fin de partida vibra una sola vez y no al abrir una ya terminada (" + r12.fin + "/" + r12.finUnaVez + "/" + r12.alAbrirTerminada + ")");
+  ok(r12.botonVisible && r12.apagada === 0 && r12.guardado === "0" && r12.etiqueta === "false" && r12.encendida, "el botón apaga la vibración (y se recuerda) y se puede volver a encender");
+  ok(r12.sinSoporte === false && r12.sinError, "sin soporte de vibración no falla");
+
   // 8) Los sonidos grabados están incrustados y se oye la pieza de MIS jugadas (viene de la posición anterior)
   const r8 = await page.evaluate(async () => {
     const A = window.SFX_AUDIO || {}; const out = { claves: ["pz_p","pz_n","pz_b","pz_r","pz_q","pz_k","pz_a","pz_c","pz_f","pz_m"].filter(k => A[k] && A[k].length > 1000).length, caps: (A.cap || []).length };
