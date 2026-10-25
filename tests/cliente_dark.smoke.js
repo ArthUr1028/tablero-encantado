@@ -186,6 +186,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     applyGameRow({ id: liveGame.id, status: "finalizada", result: "0-1", winner_id: "22222222-2222-2222-2222-222222222222", draw_offered_by: null, paused_by: null });
     await tick(); await tick();
     out.reveal = { revelada: !!liveGame.darkRevealed, jugadas: game.sans.length, san2: game.sans[1], sinNiebla: boardEl.querySelectorAll(".cell.fog").length, negras: boardEl.querySelectorAll(".piece.b").length, bloqueado: darkLocked() };
+    // 2.125: al terminar, la niebla se disipa (no desaparece de golpe) y las piezas escondidas emergen escalonadas
+    out.fin = { disipa: document.querySelectorAll("#board > .fog-body.dissolve, #board > .fog-mist.dissolve").length, emergen: boardEl.querySelectorAll(".piece.emerge-end").length, retrasos: Array.from(boardEl.querySelectorAll(".piece.emerge-end")).map(e => parseFloat(e.style.animationDelay)).filter(v => !isNaN(v)).length };
     // 2.117: el jaque mate (rey capturado) suena solo si el final ocurrió en vivo; al reabrir una partida vieja, no
     const mates = []; const mate0 = SFX.mate, oc0 = outcome; SFX.mate = () => mates.push(1); outcome = () => "checkmate";
     const fila = { id: liveGame.id, status: "finalizada", result: "0-1", winner_id: "22222222-2222-2222-2222-222222222222", draw_offered_by: null, paused_by: null };
@@ -194,6 +196,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     liveGame.darkRevealed = false; liveGame.darkMoveAt = Date.now(); await darkRevealGame(fila); await tick();
     out.mate = { vieja, envivo: mates.length };
     SFX.mate = mate0; outcome = oc0;
+    await new Promise(r => setTimeout(r, 5600));
+    out.finLimpio = { capas: document.querySelectorAll("#board > .fog-body, #board > .fog-mist").length, emergen: boardEl.querySelectorAll(".emerge-end").length };
     SFX.move = sfxOrig;
     return out;
   });
@@ -206,6 +210,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(/×d5/.test(r4.capturaRival.lista) && !/[DQ]x?d5/.test(r4.capturaRival.lista), "la lista dice «×d5» y no la notación del rival: «" + r4.capturaRival.lista + "»");
   ok(r4.mate.vieja === 0 && r4.mate.envivo === 1, "el jaque mate (rey capturado) suena al terminar en vivo y no al reabrir una partida vieja (" + r4.mate.vieja + "/" + r4.mate.envivo + ")");
   ok(r4.reveal.revelada && r4.reveal.jugadas === 4 && r4.reveal.san2 === "d5", "al terminar se revela la película verdadera (4 jugadas, la 2.ª es d5)");
+  ok(r4.fin.disipa === 2 && r4.fin.emergen >= 10 && r4.fin.retrasos === r4.fin.emergen, "al terminar la partida la niebla se disipa (2 capas) y las piezas escondidas emergen escalonadas (" + JSON.stringify(r4.fin) + ")");
+  ok(r4.finLimpio.capas === 0 && r4.finLimpio.emergen === 0, "pasados unos segundos no queda niebla ni efectos (" + JSON.stringify(r4.finLimpio) + ")");
   ok(r4.reveal.sinNiebla === 0 && r4.reveal.negras === 15, "terminada la partida cae la niebla (" + r4.reveal.sinNiebla + " casillas en niebla, " + r4.reveal.negras + " negras visibles)");
 
   // 5) Los pasos del rival suenan (con el lado del enroque) y avisan cuando te toca
