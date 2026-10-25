@@ -14,11 +14,11 @@ const a = find(/^const FILES = /), z = find(/Sonidos \(V218\)/);
 const grab = name => { const f0 = find(new RegExp("^function " + name + "\\(")); let f1 = f0; while(!/^}/.test(src[f1])) f1++; return src.slice(f0, f1 + 1).join("\n"); };
 
 const code = "const DKB_M = 200; var game = null, liveGame = null, currentMode = 'play', darkReveal = false, branch = null, vsMachine = false, machineHumanColor = 'w'; function L(){ return branch || game; }\n" +
-  src.slice(a, z).join("\n") + "\n" + ["matchUci", "fogVisible", "fogViewer", "darkLocked", "dkbCfg", "dkbObs", "dkbHash", "dkbRng", "dkbStep", "dkbReseed", "dkbBuild", "dkbPick", "dkbVote"].map(grab).join("\n") +
-  "\nthis.__api = { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq, toFEN, uciOf, matchUci, dkbObs, dkbBuild, dkbReseed, dkbPick, dkbVote, dkbCfg };";
+  src.slice(a, z).join("\n") + "\n" + ["matchUci", "fogVisible", "fogViewer", "darkLocked", "dkbCfg", "dkbObs", "dkbHash", "dkbRng", "dkbStep", "dkbReseed", "dkbBuild", "dkbPick", "dkbVote", "dkbRisk", "dkbChoose"].map(grab).join("\n") +
+  "\nthis.__api = { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq, toFEN, uciOf, matchUci, dkbObs, dkbBuild, dkbReseed, dkbPick, dkbVote, dkbRisk, dkbChoose, dkbCfg };";
 const ctx = vm.createContext({ document: {}, window: {}, console });
 vm.runInContext(code, ctx);
-const { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq, toFEN, uciOf, matchUci, dkbObs, dkbBuild, dkbReseed, dkbPick, dkbVote, dkbCfg } = ctx.__api;
+const { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq, toFEN, uciOf, matchUci, dkbObs, dkbBuild, dkbReseed, dkbPick, dkbVote, dkbRisk, dkbChoose, dkbCfg } = ctx.__api;
 
 const sq = name => { const c = "abcdefghij".indexOf(name[0]), r = 8 - Number(name[1]); return r + "," + c; };
 const lit = (fen, color) => { const v = fogVisible(parseFEN(fen + " dark"), color); return n => v.has(sq(n)); };
@@ -305,6 +305,55 @@ prueba("el PGN y el guardado de partidas llaman a darkLocked() (que nadie quite 
   assert(/pgn-export"\)\.onclick[\s\S]{0,600}darkLocked\(\)/.test(todo), "exportar PGN");
   assert(/async function saveCurrentGame\(name\)\{[\s\S]{0,300}darkLocked\(\)/.test(todo), "guardar en La Antología");
   assert(/askReplaceGame\(darkLocked\(\)\)/.test(todo), "aviso al reemplazar sin ofrecer guardar");
+});
+
+console.log("\nclaudIA prudente con su rey (2.143)");
+const H = (fen, w = 1) => ({ pos: parseFEN(fen + " dark"), w });
+const ELIGE = (fen, hyps, votes) => dkbChoose(votes, hyps, parseFEN(fen + " dark"));
+
+prueba("si el rey rival está a la vista, se lo come aunque el motor votara otra cosa", () => {
+  const fen = "4k3/8/8/8/8/8/8/4R1K1 w - - 0 1";
+  assert.strictEqual(ELIGE(fen, [H(fen)], [{ uci: "g1f1", w: 1 }]), "e1e8");
+});
+
+prueba("no deja el rey a tiro cuando existe una jugada segura, aunque el motor la desconozca", () => {
+  const fen = "4k3/8/8/8/8/8/8/r3K3 w - - 0 1";   // torre negra en a1 ataca la fila 1
+  for(const mala of ["e1d1", "e1f1"]){
+    const u = ELIGE(fen, [H(fen)], [{ uci: mala, w: 1 }]);
+    assert(["e1d2", "e1e2", "e1f2"].includes(u), mala + " -> " + u);
+  }
+});
+
+prueba("sin votos del motor sigue eligiendo una jugada segura", () => {
+  const fen = "4k3/8/8/8/8/8/8/r3K3 w - - 0 1";
+  for(let i = 0; i < 10; i++) assert(["e1d2", "e1e2", "e1f2"].includes(ELIGE(fen, [H(fen)], [])));
+});
+
+prueba("respeta la jugada del motor cuando es segura", () => {
+  const fen = "4k3/8/8/8/8/8/8/r3K3 w - - 0 1";
+  assert.strictEqual(ELIGE(fen, [H(fen)], [{ uci: "e1e2", w: 1 }]), "e1e2");
+});
+
+prueba("el riesgo sale de las HIPÓTESIS, no del tablero real (nada oculto se cuela)", () => {
+  const real = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";            // en el tablero real no hay ninguna torre
+  const imag = "4k3/8/8/8/8/8/8/r3K3 w - - 0 1";           // pero ella imagina una en a1
+  const u = ELIGE(real, [H(imag)], [{ uci: "e1d1", w: 1 }]);
+  assert(!["e1d1", "e1f1"].includes(u), "evitó " + u);
+  // y si ninguna hipótesis tiene la torre, no se inventa peligro: juega lo votado
+  assert.strictEqual(ELIGE(real, [H(real)], [{ uci: "e1d1", w: 1 }]), "e1d1");
+});
+
+prueba("el riesgo se pondera: una hipótesis rara (2%) no frena la jugada votada, una probable sí", () => {
+  const real = "4k3/8/8/8/8/8/8/4K3 w - - 0 1", torre = "4k3/8/8/8/8/8/8/r3K3 w - - 0 1";
+  assert.strictEqual(ELIGE(real, [H(real, 0.98), H(torre, 0.02)], [{ uci: "e1d1", w: 1 }]), "e1d1");
+  assert(!["e1d1", "e1f1"].includes(ELIGE(real, [H(real, 0.5), H(torre, 0.5)], [{ uci: "e1d1", w: 1 }])));
+});
+
+prueba("dkbRisk: 0 si nadie puede capturar el rey, 1 si en todas las hipótesis puede", () => {
+  const torre = "4k3/8/8/8/8/8/8/r3K3 w - - 0 1", p = parseFEN(torre + " dark");
+  const mv = n => legalMoves(p).find(m => uciOf(m) === n);
+  assert.strictEqual(dkbRisk(mv("e1d1"), [H(torre)]), 1);
+  assert.strictEqual(dkbRisk(mv("e1e2"), [H(torre)]), 0);
 });
 
 console.log("\n" + (total - fallos) + "/" + total + " pruebas pasan");
