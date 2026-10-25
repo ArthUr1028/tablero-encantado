@@ -12,3 +12,8 @@ Origen de cada recorte (segundo de la pista original; opción elegida por Arthur
 Por variante: en Seirawan el halcón (a) y el elefante (c), y en Shatranj el fil (l), conservan los gritos que ya traía el tablero (muestras `halcon` y `elefante`). La «m» (amazona en Amazonas, maharajá en Maharajá) usa `piezas/m.mp3` en ambas variantes.
 
 Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (los incrusta en index.html).
+
+## Enroques (2.128)
+- `enroques/corto.mp3` (0,96 s, 2 golpes de tambor) y `enroques/largo.mp3` (1,81 s, 3 golpes): recortes de la pista `enroques.mp3` de Arthur, desde el segundo 0,24 (los tres primeros golpes, separados medio segundo; el corto es el largo sin su tercer golpe). Pico a −3 dB y fundido de salida para que no corten en seco.
+- Se usan en TODAS las variantes: enroque corto (`K`) = 2 golpes, largo (`Q`) = 3. Sin las muestras, el juego vuelve a los golpes de piedra de antes. En un enroque no suena el paso del rey: lo sustituyen los tambores.
+- Autor y licencia de la pista original: pendiente de anotar.

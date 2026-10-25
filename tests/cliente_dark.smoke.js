@@ -247,6 +247,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r5.paso.sonidos.length === 1 && JSON.parse(r5.paso.sonidos[0]).cap === false && r5.paso.avisos === 1, "el paso oculto del rival suena y me avisa que me toca");
   ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === "q", "el enroque del rival llega al sonido con su lado y la coronación se oye tal cual (sin decir a qué pieza)");
   ok(JSON.parse(r5.paso.sonidos[0]).piece === "n", "el paso oculto del rival llega al sonido con el TIPO de pieza (caballo), no su casilla");
+  // 2.128: los dos recortes de tambor del enroque están incrustados y son mp3 válidos
+  const r11 = await page.evaluate(() => { const A = window.SFX_AUDIO || {}; const ok = k => !!A[k] && A[k].length > 5000 && /^(SUQz|\/\+|\/\/)/.test(A[k]); return { corto: ok("enr_c"), largo: ok("enr_l"), mas: A.enr_l && A.enr_c ? A.enr_l.length > A.enr_c.length : false }; });
+  ok(r11.corto && r11.largo && r11.mas, "los recortes de tambor del enroque (corto y largo) están incrustados, son mp3 y el largo dura más (" + JSON.stringify(r11) + ")");
   ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
   ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
 

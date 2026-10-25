@@ -15,9 +15,12 @@ d = dict(obj)
 for tipo in "pnbrqkacfm":
     ruta = os.path.join(RAIZ, "sonidos", "piezas", tipo + ".mp3")
     if os.path.exists(ruta): d["pz_" + tipo] = b64(ruta)
+for clave, arch in (("enr_c", "corto.mp3"), ("enr_l", "largo.mp3")):   # enroque corto (2 golpes de tambor) y largo (3)
+    ruta = os.path.join(RAIZ, "sonidos", "enroques", arch)
+    if os.path.exists(ruta): d[clave] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))
 d["cap"] = d["cap"][:ORIGINALES] + [b64(os.path.join(RAIZ, "sonidos", "capturas", f)) for f in nuevas]
 nuevo = "window.SFX_AUDIO=" + json.dumps(d, separators=(",", ":")) + resto
 s = s[:ini] + nuevo + s[fin:]
 open(HTML, "w", encoding="utf-8").write(s)
-print("piezas:", sorted(k for k in d if k.startswith("pz_")), "| capturas:", len(d["cap"]), "| tamaño del bloque: %d KB" % (len(nuevo) // 1000))
+print("piezas:", sorted(k for k in d if k.startswith("pz_")), "| enroques:", sorted(k for k in d if k.startswith("enr_")), "| capturas:", len(d["cap"]), "| tamaño del bloque: %d KB" % (len(nuevo) // 1000))
