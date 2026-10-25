@@ -515,6 +515,24 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   console.log("  datos14c:", JSON.stringify(r14c));
   ok(r14c.dark && r14c.sonidos.length === 1 && r14c.sonidos[0] === "K", "en Dark en solitario el enroque también suena con su lado (" + r14c.sonidos.join(",") + ")");
 
+  // 18) El reloj de las blancas en línea (2.139): al terminar la entrada piden reiniciar su reloj; las negras y las partidas sin reloj no
+  const r18 = await page.evaluate(async () => {
+    const llamadas = []; const rpc0 = sb.rpc;
+    sb.rpc = (n, a) => { llamadas.push(n + ":" + a.p_game_id); return Promise.resolve({ data: null, error: null }); };
+    const sv = { c: liveGame.myColor, t: liveGame.timeInitialSec, a: liveGame.asyncDays }, sans0 = game.sans.slice();
+    game.sans.length = 0; liveGame.asyncDays = null; liveGame.timeInitialSec = 300;
+    liveGame.myColor = "w"; await liveClockEntry(liveGame.id); const blancas = llamadas.length;
+    liveGame.myColor = "b"; await liveClockEntry(liveGame.id); const negras = llamadas.length;
+    liveGame.myColor = "w"; liveGame.timeInitialSec = null; await liveClockEntry(liveGame.id); const sinReloj = llamadas.length;
+    liveGame.timeInitialSec = 300; game.sans.push("e4"); await liveClockEntry(liveGame.id); const conJugadas = llamadas.length;
+    game.sans.length = 0; sans0.forEach(x => game.sans.push(x));
+    liveGame.myColor = sv.c; liveGame.timeInitialSec = sv.t; liveGame.asyncDays = sv.a; sb.rpc = rpc0;
+    return { blancas, negras, sinReloj, conJugadas, quien: llamadas[0] || "" };
+  });
+  console.log("  datos18:", JSON.stringify(r18));
+  ok(r18.blancas === 1 && /^clock_entry_start:/.test(r18.quien) && r18.negras === 1 && r18.sinReloj === 1 && r18.conJugadas === 1, "solo las blancas con reloj y sin jugadas piden reiniciar su reloj al terminar la entrada");
+
+
   // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
   const r7 = await page.evaluate(async () => {
     const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
