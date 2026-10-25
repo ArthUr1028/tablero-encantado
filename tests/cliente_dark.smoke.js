@@ -204,7 +204,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     const YO = "11111111-1111-1111-1111-111111111111";
     game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; darkRebuild(); render();
     const sonidos = [], avisos = []; const m0 = SFX.move, g0 = showGlobalToast;
-    SFX.move = (mv, oc) => sonidos.push(JSON.stringify({ cap: !!(mv && mv.capture), castle: mv && mv.castle || null, side: !!(mv && mv.dkSide), promo: mv && mv.promo || null }));
+    SFX.move = (mv, oc) => sonidos.push(JSON.stringify({ cap: !!(mv && mv.capture), castle: mv && mv.castle || null, side: !!(mv && mv.dkSide), promo: mv && mv.promo || null, piece: mv && mv.piece || null }));
     showGlobalToast = m => { if(/turno/i.test(m)) avisos.push(m); };
     const tick = ms => new Promise(r => setTimeout(r, ms || 150));
     const lit = ["7,4", "6,4", "5,4"], pieces = { "7,4": "wk", "6,4": "wp" };
@@ -212,7 +212,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 1, obs: mia } }); await tick(900);
     const trasMia = { sonidos: sonidos.length, avisos: avisos.length };            // mi propia jugada: suena, NO avisa turno
     sonidos.length = 0;
-    const riv1 = { ply: 2, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: null };
+    const riv1 = { ply: 2, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: null, piece: "n" };
     handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 2, obs: riv1 } }); await tick(900);
     const paso = { sonidos: sonidos.slice(), avisos: avisos.length };              // paso oculto del rival: suena + avisa
     sonidos.length = 0; avisos.length = 0;
@@ -231,6 +231,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r5.trasMia.sonidos === 1 && r5.trasMia.avisos === 0, "mi propia jugada suena pero no me avisa de turno");
   ok(r5.paso.sonidos.length === 1 && JSON.parse(r5.paso.sonidos[0]).cap === false && r5.paso.avisos === 1, "el paso oculto del rival suena y me avisa que me toca");
   ok(r5.largo.sonidos.length === 1 && JSON.parse(r5.largo.sonidos[0]).castle === "Q" && JSON.parse(r5.largo.sonidos[0]).side && JSON.parse(r5.largo.sonidos[0]).promo === "q", "el enroque del rival llega al sonido con su lado y la coronación se oye tal cual (sin decir a qué pieza)");
+  ok(JSON.parse(r5.paso.sonidos[0]).piece === "n", "el paso oculto del rival llega al sonido con el TIPO de pieza (caballo), no su casilla");
   ok(r5.largo.avisos === 1, "también avisa de turno tras ese enroque");
   ok(r5.repetido.sonidos === 0 && r5.repetido.avisos === 0, "la misma observación repetida no suena ni avisa otra vez");
 
@@ -276,6 +277,21 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     return { hit, apagada: !boardEl.classList.contains("quake") };
   });
   ok(r6.hit && r6.apagada, "en una partida clásica, capturar sacude el tablero y la sacudida termina sola (" + JSON.stringify(r6) + ")");
+
+  // 8) Los sonidos grabados están incrustados y se oye la pieza de MIS jugadas (viene de la posición anterior)
+  const r8 = await page.evaluate(async () => {
+    const A = window.SFX_AUDIO || {}; const out = { claves: ["pz_p","pz_n","pz_b","pz_r","pz_q","pz_k","pz_a","pz_c","pz_f"].filter(k => A[k] && A[k].length > 1000).length, caps: (A.cap || []).length };
+    liveGame = null; persistFrozen = false;
+    newGame("4k3/8/8/3p4/8/4N3/8/4K3 w - - 0 1"); render();
+    const vistos = []; const m0 = SFX.move; SFX.move = (mv, oc) => vistos.push({ piece: mv && mv.piece, cap: !!(mv && mv.capture) });
+    const mv = legalMoves(liveState()).find(m => sameSq(m.from, [5,4]) && sameSq(m.to, [3,3]));   // Cxd5
+    commitMove(mv); await new Promise(r => setTimeout(r, 150));
+    SFX.move = m0; out.vistos = vistos;
+    return out;
+  });
+  console.log("  datos8:", JSON.stringify(r8));
+  ok(r8.claves === 9 && r8.caps === 14, "los 9 sonidos de pieza y las 14 capturas (11 + 3 nuevas) están incrustados (" + r8.claves + "/" + r8.caps + ")");
+  ok(r8.vistos.length === 1 && r8.vistos[0].piece === "n" && r8.vistos[0].cap, "una captura de caballo suena como caballo + espadazo: " + JSON.stringify(r8.vistos));
 
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 

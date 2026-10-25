@@ -691,7 +691,7 @@ const isSq = a => Array.isArray(a) && a.length === 2 && Number.isInteger(a[0]) &
 
 // Lo que un jugador puede saber tras una jugada: sus casillas iluminadas (con las piezas que hay en ellas) y,
 // si la jugada fue suya, su propia notación. Del rival NUNCA va origen, destino, pieza ni SAN.
-function observationFor(n, color, ply, mover, mv, san, capSq){
+function observationFor(n, color, ply, mover, mv, san, capSq, moved){
   const lit = [], pieces = {};
   for(const key of fogVisible(n, color)){
     lit.push(key);
@@ -699,7 +699,7 @@ function observationFor(n, color, ply, mover, mv, san, capSq){
     if(n.board[r][c]) pieces[key] = n.board[r][c];
   }
   // castle: lado del enroque («K» corto, «Q» largo) o null. Lo saben AMBOS bandos, solo como sonido: ni pieza, ni origen, ni destino.
-  const obs = { ply, mover, turn: n.turn, lit, pieces, capture: !!capSq, capSq: capSq || null, castle: mv.castle || null, promoted: !!mv.promo };   // promoted: solo que hubo coronación (sonido), nunca a qué pieza
+  const obs = { ply, mover, turn: n.turn, lit, pieces, capture: !!capSq, capSq: capSq || null, castle: mv.castle || null, promoted: !!mv.promo, piece: moved || null };   // piece: TIPO de la pieza que se movió (no su casilla): el sonido de cada pieza es parte del juego   // promoted: solo que hubo coronación (sonido), nunca a qué pieza
   if(color === mover) obs.mine = { from: mv.from, to: mv.to, promo: mv.promo || null, san };
   return obs;
 }
@@ -740,8 +740,9 @@ async function darkMove(db, userId, body){
   if(oc === "checkmate"){ result = color === "w" ? "1-0" : "0-1"; winner = userId; }          // el rival se quedó sin rey
   else if(["stalemate", "draw50", "draw3", "material", "nokings"].includes(oc)) result = "1/2-1/2";
 
-  const obsW = observationFor(n, "w", ply, color, mv, san, capSq);
-  const obsB = observationFor(n, "b", ply, color, mv, san, capSq);
+  const moved = (pos.board[mv.from[0]][mv.from[1]] || "")[1] || null;   // tipo de la pieza ANTES de mover (un peón que corona sigue contando como peón)
+  const obsW = observationFor(n, "w", ply, color, mv, san, capSq, moved);
+  const obsB = observationFor(n, "b", ply, color, mv, san, capSq, moved);
   const out = await db.commit({
     game: gameId, mover: userId, expectedPly: st.ply, fen: toFEN(n),
     move: { ply, uci: moveUci(mv, pos.board), san, by: color },

@@ -38,6 +38,8 @@ const prueba = async (nombre, fn) => { total++; try { await fn(); console.log(" 
     const db2 = fakeDb(); await mover(db2, W, "e2", "e4");
     assert.strictEqual(db2.s.obs[0].b.castle, null);
     assert.strictEqual(db2.s.obs[0].b.promoted, false);
+    assert.strictEqual(db2.s.obs[0].b.piece, "p", "el rival recibe el TIPO de pieza que se movió (peón), no la casilla");
+    assert.strictEqual(db.s.obs[0].b.piece, "k");
   });
 
   await prueba("1.e4 válida: se guarda y avanza el turno", async () => {
