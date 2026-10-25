@@ -351,6 +351,39 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(/reintentando/.test(r10.fallo.estado) && r10.fallo.error && r10.fallo.guardadoLocal === "se va a fallar", "si falla el guardado avisa, reintenta y no pierde lo escrito");
   ok(r10.noEnClasico, "en una variante no habilitada el cuaderno no aparece");
 
+  // 14) Enroque propio en Dark en línea: la jugada llega al sonido con su lado
+  const r14 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111";
+    game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; darkRebuild(); render();
+    const sonidos = []; const m0 = SFX.move;
+    SFX.move = (mv, oc) => sonidos.push(JSON.stringify({ castle: mv && mv.castle || null, piece: mv && mv.piece || null, hidden: !!(mv && mv.hidden) }));
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    const lit = ["7,4", "7,5", "7,6", "7,7"], pieces = { "7,4": "wk", "7,7": "wr" }, pieces2 = { "7,6": "wk", "7,5": "wr" };
+    const mia = { ply: 1, mover: "w", turn: "b", lit, pieces: pieces2, capture: false, capSq: null, castle: "K", mine: { from: [7,4], to: [7,6], promo: null, san: "O-O" } };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 1, obs: mia } }); await tick(900);
+    const out = { sonidos: sonidos.slice(), mov: JSON.stringify(game.moves[0]) };
+    SFX.move = m0; return out;
+  });
+  console.log("  datos14:", JSON.stringify(r14));
+  ok(r14.sonidos.length === 1 && /"castle":"K"/.test(r14.sonidos[0]), "mi enroque en Dark en línea suena como enroque (" + r14.sonidos.join(",") + ")");
+  const r14b = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111";
+    game.result = ""; liveGame.darkRevealed = false; liveGame.darkObs.length = 0; liveGame.darkPending = null; liveGame.darkBusy = false; darkRebuild(); render();
+    const sonidos = []; const m0 = SFX.move, inv0 = sb.functions.invoke;
+    SFX.move = (mv, oc) => sonidos.push(JSON.stringify({ castle: mv && mv.castle || null, piece: mv && mv.piece || null, cap: !!(mv && mv.capture) }));
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    const lit = ["7,4", "7,5", "7,6", "7,7", "6,4"], pieces = { "7,4": "wk", "7,7": "wr", "6,4": "wp" };
+    handleDarkObs({ new: { game_id: liveGame.id, viewer: YO, ply: 1, obs: { ply: 1, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: null, piece: "n" } } }); await tick(300);
+    sonidos.length = 0;
+    sb.functions.invoke = async () => ({ data: { ply: 2, obs: { ply: 2, mover: "w", turn: "b", lit, pieces: { "7,6": "wk", "7,5": "wr", "6,4": "wp" }, capture: false, capSq: null, castle: "K", mine: { from: [7,4], to: [7,6], promo: null, san: "O-O" } } } });
+    const legal = legalMoves(liveState()).filter(m => m.castle).map(m => m.castle).join("");
+    tryMove([7,4], [7,6]); await tick(1000);
+    SFX.move = m0; sb.functions.invoke = inv0;
+    return { legal, sonidos };
+  });
+  console.log("  datos14b:", JSON.stringify(r14b));
+  ok(r14b.legal.includes("K") && r14b.sonidos.length === 1 && /"castle":"K"/.test(r14b.sonidos[0]), "enrocar de verdad en Dark en línea (tryMove) suena como enroque (" + r14b.sonidos.join(",") + ")");
+
   // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
   const r7 = await page.evaluate(async () => {
     const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
