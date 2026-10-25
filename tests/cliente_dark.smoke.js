@@ -642,6 +642,22 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   console.log("  datos16:", JSON.stringify(r16));
   ok(r16.humo && !r16.empezo && r16.luego, "«Iniciar» pasa por la entrada y la batalla empieza al disiparse el humo");
 
+  // 17) El reto de claudIA también pasa por la entrada a la batalla (2.138): el reloj y claudIA esperan al humo
+  const r17 = await page.evaluate(async () => {
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150)); const o = {};
+    const fromO = sb.from, c0 = window.confirm; window.confirm = () => true;
+    sb.from = n => { if(n !== "club_members") return fromO(n); const q = {}; q.select = () => q; q.eq = () => q; q.limit = () => Promise.resolve({ data: [{ profile_id: "x" }], error: null }); return q; };
+    liveGame = null; retoActive = null; setMode("play"); window.__noBattleIntro = false; sessionStorage.clear();
+    const p = retoStart(); await tick(400);
+    o.humo = !!document.getElementById("battle-intro"); o.activo = !!retoActive; o.empezoAntes = matchStarted;
+    const ov = document.getElementById("battle-intro"); if(ov) ov.dispatchEvent(new Event("pointerdown")); await tick(300);
+    o.empezoDespues = matchStarted; await p; await tick(900);
+    retoActive = null; try{ localStorage.removeItem(RETO_KEY); }catch(e){}
+    sb.from = fromO; window.confirm = c0; window.__noBattleIntro = true; return o;
+  });
+  console.log("  datos17:", JSON.stringify(r17));
+  ok(r17.humo && r17.activo && !r17.empezoAntes && r17.empezoDespues, "al aceptar el reto de claudIA sale el humo y la batalla (reloj y claudIA) empieza al disiparse");
+
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 
   await browser.close(); srv.close();
