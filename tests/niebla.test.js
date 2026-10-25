@@ -13,7 +13,7 @@ const a = find(/^const FILES = /), z = find(/Sonidos \(V218\)/);
 // funciones de niebla (cada una termina en la primera llave de cierre en la columna 0)
 const grab = name => { const f0 = find(new RegExp("^function " + name + "\\(")); let f1 = f0; while(!/^}/.test(src[f1])) f1++; return src.slice(f0, f1 + 1).join("\n"); };
 
-const code = "var game = null, liveGame = null, currentMode = 'play', darkReveal = false, branch = null; function L(){ return branch || game; }\n" +
+const code = "var game = null, liveGame = null, currentMode = 'play', darkReveal = false, branch = null, vsMachine = false, machineHumanColor = 'w'; function L(){ return branch || game; }\n" +
   src.slice(a, z).join("\n") + "\n" + ["fogVisible", "fogViewer", "darkLocked"].map(grab).join("\n") +
   "\nthis.__api = { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq };";
 const ctx = vm.createContext({ document: {}, window: {}, console });
@@ -134,7 +134,7 @@ const partida = (fen, jugadas) => {
   for(const [de, a] of jugadas) states.push(jugar(states[states.length - 1], de, a));
   return { startFEN: fen, states, sans: jugadas.map(() => "x"), cursor: states.length - 1, result: "" };
 };
-const reset = () => { ctx.liveGame = null; ctx.currentMode = "play"; ctx.darkReveal = false; ctx.branch = null; };
+const reset = () => { ctx.liveGame = null; ctx.currentMode = "play"; ctx.darkReveal = false; ctx.branch = null; ctx.vsMachine = false; ctx.machineHumanColor = "w"; };
 const INI = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 console.log("\nRebobinado y bloqueos (2.106)");
@@ -164,6 +164,40 @@ prueba("en una partida en vivo el punto de vista es tu color, vayas a la jugada 
   reset(); ctx.game = partida(INI, [["e2","e4"], ["e7","e5"], ["g1","f3"]]);
   ctx.liveGame = { myColor: "w" };
   assert.deepStrictEqual(ctx.game.states.map(st => fogViewer(st, outcome(st))), ["w","w","w","w"]);
+});
+
+console.log("\nContra claudIA: la vista es siempre la tuya (2.140)");
+
+prueba("contra claudIA con blancas: el punto de vista es «w» aunque le toque a ella (turno de las negras)", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"]]);   // le toca a las negras = a claudIA
+  ctx.vsMachine = true; ctx.machineHumanColor = "w";
+  const st = ctx.game.states[1];
+  assert.strictEqual(st.turn, "b");
+  assert.strictEqual(fogViewer(st, outcome(st)), "w", "su turno NO destapa su lado");
+  assert.deepStrictEqual(ctx.game.states.map(x => fogViewer(x, outcome(x))), ["w","w"]);
+});
+
+prueba("contra claudIA con negras: el punto de vista es «b» en todas las posiciones", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"], ["e7","e5"], ["g1","f3"]]);
+  ctx.vsMachine = true; ctx.machineHumanColor = "b";
+  assert.deepStrictEqual(ctx.game.states.map(x => fogViewer(x, outcome(x))), ["b","b","b","b"]);
+  // y lo que se ve a oscuras es lo de tu lado: tras e4-e5-Cf3 las negras no ven la pieza blanca en f3
+  const v = fogVisible(ctx.game.states[3], "b");
+  assert(!v.has(sq("f3")), "el caballo blanco en f3 sigue en sombra para las negras");
+});
+
+prueba("contra claudIA, al terminar la partida la niebla cae igual (rey capturado o resultado)", () => {
+  reset(); ctx.game = partida("4k3/8/8/8/8/8/8/4RK2 w - - 0 1", [["e1","e8"]]);
+  ctx.vsMachine = true; ctx.machineHumanColor = "w";
+  for(const st of ctx.game.states) assert.strictEqual(fogViewer(st, outcome(st)), null);
+  reset(); ctx.game = partida(INI, [["e2","e4"]]); ctx.game.result = "0-1";
+  ctx.vsMachine = true; ctx.machineHumanColor = "w";
+  assert.strictEqual(fogViewer(ctx.game.states[1], outcome(ctx.game.states[1])), null);
+});
+
+prueba("sin claudIA (Solitario entre dos) el punto de vista sigue siendo el del turno", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"]]);   // vsMachine = false
+  assert.strictEqual(fogViewer(ctx.game.states[1], outcome(ctx.game.states[1])), "b");
 });
 
 prueba("darkLocked: se levanta con resultado, con «ver todo» y en Tablero libre", () => {
