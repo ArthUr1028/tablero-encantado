@@ -13345,6 +13345,7 @@ function exitLiveGame(opts){
   clearLiveKey();
   nb.id = null; nb.kind = null; nb.notes = new Map(); mk.id = null; mk.kind = null; mk.marks = [];
   if(purgeId) nbPurgeServer(purgeId);
+  if(carry && !(opts && (opts.restore || opts.keepFrozen))) setTimeout(() => { try{ showGlobalToast(darkTx("Tu cuaderno de esta partida se borrará al dejarla. Guárdala en tu Antología para conservarlo."), { ms: 7000 }); }catch(e){} }, 400);
   if(opts && opts.restore) restoreLocalGame();
   else if(!(opts && opts.keepFrozen)){
     persistFrozen = false;
