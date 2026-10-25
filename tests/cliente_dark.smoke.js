@@ -422,12 +422,12 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     reg.length = 0; hapEndKey = null; hapWasEnded = null; render(); render(); await tick(100); out.alAbrirTerminada = reg.length;
     // interruptor
     game.result = ""; newGame("4k3/8/8/8/4P3/8/8/4K3 w - - 0 1"); render(); await tick(100);
-    const btn = document.getElementById("hap-toggle"); out.botonVisible = !btn.hidden; btn.click(); reg.length = 0;
+    const btn = document.getElementById("hap-toggle"); out.botonVisible = !btn.hidden; const avisos = []; const g0 = showGlobalToast; showGlobalToast = m => avisos.push(m); btn.click(); out.avisoApagar = avisos.join("|"); btn.click(); out.avisoEncender = avisos[avisos.length - 1] || ""; out.pruebaVibro = reg[reg.length - 1]; btn.click(); showGlobalToast = g0; reg.length = 0;
     await mover([4,4], [3,4]); out.apagada = reg.length; out.guardado = localStorage.getItem("tablero-encantado.haptica");
     out.etiqueta = btn.getAttribute("aria-pressed"); btn.click(); out.encendida = HAP.isOn();
     // sin soporte: ni se muestra ni falla
     Object.defineProperty(navigator, "vibrate", { configurable: true, value: undefined });
-    out.sinSoporte = HAP.supported(); let err = null; try{ HAP.buzz("move"); }catch(e){ err = String(e); } out.sinError = err === null;
+    out.sinSoporte = HAP.supported(); const av2 = []; const g1 = showGlobalToast; showGlobalToast = m => av2.push(m); document.getElementById("hap-toggle").click(); showGlobalToast = g1; out.avisoSinSoporte = av2.join("|"); let err = null; try{ HAP.buzz("move"); }catch(e){ err = String(e); } out.sinError = err === null;
     return out;
   });
   console.log("  datos12:", JSON.stringify(r12));
@@ -438,6 +438,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r12.jaque === "[35,70,35,70]", "el jaque vibra doble (" + r12.jaque + ")");
   ok(r12.fin === 1 && r12.finUnaVez === 1 && r12.alAbrirTerminada === 0, "el fin de partida vibra una sola vez y no al abrir una ya terminada (" + r12.fin + "/" + r12.finUnaVez + "/" + r12.alAbrirTerminada + ")");
   ok(r12.botonVisible && r12.apagada === 0 && r12.guardado === "0" && r12.etiqueta === "false" && r12.encendida, "el botón apaga la vibración (y se recuerda) y se puede volver a encender");
+  ok(/probada/.test(r12.avisoEncender) && r12.pruebaVibro === "[70,70,140]", "al encender, manda una vibración de prueba y lo avisa (" + r12.pruebaVibro + ")");
+  ok(/no permite vibrar/.test(r12.avisoSinSoporte), "sin soporte, el botón explica por qué no vibra (" + r12.avisoSinSoporte.slice(0, 50) + ")");
   ok(r12.sinSoporte === false && r12.sinError, "sin soporte de vibración no falla");
 
   // 8) Los sonidos grabados están incrustados y se oye la pieza de MIS jugadas (viene de la posición anterior)
