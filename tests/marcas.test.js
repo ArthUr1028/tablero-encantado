@@ -5,10 +5,10 @@ const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").sp
 const find = re => { const i = src.findIndex(l => re.test(l)); if (i < 0) throw new Error("No encontré " + re); return i; };
 const uno = re => src[find(re)];                                  // función de una sola línea
 const bloque = name => { const f0 = find(new RegExp("^function " + name + "\\(")); let f1 = f0; while (!/^}/.test(src[f1])) f1++; return src.slice(f0, f1 + 1).join("\n"); };
-const code = [uno(/^const NB_VARIANTS = /), uno(/^const MK_COL = /), uno(/^const MK_MAX = /), uno(/^function nbOn\(/), uno(/^function mkSq\(/), uno(/^function mkDims\(/), bloque("mkPos"), bloque("mkClean")].join("\n") +
-  "\nthis.__api = { nbOn, mkSq, mkDims, mkPos, mkClean, NB_VARIANTS, setBoard: (r, c) => { board = Array.from({ length: r }, () => Array(c).fill('')); }, set: (lg, ap, fl) => { liveGame = lg; accountProfile = ap; flipped = fl; } };";
+const code = [uno(/^const NB_VARIANTS = /), uno(/^const MK_COL = /), uno(/^const MK_MAX = /), bloque("nbCtx"), uno(/^function nbOn\(/), uno(/^function mkSq\(/), uno(/^function mkDims\(/), bloque("mkPos"), bloque("mkClean")].join("\n") +
+  "\nthis.__api = { nbCtx, setGame: (g) => { game = g; }, setMode: (m, r) => { currentMode = m; retoActive = r || null; }, nbOn, mkSq, mkDims, mkPos, mkClean, NB_VARIANTS, setBoard: (r, c) => { board = Array.from({ length: r }, () => Array(c).fill('')); }, set: (lg, ap, fl) => { liveGame = lg; accountProfile = ap; flipped = fl; } };";
 const ctx = vm.createContext({});
-vm.runInContext("var board = [[]], liveGame = null, accountProfile = null, flipped = false; function liveState(){ return { board }; }\n" + code, ctx);
+vm.runInContext("var board = [[]], liveGame = null, accountProfile = null, flipped = false, retoActive = null, currentMode = 'play', branch = null, game = null; function variantOf(b){ return b.v; } function liveState(){ return { board }; }\n" + code, ctx);
 const A = ctx.__api;
 
 let fallos = 0, total = 0;
@@ -22,6 +22,21 @@ prueba("el cuaderno se abre en las siete modalidades, solo con partida en línea
   A.set(null, { id: "u1" }, false); assert.strictEqual(A.nbOn(), false, "sin partida en línea");
   A.set({ id: "g1", variant: "dark" }, null, false); assert.strictEqual(A.nbOn(), false, "sin cuenta");
   A.set({ id: null, variant: "clasico" }, { id: "u1" }, false); assert.strictEqual(A.nbOn(), false, "partida sin identificador");
+});
+
+prueba("2.149: contra claudIA / Solitario el cuaderno es local, ligado a la partida; no hay en el Reto ni en Modo Libre", () => {
+  A.set(null, null, false);
+  A.setGame({ states: [{ board: { v: "dark" } }], nbId: null });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(A.nbCtx())), { kind: "local", id: "local:nuevo" }, "partida nueva, sin cuenta");
+  A.setGame({ states: [{ board: { v: "capablanca" } }], nbId: "n1" });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(A.nbCtx())), { kind: "local", id: "n1" });
+  A.setMode("free"); assert.strictEqual(A.nbCtx(), null, "Modo Libre");
+  A.setMode("play", { color: "w" }); assert.strictEqual(A.nbCtx(), null, "Reto de claudIA");
+  A.setMode("play");
+  A.setGame({ states: [{ board: { v: "otra" } }], nbId: null }); assert.strictEqual(A.nbCtx(), null, "modalidad sin cuaderno");
+  A.set({ id: "g1", variant: "clasico" }, { id: "u1" }, false);
+  assert.strictEqual(A.nbCtx().kind, "live", "en línea manda el servidor");
+  A.set(null, null, false); A.setGame(null);
 });
 
 prueba("8x8: la casilla se codifica fila*8+columna (las marcas ya guardadas de Dark siguen valiendo)", () => {
