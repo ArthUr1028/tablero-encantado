@@ -271,7 +271,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     return out;
   });
   console.log("  datos9:", JSON.stringify(r9));
-  ok(r9.bruma.hay && r9.bruma.capas === 2 && r9.bruma.mascara, "en Dark hay una capa de bruma de dos velos, enmascarada a las casillas en niebla");
+  ok(r9.bruma.hay && r9.bruma.capas === 4 && r9.bruma.mascara, "en Dark hay una capa de bruma de cuatro velos (dos nubes y dos jirones), enmascarada a las casillas en niebla");
   ok(r9.bruma.sinEfectos === 0, "al primer dibujo no hay transiciones falsas");
   ok(r9.levanta.lift === 2 && r9.levanta.emerge === 1 && r9.levanta.propiasEmergen === 0, "al iluminarse dos casillas la niebla se levanta y SOLO la pieza enemiga emerge (" + JSON.stringify(r9.levanta) + ")");
   ok(r9.continua === 1, "un redibujo a mitad de la emergencia la continúa en vez de cortarla");
