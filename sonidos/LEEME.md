@@ -1,6 +1,6 @@
 # Sonidos del Tablero Encantado
 
-Origen: pistas largas que aportó Arthur (zip «efectos de sonido», 24-oct-2026). Autor y licencia de cada una: **pendiente de anotar** (Arthur las tomó de sitios libres como Freesound).
+Origen: pistas largas que aportó Arthur (zip «efectos de sonido», 24-oct-2026). Según Arthur, son de NCS (NoCopyrightSounds).
 
 - `piezas/<tipo>.mp3`: un recorte por tipo de pieza (p peón, n caballo, b alfil, r torre, q dama, k rey, a arzobispo, c canciller, f ferz, m maharajá). Mismas duraciones siempre (0,5–0,7 s) para que el oído no delate la distancia. Entrada de 6 ms y salida con coseno de 140 ms; volumen común (-21 dBFS RMS).
 - `capturas/nuevoN.mp3`: los tres golpes separados de `capturas.mp3`; se suman a las 11 capturas originales.
@@ -16,4 +16,4 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 ## Enroques (2.128)
 - `enroques/corto.mp3` (0,96 s, 2 golpes de tambor) y `enroques/largo.mp3` (1,81 s, 3 golpes): recortes de la pista `enroques.mp3` de Arthur, desde el segundo 0,24 (los tres primeros golpes, separados medio segundo; el corto es el largo sin su tercer golpe). Pico a −3 dB y fundido de salida para que no corten en seco.
 - Se usan en TODAS las variantes: enroque corto (`K`) = 2 golpes, largo (`Q`) = 3. Sin las muestras, el juego vuelve a los golpes de piedra de antes. En un enroque no suena el paso del rey: lo sustituyen los tambores.
-- Autor y licencia de la pista original: pendiente de anotar.
+- Origen de la pista original: NCS (NoCopyrightSounds), según Arthur.
