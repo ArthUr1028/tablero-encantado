@@ -253,6 +253,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     const obs = (ply, lit, pieces) => ({ new: { game_id: liveGame.id, viewer: YO, ply, obs: { ply, mover: "b", turn: "w", lit, pieces, capture: false, capSq: null, castle: null, promoted: false } } });
     handleDarkObs(obs(1, base, pz)); await tick(100); fogPrev = null; fogFx.clear(); render(); await tick(100);   // primer dibujo "limpio" de esta posición
     const m0 = boardEl.querySelector(".fog-mist");
+    out.cuerpo = { capas: boardEl.querySelectorAll(".fog-body b").length, mascaras: Array.from(boardEl.querySelectorAll(".fog-body b")).every(b => (b.style.maskImage || b.style.webkitMaskImage || "").indexOf("svg") > 0), cuadros: getComputedStyle(boardEl.querySelector(".cell.fog"), "::after").content };
     out.bruma = { hay: !!m0, capas: m0 ? m0.querySelectorAll("i").length : 0, mascara: !!(m0 && (m0.style.maskImage || m0.style.webkitMaskImage)), sinEfectos: boardEl.querySelectorAll(".fog-lift,.emerge,.fog-fall").length };
     handleDarkObs(obs(2, base.concat(["3,3", "4,3"]), Object.assign({ "3,3": "bp" }, pz))); await tick(150);
     out.levanta = { lift: boardEl.querySelectorAll(".cell.fog-lift").length, emerge: boardEl.querySelectorAll(".piece.b.emerge").length, propiasEmergen: boardEl.querySelectorAll(".piece.w.emerge").length };
@@ -272,6 +273,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   });
   console.log("  datos9:", JSON.stringify(r9));
   ok(r9.bruma.hay && r9.bruma.capas === 4 && r9.bruma.mascara, "en Dark hay una capa de bruma de cuatro velos (dos nubes y dos jirones), enmascarada a las casillas en niebla");
+  ok(r9.cuerpo.capas === 3 && r9.cuerpo.mascaras, "la niebla es un cuerpo continuo de 3 capas con máscara irregular (no cuadros) (" + JSON.stringify(r9.cuerpo) + ")");
   ok(r9.bruma.sinEfectos === 0, "al primer dibujo no hay transiciones falsas");
   ok(r9.levanta.lift === 2 && r9.levanta.emerge === 1 && r9.levanta.propiasEmergen === 0, "al iluminarse dos casillas la niebla se levanta y SOLO la pieza enemiga emerge (" + JSON.stringify(r9.levanta) + ")");
   ok(r9.continua === 1, "un redibujo a mitad de la emergencia la continúa en vez de cortarla");
