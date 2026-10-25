@@ -298,6 +298,48 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r9.llega === 1 && r9.llegaSigue === 1, "la pieza enemiga que llega a una casilla ya iluminada también emerge, y un redibujo no la corta (" + r9.llega + "/" + r9.llegaSigue + ")");
   ok(r9.cae.fall === 2 && r9.cae.piezaNegra === 0, "al dejar de ver las casillas la niebla vuelve a caer y la pieza ya no se dibuja");
 
+  // 10) Cuaderno: carga, guardado automático (general y por jugada), borrado al vaciar, reintento ante fallo y solo en Dark
+  const r10 = await page.evaluate(async () => {
+    const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    const tienda = new Map([[0, "plan viejo"], [2, "nota de la 2"]]); const reg = []; let fallar = false;
+    const tabla = () => {
+      const q = { _eq: {} };
+      q.select = () => q; q.eq = (c, v) => { q._eq[c] = v; return q; };
+      q.then = (res, rej) => Promise.resolve({ data: Array.from(tienda, ([ply, body]) => ({ ply, body })), error: null }).then(res, rej);
+      q.upsert = (fila, op) => { reg.push(["upsert", fila, op]); if(fallar) return Promise.resolve({ error: { message: "x" } }); tienda.set(fila.ply, fila.body); return Promise.resolve({ error: null }); };
+      q.delete = () => { const d = { _eq: {} }; d.eq = (c, v) => { d._eq[c] = v; return d; }; d.then = (res, rej) => { reg.push(["delete", d._eq]); tienda.delete(d._eq.ply); return Promise.resolve({ error: null }).then(res, rej); }; return d; };
+      return q;
+    };
+    const fromOrig = sb.from; sb.from = n => n === "game_notes" ? tabla() : fromOrig(n);
+    game.result = ""; liveGame.darkRevealed = false; nb.id = null; nb.notes = new Map(); game.cursor = 0; render(); await tick(400);
+    const box = document.getElementById("nb-box"), gen = document.getElementById("nb-general"), pl = document.getElementById("nb-ply");
+    out.carga = { visible: !box.hidden, general: gen.value, plyDeshabilitada: pl.disabled };
+    game.cursor = Math.min(2, game.states.length - 1); render(); await tick(100);
+    out.enJugada = { habilitada: !pl.disabled, valor: pl.value, marca: document.querySelectorAll("#moves .nb-tag").length, etiqueta: document.getElementById("nb-ply-lbl").textContent };
+    gen.value = "nuevo plan"; gen.dispatchEvent(new Event("input")); await tick(1200);
+    out.guardaGeneral = { enTienda: tienda.get(0), fila: reg.filter(r => r[0] === "upsert").map(r => r[1].owner + "|" + r[1].ply + "|" + r[2].onConflict).pop(), estado: document.getElementById("nb-status").textContent };
+    pl.value = "sospecho de f6"; pl.dispatchEvent(new Event("input")); await tick(1200);
+    out.guardaJugada = tienda.get(+pl.dataset.ply);
+    gen.value = ""; gen.dispatchEvent(new Event("input")); await tick(1200);
+    out.vaciar = { sigue: tienda.has(0), borrados: reg.filter(r => r[0] === "delete").length };
+    fallar = true; gen.value = "se va a fallar"; gen.dispatchEvent(new Event("input")); await tick(1200);
+    out.fallo = { estado: document.getElementById("nb-status").textContent, error: document.getElementById("nb-status").classList.contains("err"), guardadoLocal: nb.notes.get(0) };
+    fallar = false; clearTimeout(nb.timers.get(0)); nb.timers.delete(0);
+    const v0 = liveGame.variant; liveGame.variant = "clasico"; render(); out.noEnClasico = document.getElementById("nb-box").hidden; liveGame.variant = v0;
+    sb.from = fromOrig; render();
+    return out;
+  });
+  console.log("  datos10:", JSON.stringify(r10));
+  ok(r10.carga.visible && r10.carga.general === "plan viejo" && r10.carga.plyDeshabilitada, "el cuaderno aparece en Dark en línea, carga la nota general y la de jugada espera a que elijas una jugada");
+  ok(r10.enJugada.habilitada && r10.enJugada.valor === "nota de la 2" && /1…/.test(r10.enJugada.etiqueta), "al elegir una jugada se muestra su nota (" + r10.enJugada.etiqueta + ")");
+  ok(r10.enJugada.marca >= 1, "la jugada con nota lleva su marca ✎ en la notación (" + r10.enJugada.marca + ")");
+  ok(r10.guardaGeneral.enTienda === "nuevo plan" && r10.guardaGeneral.fila === "11111111-1111-1111-1111-111111111111|0|game_id,owner,ply" && r10.guardaGeneral.estado === "Guardado", "escribir guarda solo, con mi usuario como dueño, y avisa «Guardado»");
+  ok(r10.guardaJugada === "sospecho de f6", "la nota de una jugada se guarda en su jugada");
+  ok(!r10.vaciar.sigue && r10.vaciar.borrados >= 1, "vaciar una nota la borra del servidor");
+  ok(/reintentando/.test(r10.fallo.estado) && r10.fallo.error && r10.fallo.guardadoLocal === "se va a fallar", "si falla el guardado avisa, reintenta y no pierde lo escrito");
+  ok(r10.noEnClasico, "en una variante no habilitada el cuaderno no aparece");
+
   // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
   const r7 = await page.evaluate(async () => {
     const YO = "11111111-1111-1111-1111-111111111111"; const out = {};

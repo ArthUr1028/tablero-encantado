@@ -17,7 +17,7 @@ else
 fi
 EJ "initdb -D $DIR/data -A trust >/dev/null"
 EJ "pg_ctl -D $DIR/data -o '-p $PUERTO -k $DIR' -l $DIR/log -w start >/dev/null"
-CASOS="${1:-dark_candados dark_pausa dark_resultado}"
+CASOS="${1:-dark_candados dark_pausa dark_resultado cuaderno}"
 for caso in $CASOS; do
   echo "================ $caso ================"
   EJ "createdb -h $DIR -p $PUERTO prueba_$caso"
