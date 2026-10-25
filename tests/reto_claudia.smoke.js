@@ -119,6 +119,25 @@ const CASOS = [
     ok(typeof r.frase === "string" && r.frase.length > 10, "rvPick entrega una frase del conjunto contenido: «" + r.frase + "»");
     await page.close();
   }
+
+  // --- 2.146: las frases de claudIA duran lo que tarda en leerse ---
+  {
+    const page = await browser.newPage();
+    await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForTimeout(1000);
+    const d = await page.evaluate(() => {
+      const med = (txt, opt) => { const o = window.setTimeout; let ult = 0; window.setTimeout = (f, ms, ...a) => { ult = ms; return o(f, ms, ...a); }; showGlobalToast(txt, opt); window.setTimeout = o; return ult; };
+      const larga = "Serás el Maharajá, una sola pieza contra todo mi ejército de cipayas. Para compensar, yo jugaré con menos fuerza. ¡Demuestra tu poder!";
+      return { larga: med("Para esta batalla, he elegido el campo del Maharajá. " + larga, { voice: true, ms: 9000 }), corta: med("Hola.", { voice: true, ms: 5500 }),
+               enorme: med("x".repeat(2000), { voice: true, ms: 5500 }), normal: med("Aviso corriente", {}), normalMs: med("Aviso con tiempo", { ms: 3000 }) };
+    });
+    ok(d.larga >= 15000 && d.larga <= 30000, "la frase de apertura más larga dura " + (d.larga / 1000).toFixed(1) + " s (antes 9 s)");
+    ok(d.corta === 5500, "una frase corta conserva su mínimo (" + d.corta + " ms)");
+    ok(d.enorme === 30000, "hay un tope de 30 s");
+    ok(d.normal === 5000 && d.normalMs === 3000, "los avisos que no son de claudIA no cambian");
+    await page.close();
+  }
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
