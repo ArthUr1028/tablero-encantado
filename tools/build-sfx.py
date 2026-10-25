@@ -18,6 +18,8 @@ for tipo in "pnbrqkacfm":
 for clave, arch in (("enr_c", "corto.mp3"), ("enr_l", "largo.mp3")):   # enroque corto (2 golpes de tambor) y largo (3)
     ruta = os.path.join(RAIZ, "sonidos", "enroques", arch)
     if os.path.exists(ruta): d[clave] = b64(ruta)
+ruta = os.path.join(RAIZ, "sonidos", "entrada", "batalla.mp3")   # 2.136: pista de la entrada a la batalla (15 s)
+if os.path.exists(ruta): d["batalla"] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))
 d["cap"] = d["cap"][:ORIGINALES] + [b64(os.path.join(RAIZ, "sonidos", "capturas", f)) for f in nuevas]
 nuevo = "window.SFX_AUDIO=" + json.dumps(d, separators=(",", ":")) + resto

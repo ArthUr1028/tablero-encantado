@@ -23,7 +23,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const errores = [];
   page.on("pageerror", e => errores.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());   // sin red externa
-  await page.addInitScript(() => { window.__noDarkIntro = true; });
+  await page.addInitScript(() => { window.__noBattleIntro = true; });
   await page.goto(url, { waitUntil: "load" });
   await page.waitForTimeout(1500);
 
@@ -353,31 +353,36 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(/reintentando/.test(r10.fallo.estado) && r10.fallo.error && r10.fallo.guardadoLocal === "se va a fallar", "si falla el guardado avisa, reintenta y no pierde lo escrito");
   ok(r10.noEnClasico, "en una variante no habilitada el cuaderno no aparece");
 
-  // 15) Entrada de Dark (2.135): la frase emerge, rota por partida, se salta con un toque y no se repite al reabrir la misma partida
+  // 15) Entrada a la batalla (2.136): humo, frase entera, la partida arranca al disiparse, se salta con un toque, rota y no se repite al reabrir
   const r15 = await page.evaluate(async () => {
     const tick = ms => new Promise(r => setTimeout(r, ms || 150)); const out = {};
     const sb0 = document.getElementById("intro-saltar"); if(sb0) sb0.click(); await tick(1700);
-    window.__noDarkIntro = false; try{ localStorage.removeItem(DARK_INTRO_KEY); sessionStorage.clear(); }catch(e){}
-    darkIntroShow("pruebaA"); await tick(200);
-    const ov = document.getElementById("dark-intro"); const t1 = ov ? ov.querySelector("p").textContent.trim() : "";
-    out.hay = !!ov; out.palabras = ov ? ov.querySelectorAll("p span").length : 0; out.primera = t1 === DARK_QUOTES[0];
-    out.bloquea = ov ? getComputedStyle(ov).position === "fixed" && +getComputedStyle(ov).zIndex > 9999 : false;
-    darkIntroShow("pruebaA"); out.unSolo = document.querySelectorAll("#dark-intro").length;
-    ov.dispatchEvent(new Event("pointerdown")); await tick(900); out.saltada = !document.getElementById("dark-intro");
-    darkIntroShow("pruebaA"); await tick(100); out.noRepite = !document.getElementById("dark-intro");
-    darkIntroShow("pruebaB"); await tick(100); const o2 = document.getElementById("dark-intro"); out.segunda = o2 && o2.querySelector("p").textContent.trim() === DARK_QUOTES[1];
-    o2.dispatchEvent(new Event("pointerdown")); await tick(900);
-    const l0 = lang0 = window.langNow(); out.todasTraducidas = true;
-    window.setLang("en"); out.enIngles = DARK_QUOTES.every(q => window.tx(q) !== q); window.setLang(l0);
-    window.__noDarkIntro = true; darkIntroShow("pruebaC"); out.apagada = !document.getElementById("dark-intro");
+    window.__noBattleIntro = false; try{ localStorage.removeItem(BATTLE_KEY); sessionStorage.clear(); }catch(e){}
+    let disparos = 0;
+    battleIntro({ gameId: "pruebaA", onClear: () => disparos++ }); await tick(300);
+    const ov = document.getElementById("battle-intro");
+    out.hay = !!ov; out.entera = ov ? ov.querySelector("p").textContent.trim() === BATTLE_QUOTES[0] : false;
+    out.capas = ov ? ov.querySelectorAll("i").length : 0; out.tapa = ov ? getComputedStyle(ov).position === "fixed" && +getComputedStyle(ov).zIndex > 9999 : false;
+    out.noArrancaAun = disparos === 0;
+    battleIntro({ gameId: "pruebaA" }); out.unSolo = document.querySelectorAll("#battle-intro").length;
+    await tick(2500); out.frase = ov.classList.contains("show") && !ov.classList.contains("clear");
+    ov.dispatchEvent(new Event("pointerdown")); out.arrancaAlSaltar = disparos === 1; await tick(1100); out.saltada = !document.getElementById("battle-intro");
+    battleIntro({ gameId: "pruebaA", onClear: () => disparos++ }); out.noRepiteYArranca = !document.getElementById("battle-intro") && disparos === 2;
+    battleIntro({ gameId: "pruebaB" }); await tick(100); const o2 = document.getElementById("battle-intro"); out.segunda = !!o2 && o2.querySelector("p").textContent.trim() === BATTLE_QUOTES[1];
+    o2.dispatchEvent(new Event("pointerdown")); await tick(1100);
+    out.polvo = BATTLE_QUOTES.some(q => /polvo/.test(q) && /aves/.test(q));
+    const l0 = window.langNow(); window.setLang("en"); out.enIngles = BATTLE_QUOTES.every(q => window.tx(q) !== q); window.setLang(l0);
+    window.__noBattleIntro = true; let d3 = 0; battleIntro({ gameId: "pruebaC", onClear: () => d3++ }); out.apagada = !document.getElementById("battle-intro") && d3 === 1;
+    out.audio = !!(window.SFX_AUDIO && window.SFX_AUDIO.batalla && window.SFX_AUDIO.batalla.length > 100000);
+    window.__noBattleIntro = true;
     return out;
   });
   console.log("  datos15:", JSON.stringify(r15));
-  ok(r15.hay && r15.palabras > 5 && r15.primera && r15.bloquea, "la entrada de Dark muestra la primera frase palabra a palabra, a pantalla completa (" + r15.palabras + " palabras)");
-  ok(r15.unSolo === 1 && r15.saltada, "no se apilan dos entradas y un toque la salta");
-  ok(r15.noRepite && r15.segunda, "no se repite al reabrir la misma partida, y la siguiente partida trae la siguiente frase");
-  ok(r15.enIngles, "todas las frases tienen su traducción al inglés");
-  ok(r15.apagada, "el interruptor la apaga (pruebas)");
+  ok(r15.hay && r15.entera && r15.capas === 4 && r15.tapa, "al empezar, el humo cubre la pantalla y la frase va ENTERA en un solo bloque");
+  ok(r15.noArrancaAun && r15.frase && r15.arrancaAlSaltar, "la partida local no arranca mientras dura el humo; un toque salta la entrada y arranca");
+  ok(r15.unSolo === 1 && r15.saltada && r15.noRepiteYArranca, "no se apilan entradas, se quita al saltarla, y no se repite al reabrir la misma partida (pero la partida arranca igual)");
+  ok(r15.segunda && r15.polvo && r15.enIngles, "la siguiente partida trae la siguiente frase; está la de las aves y el polvo; todas tienen su inglés");
+  ok(r15.apagada && r15.audio, "el interruptor la apaga sin perder el arranque, y la pista de batalla está incrustada");
 
   // 13) Marcas sobre el tablero (2.131): pulsación larga, flecha, menú, persistencia, limpieza, sin jugadas accidentales
   await page.evaluate(() => {
@@ -622,6 +627,20 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   console.log("  datos8:", JSON.stringify(r8));
   ok(r8.claves === 10 && r8.caps === 14, "los 10 sonidos de pieza y las 14 capturas (11 + 3 nuevas) están incrustados (" + r8.claves + "/" + r8.caps + ")");
   ok(r8.vars.seirawan && r8.vars.seirawan.variant === "seirawan" && r8.vars.shatranj && r8.vars.shatranj.variant === "shatranj" && r8.vars.maharaja && r8.vars.maharaja.piece === "m" && r8.vars.maharaja.variant === "maharaja", "el sonido sabe la variante (Seirawan, Shatranj) y la pieza del Maharajá: " + JSON.stringify(r8.vars));
+
+  // 16) «Iniciar» pasa por la entrada a la batalla y la partida solo arranca al disiparse el humo (2.136)
+  const r16 = await page.evaluate(async () => {
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150));
+    liveGame = null; setMode("play"); newGame(VARIANT_START.clasico); matchStarted = false; render();
+    window.__noBattleIntro = false; sessionStorage.clear();
+    const ini = document.getElementById("match-start"); ini.disabled = false; ini.click(); await tick(300);
+    const o = { humo: !!document.getElementById("battle-intro"), empezo: matchStarted };
+    document.getElementById("battle-intro").dispatchEvent(new Event("pointerdown")); await tick(200);
+    o.luego = matchStarted; await tick(900);
+    window.__noBattleIntro = true; return o;
+  });
+  console.log("  datos16:", JSON.stringify(r16));
+  ok(r16.humo && !r16.empezo && r16.luego, "«Iniciar» pasa por la entrada y la batalla empieza al disiparse el humo");
 
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 
