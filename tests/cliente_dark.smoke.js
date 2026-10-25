@@ -317,6 +317,11 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     out.carga = { visible: !box.hidden, general: gen.value, plyDeshabilitada: pl.disabled };
     game.cursor = Math.min(2, game.states.length - 1); render(); await tick(100);
     out.enJugada = { habilitada: !pl.disabled, valor: pl.value, marca: document.querySelectorAll("#moves .nb-tag").length, etiqueta: document.getElementById("nb-ply-lbl").textContent };
+    out.lineas = { n: document.querySelectorAll("#moves .nb-line").length, texto: (document.querySelector("#moves .nb-line") || {}).textContent || "" };
+    pl.value = "<b>negrita</b> & \"x\""; pl.dispatchEvent(new Event("input")); await tick(1200);
+    out.escapado = { html: (document.querySelector("#moves .nb-line.here") || {}).innerHTML || "", negritas: document.querySelectorAll("#moves .nb-line b").length, lineas: document.querySelectorAll("#moves .nb-line").length };
+    const clic = document.querySelector("#moves .nb-line"); game.cursor = 0; clic.click(); await tick(100); out.clic = game.cursor === +clic.dataset.ply;
+    game.cursor = Math.min(2, game.states.length - 1); render(); await tick(100);
     gen.value = "nuevo plan"; gen.dispatchEvent(new Event("input")); await tick(1200);
     out.guardaGeneral = { enTienda: tienda.get(0), fila: reg.filter(r => r[0] === "upsert").map(r => r[1].owner + "|" + r[1].ply + "|" + r[2].onConflict).pop(), estado: document.getElementById("nb-status").textContent };
     pl.value = "sospecho de f6"; pl.dispatchEvent(new Event("input")); await tick(1200);
@@ -333,6 +338,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   console.log("  datos10:", JSON.stringify(r10));
   ok(r10.carga.visible && r10.carga.general === "plan viejo" && r10.carga.plyDeshabilitada, "el cuaderno aparece en Dark en línea, carga la nota general y la de jugada espera a que elijas una jugada");
   ok(r10.enJugada.habilitada && r10.enJugada.valor === "nota de la 2" && /1…/.test(r10.enJugada.etiqueta), "al elegir una jugada se muestra su nota (" + r10.enJugada.etiqueta + ")");
+  ok(r10.lineas.n === 1 && /nota de la 2/.test(r10.lineas.texto), "la nota de la jugada se lee directamente bajo ella en la notación, sin tener que tocarla (" + r10.lineas.texto + ")");
+  ok(r10.escapado.negritas === r10.escapado.lineas && !/<b>negrita/.test(r10.escapado.html) && /&lt;b&gt;negrita/.test(r10.escapado.html), "el texto de la nota se escapa: una etiqueta escrita no se interpreta (" + r10.escapado.html + ")");
+  ok(r10.clic, "tocar la línea de la nota lleva a esa jugada");
   ok(r10.enJugada.marca >= 1, "la jugada con nota lleva su marca ✎ en la notación (" + r10.enJugada.marca + ")");
   ok(r10.guardaGeneral.enTienda === "nuevo plan" && r10.guardaGeneral.fila === "11111111-1111-1111-1111-111111111111|0|game_id,owner,ply" && r10.guardaGeneral.estado === "Guardado", "escribir guarda solo, con mi usuario como dueño, y avisa «Guardado»");
   ok(r10.guardaJugada === "sospecho de f6", "la nota de una jugada se guarda en su jugada");
