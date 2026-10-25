@@ -85,6 +85,40 @@ const CASOS = [
     else ok(!res.activo && res.reclamos.length === 0, "perder el rey en el reto de Dark es derrota (sin reclamo de victoria; jugadas " + JSON.stringify(res.sans) + ")");
     await page.close();
   }
+
+  // --- 2.145: frases de claudIA en el reto (cada campo tiene las suyas; contenida si eres el Maharajá) ---
+  {
+    const page = await browser.newPage();
+    await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForTimeout(1000);
+    const r = await page.evaluate(() => {
+      const pool = k => (RV_LINES[k] || []).length;
+      return {
+        flav: [rvFlavor({ variant: "maharaja", color: "w" }), rvFlavor({ variant: "maharaja", color: "b" }), rvFlavor({ variant: "dark", color: "w" }), rvFlavor({ variant: "shatranj", color: "b" }), rvFlavor({ variant: "clasico", color: "w" })],
+        pools: ["handicap", "hAheadH", "cAheadH", "mahClaudia", "darkV", "shatV", "lostH"].map(pool),
+        quieta: rvKeyFlavored({ variant: "dark", color: "w" }, "quiet", 6, 10, 0.1),
+        quietaSinSuerte: rvKeyFlavored({ variant: "dark", color: "w" }, "quiet", 6, 10, 0.9),
+        nada: rvKeyFlavored({ variant: "shatranj", color: "w" }, null, 6, 10, 0.1),
+        pocoTiempo: rvKeyFlavored({ variant: "dark", color: "w" }, null, 2, 10, 0.1),
+        captura: rvKeyFlavored({ variant: "dark", color: "w" }, "cCapture", 6, 10, 0.1),
+        contenidaH: rvKeyFlavored({ variant: "maharaja", color: "w" }, "hAhead", 6, 10, 0.9),
+        contenidaC: rvKeyFlavored({ variant: "maharaja", color: "w" }, "cAhead", 6, 10, 0.9),
+        sinContencion: rvKeyFlavored({ variant: "maharaja", color: "b" }, "hAhead", 6, 10, 0.9),
+        clasico: rvKeyFlavored({ variant: "clasico", color: "w" }, "quiet", 6, 10, 0.1),
+        frase: rvPick("handicap")
+      };
+    });
+    ok(JSON.stringify(r.flav) === JSON.stringify(["handicap", "mahClaudia", "darkV", "shatV", null]), "cada campo tiene su conjunto de frases: " + JSON.stringify(r.flav));
+    ok(r.pools.every(n => n >= 3), "todos los conjuntos nuevos tienen al menos 3 frases " + JSON.stringify(r.pools));
+    ok(r.quieta === "darkV" && r.quietaSinSuerte === "quiet", "en Dark una frase tranquila se cambia por una de las sombras (con la suerte a favor)");
+    ok(r.nada === "shatV" && r.pocoTiempo === null, "sin nada que decir, Shatranj aporta una frase; pero no antes de 6 jugadas de silencio");
+    ok(r.captura === "cCapture", "una captura conserva su frase de siempre");
+    ok(r.contenidaH === "hAheadH" && r.contenidaC === "cAheadH" && r.sinContencion === "hAhead", "contenida solo si tú eres el Maharajá");
+    ok(r.clasico === "quiet", "Clásico queda como estaba");
+    ok(typeof r.frase === "string" && r.frase.length > 10, "rvPick entrega una frase del conjunto contenido: «" + r.frase + "»");
+    await page.close();
+  }
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
