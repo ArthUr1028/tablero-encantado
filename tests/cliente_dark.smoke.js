@@ -351,6 +351,89 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(/reintentando/.test(r10.fallo.estado) && r10.fallo.error && r10.fallo.guardadoLocal === "se va a fallar", "si falla el guardado avisa, reintenta y no pierde lo escrito");
   ok(r10.noEnClasico, "en una variante no habilitada el cuaderno no aparece");
 
+  // 13) Marcas sobre el tablero (2.131): pulsación larga, flecha, menú, persistencia, limpieza, sin jugadas accidentales
+  await page.evaluate(() => {
+    const store = { fila: [{ t: "h", s: 0, c: "g" }, { t: "zzz" }, { t: "a", f: 1, to: 1, c: "r" }], reg: [] };
+    window.__mkStore = store;
+    const fromOrig = sb.from; window.__mkFromOrig = fromOrig;
+    sb.from = n => {
+      if(n !== "game_marks") return fromOrig(n);
+      const q = { _eq: {} };
+      q.select = () => q; q.eq = (c, v) => { q._eq[c] = v; return q; };
+      q.maybeSingle = () => Promise.resolve({ data: store.fila ? { marks: store.fila } : null, error: null });
+      q.upsert = (f, op) => { store.reg.push(["upsert", f.owner, op.onConflict]); store.fila = f.marks; return Promise.resolve({ error: null }); };
+      q.delete = () => { const d = { _eq: {} }; d.eq = (c, v) => { d._eq[c] = v; return d; }; d.then = (res, rej) => { store.reg.push(["delete"]); store.fila = null; return Promise.resolve({ error: null }).then(res, rej); }; return d; };
+      return q;
+    };
+    game.result = ""; liveGame.darkRevealed = false; mk.id = null; mk.marks = []; game.cursor = 0; flipped = false; selected = null; render();
+  });
+  await page.waitForTimeout(500);
+  const centro = async (r, c) => page.evaluate(([r, c]) => { document.getElementById("board").scrollIntoView({ block: "center" }); const el = document.querySelector('#board .cell[data-r="' + r + '"][data-c="' + c + '"]').getBoundingClientRect(); return [el.left + el.width / 2, el.top + el.height / 2]; }, [r, c]);
+  const marcas = () => page.evaluate(() => ({ n: mk.marks.length, tipos: mk.marks.map(m => m.t).join(""), svg: document.querySelectorAll("#board > .mk-svg").length, fila: JSON.stringify(window.__mkStore.fila), reg: window.__mkStore.reg.length, jugadas: game.sans.length, sel: JSON.stringify(selected) }));
+  await page.evaluate(() => { const b = document.getElementById("intro-saltar"); if(b) b.click(); });
+  await page.waitForTimeout(1500);
+  const m0 = await marcas();
+  ok(m0.n === 1 && m0.tipos === "h" && m0.svg === 1, "al cargar, solo se aceptan las marcas válidas (" + m0.n + " de 3 filas, tipos " + m0.tipos + ")");
+  const [ax, ay] = await centro(6, 4), [bx, by] = await centro(4, 4);
+  // toque normal sobre una pieza propia: sigue seleccionando (no es pulsación larga)
+  await page.evaluate(() => { game.cursor = game.states.length - 1; selected = null; render(); });
+  await page.mouse.move(ax, ay); await page.mouse.down(); await page.waitForTimeout(80); await page.mouse.up(); await page.waitForTimeout(100);
+  const sel1 = await marcas();
+  ok(sel1.sel !== "null" && sel1.n === 1, "un toque corto sigue seleccionando la pieza, sin marcas (" + sel1.sel + ")");
+  await page.evaluate(() => { selected = null; render(); });
+  // pulsación larga + arrastre = flecha, sin mover la pieza
+  await page.mouse.move(ax, ay); await page.mouse.down(); await page.waitForTimeout(650);
+  const mid = await page.evaluate(() => !!mk.act);
+  await page.mouse.move((ax + bx) / 2, (ay + by) / 2, { steps: 4 }); await page.mouse.move(bx, by, { steps: 4 });
+  const prev = await page.evaluate(() => document.querySelectorAll("#board > .mk-svg line").length);
+  await page.mouse.up(); await page.waitForTimeout(200);
+  const m1 = await marcas();
+  ok(mid && prev === 1, "mantener 0,45 s inicia el dibujo y muestra la flecha de vista previa mientras arrastras");
+  ok(m1.n === 2 && m1.tipos === "ha" && m1.jugadas === m0.jugadas && m1.sel === "null", "soltar en otra casilla deja una flecha, sin jugar ni seleccionar nada (" + m1.tipos + ", jugadas " + m1.jugadas + ")");
+  await page.waitForTimeout(900);
+  const m1b = await marcas();
+  ok(m1b.reg >= 1 && /"t":"a"/.test(m1b.fila), "la flecha se guarda sola en la cuenta (" + m1b.reg + " escritura(s))");
+  // arrastrar una pieza despacio no dibuja
+  const [cx, cy] = await centro(6, 0), [dx, dy] = await centro(5, 0);
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx, cy + 12, { steps: 3 }); await page.waitForTimeout(650);
+  const lento = await page.evaluate(() => !!mk.act);
+  await page.mouse.move(dx, dy, { steps: 3 }); await page.mouse.up(); await page.waitForTimeout(200);
+  ok(!lento, "si empiezas a arrastrar una pieza, la pulsación larga no se activa");
+  await page.evaluate(() => { game.cursor = game.states.length - 1; selected = null; render(); });
+  // pulsación larga sin mover = menú; círculo; texto; quitar
+  const [ex, ey] = await centro(3, 3);
+  await page.mouse.move(ex, ey); await page.mouse.down(); await page.waitForTimeout(650);
+  await page.mouse.up(); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => !!document.querySelector(".mk-pop")), "pulsar largo y soltar en la misma casilla abre el menú");
+  await page.click('.mk-pop .mk-dot[data-c="b"]'); await page.click('.mk-pop [data-a="o"]'); await page.waitForTimeout(100);
+  const m2 = await marcas();
+  ok(/o/.test(m2.tipos) && !(await page.evaluate(() => !!document.querySelector(".mk-pop"))) && await page.evaluate(() => mk.marks.find(m => m.t === "o").c) === "b", "el menú pone un círculo azul (duda) y se cierra");
+  await page.mouse.move(ex, ey); await page.mouse.down(); await page.waitForTimeout(650); await page.mouse.up(); await page.waitForTimeout(150);
+  await page.click('.mk-pop [data-a="x"]'); await page.fill(".mk-pop .mk-in", "ojo <b>"); await page.keyboard.press("Enter"); await page.waitForTimeout(150);
+  const tx = await page.evaluate(() => ({ t: (document.querySelector("#board > .mk-svg text") || {}).textContent, b: document.querySelectorAll("#board > .mk-svg b").length }));
+  ok(tx.t === "ojo <b>" && tx.b === 0, "el texto corto se dibuja escapado en la casilla (" + tx.t + ")");
+  // las marcas no dependen de la jugada
+  await page.evaluate(() => { game.cursor = 0; render(); });
+  ok(await page.evaluate(() => document.querySelectorAll("#board > .mk-svg").length === 1 && mk.marks.length >= 4), "al ir a otra jugada las marcas siguen ahí");
+  // giro del tablero: la flecha cambia de lugar en pantalla
+  const x1 = await page.evaluate(() => +document.querySelector("#board > .mk-svg line").getAttribute("x1"));
+  await page.evaluate(() => { flipped = true; render(); });
+  const x2 = await page.evaluate(() => +document.querySelector("#board > .mk-svg line").getAttribute("x1"));
+  await page.evaluate(() => { flipped = false; render(); });
+  ok(Math.abs(x1 + x2 - 8) < 0.5, "al girar el tablero las marcas giran con él (" + x1.toFixed(2) + " / " + x2.toFixed(2) + ")");
+  // repetir la misma flecha la quita; limpiar con dos toques
+  await page.evaluate(() => { const a = mk.marks.find(m => m.t === "a"); mkAdd({ t: "a", f: a.f, to: a.to, c: a.c }); });
+  ok(await page.evaluate(() => !mk.marks.some(m => m.t === "a")), "repetir la misma flecha y color la quita");
+  const antes = await page.evaluate(() => mk.marks.length);
+  await page.click("#mk-clear"); const aun = await page.evaluate(() => mk.marks.length); const txt = await page.textContent("#mk-clear");
+  await page.click("#mk-clear"); await page.waitForTimeout(900);
+  const fin = await page.evaluate(() => ({ n: mk.marks.length, fila: window.__mkStore.fila, svg: document.querySelectorAll("#board > .mk-svg").length }));
+  ok(aun === antes && /Seguro/.test(txt) && fin.n === 0 && fin.fila === null && fin.svg === 0, "limpiar pide confirmar con un segundo toque y borra todo, también en la cuenta");
+  // solo Dark
+  const noDark = await page.evaluate(() => { const v = liveGame.variant; liveGame.variant = "clasico"; render(); const r = { barra: document.getElementById("nb-box").hidden, svg: document.querySelectorAll("#board > .mk-svg").length }; liveGame.variant = v; return r; });
+  ok(noDark.barra && noDark.svg === 0, "en una variante no habilitada no hay marcas");
+  await page.evaluate(() => { sb.from = window.__mkFromOrig; mk.id = null; render(); });
+
   // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
   const r7 = await page.evaluate(async () => {
     const YO = "11111111-1111-1111-1111-111111111111"; const out = {};
