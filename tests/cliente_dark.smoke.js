@@ -23,6 +23,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const errores = [];
   page.on("pageerror", e => errores.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());   // sin red externa
+  await page.addInitScript(() => { window.__noDarkIntro = true; });
   await page.goto(url, { waitUntil: "load" });
   await page.waitForTimeout(1500);
 
@@ -351,6 +352,32 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(!r10.vaciar.sigue && r10.vaciar.borrados >= 1, "vaciar una nota la borra del servidor");
   ok(/reintentando/.test(r10.fallo.estado) && r10.fallo.error && r10.fallo.guardadoLocal === "se va a fallar", "si falla el guardado avisa, reintenta y no pierde lo escrito");
   ok(r10.noEnClasico, "en una variante no habilitada el cuaderno no aparece");
+
+  // 15) Entrada de Dark (2.135): la frase emerge, rota por partida, se salta con un toque y no se repite al reabrir la misma partida
+  const r15 = await page.evaluate(async () => {
+    const tick = ms => new Promise(r => setTimeout(r, ms || 150)); const out = {};
+    const sb0 = document.getElementById("intro-saltar"); if(sb0) sb0.click(); await tick(1700);
+    window.__noDarkIntro = false; try{ localStorage.removeItem(DARK_INTRO_KEY); sessionStorage.clear(); }catch(e){}
+    darkIntroShow("pruebaA"); await tick(200);
+    const ov = document.getElementById("dark-intro"); const t1 = ov ? ov.querySelector("p").textContent.trim() : "";
+    out.hay = !!ov; out.palabras = ov ? ov.querySelectorAll("p span").length : 0; out.primera = t1 === DARK_QUOTES[0];
+    out.bloquea = ov ? getComputedStyle(ov).position === "fixed" && +getComputedStyle(ov).zIndex > 9999 : false;
+    darkIntroShow("pruebaA"); out.unSolo = document.querySelectorAll("#dark-intro").length;
+    ov.dispatchEvent(new Event("pointerdown")); await tick(900); out.saltada = !document.getElementById("dark-intro");
+    darkIntroShow("pruebaA"); await tick(100); out.noRepite = !document.getElementById("dark-intro");
+    darkIntroShow("pruebaB"); await tick(100); const o2 = document.getElementById("dark-intro"); out.segunda = o2 && o2.querySelector("p").textContent.trim() === DARK_QUOTES[1];
+    o2.dispatchEvent(new Event("pointerdown")); await tick(900);
+    const l0 = lang0 = window.langNow(); out.todasTraducidas = true;
+    window.setLang("en"); out.enIngles = DARK_QUOTES.every(q => window.tx(q) !== q); window.setLang(l0);
+    window.__noDarkIntro = true; darkIntroShow("pruebaC"); out.apagada = !document.getElementById("dark-intro");
+    return out;
+  });
+  console.log("  datos15:", JSON.stringify(r15));
+  ok(r15.hay && r15.palabras > 5 && r15.primera && r15.bloquea, "la entrada de Dark muestra la primera frase palabra a palabra, a pantalla completa (" + r15.palabras + " palabras)");
+  ok(r15.unSolo === 1 && r15.saltada, "no se apilan dos entradas y un toque la salta");
+  ok(r15.noRepite && r15.segunda, "no se repite al reabrir la misma partida, y la siguiente partida trae la siguiente frase");
+  ok(r15.enIngles, "todas las frases tienen su traducción al inglés");
+  ok(r15.apagada, "el interruptor la apaga (pruebas)");
 
   // 13) Marcas sobre el tablero (2.131): pulsación larga, flecha, menú, persistencia, limpieza, sin jugadas accidentales
   await page.evaluate(() => {
