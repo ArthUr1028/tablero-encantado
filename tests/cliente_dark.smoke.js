@@ -269,6 +269,16 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     handleDarkObs(obs(5, base.concat(["3,3", "4,3"]), Object.assign({ "3,3": "bp" }, pz))); await tick(150);
     out.llega = boardEl.querySelectorAll(".piece.b.emerge").length;
     await tick(700); render(); out.llegaSigue = boardEl.querySelectorAll(".piece.b.emerge").length;
+    // 2.123: sin parpadeo — en ningún fotograma la niebla desaparece, se oculta o pierde su máscara mientras cambian las casillas iluminadas
+    { const malos = []; let n = 0, corre = true;
+      const mira = () => { if(!corre) return; n++; const bd = document.querySelector("#board > .fog-body"), ms = document.querySelector("#board > .fog-mist");
+        const okb = bd && Array.from(bd.children).every(b => getComputedStyle(b).visibility !== "hidden" && (b.style.maskImage || b.style.webkitMaskImage));
+        const okm = ms && getComputedStyle(ms).visibility !== "hidden" && (ms.style.maskImage || ms.style.webkitMaskImage);
+        if(!(okb && okm)) malos.push(n); requestAnimationFrame(mira); };
+      requestAnimationFrame(mira);
+      const lits = [["3,3"], ["3,3", "3,4", "4,4"], ["4,2"], ["3,3", "4,2", "2,2", "2,3"], []];
+      let k = 7; for(const extra of lits){ handleDarkObs(obs(k++, base.concat(extra), pz)); await tick(350); }
+      corre = false; out.parpadeo = { fotogramas: n, malos: malos.length }; }
     return out;
   });
   console.log("  datos9:", JSON.stringify(r9));
@@ -278,6 +288,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r9.levanta.lift === 2 && r9.levanta.emerge === 1 && r9.levanta.propiasEmergen === 0, "al iluminarse dos casillas la niebla se levanta y SOLO la pieza enemiga emerge (" + JSON.stringify(r9.levanta) + ")");
   ok(r9.continua === 1, "un redibujo a mitad de la emergencia la continúa en vez de cortarla");
   ok(r9.termina.lift === 0 && r9.termina.emerge === 0, "pasado el tiempo, las clases de animación desaparecen");
+  ok(r9.parpadeo.fotogramas > 20 && r9.parpadeo.malos === 0, "la niebla no parpadea: ningún fotograma sin niebla al cambiar las casillas iluminadas (" + r9.parpadeo.malos + " malos de " + r9.parpadeo.fotogramas + ")");
   ok(r9.llega === 1 && r9.llegaSigue === 1, "la pieza enemiga que llega a una casilla ya iluminada también emerge, y un redibujo no la corta (" + r9.llega + "/" + r9.llegaSigue + ")");
   ok(r9.cae.fall === 2 && r9.cae.piezaNegra === 0, "al dejar de ver las casillas la niebla vuelve a caer y la pieza ya no se dibuja");
 
