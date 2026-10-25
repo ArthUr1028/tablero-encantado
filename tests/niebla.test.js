@@ -13,12 +13,12 @@ const a = find(/^const FILES = /), z = find(/Sonidos \(V218\)/);
 // funciones de niebla (cada una termina en la primera llave de cierre en la columna 0)
 const grab = name => { const f0 = find(new RegExp("^function " + name + "\\(")); let f1 = f0; while(!/^}/.test(src[f1])) f1++; return src.slice(f0, f1 + 1).join("\n"); };
 
-const code = "var game = null, liveGame = null, currentMode = 'play', darkReveal = false, branch = null, vsMachine = false, machineHumanColor = 'w'; function L(){ return branch || game; }\n" +
-  src.slice(a, z).join("\n") + "\n" + ["fogVisible", "fogViewer", "darkLocked"].map(grab).join("\n") +
-  "\nthis.__api = { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq };";
+const code = "const DKB_M = 200; var game = null, liveGame = null, currentMode = 'play', darkReveal = false, branch = null, vsMachine = false, machineHumanColor = 'w'; function L(){ return branch || game; }\n" +
+  src.slice(a, z).join("\n") + "\n" + ["matchUci", "fogVisible", "fogViewer", "darkLocked", "dkbCfg", "dkbObs", "dkbHash", "dkbRng", "dkbStep", "dkbReseed", "dkbBuild", "dkbPick", "dkbVote"].map(grab).join("\n") +
+  "\nthis.__api = { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq, toFEN, uciOf, matchUci, dkbObs, dkbBuild, dkbReseed, dkbPick, dkbVote, dkbCfg };";
 const ctx = vm.createContext({ document: {}, window: {}, console });
 vm.runInContext(code, ctx);
-const { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq } = ctx.__api;
+const { parseFEN, fogVisible, fogViewer, darkLocked, legalMoves, applyMove, outcome, sameSq, toFEN, uciOf, matchUci, dkbObs, dkbBuild, dkbReseed, dkbPick, dkbVote, dkbCfg } = ctx.__api;
 
 const sq = name => { const c = "abcdefghij".indexOf(name[0]), r = 8 - Number(name[1]); return r + "," + c; };
 const lit = (fen, color) => { const v = fogVisible(parseFEN(fen + " dark"), color); return n => v.has(sq(n)); };
@@ -198,6 +198,93 @@ prueba("contra claudIA, al terminar la partida la niebla cae igual (rey capturad
 prueba("sin claudIA (Solitario entre dos) el punto de vista sigue siendo el del turno", () => {
   reset(); ctx.game = partida(INI, [["e2","e4"]]);   // vsMachine = false
   assert.strictEqual(fogViewer(ctx.game.states[1], outcome(ctx.game.states[1])), "b");
+});
+
+console.log("\nclaudIA a ciegas: hipótesis (2.142)");
+
+// Historia a partir de jugadas UCI desde la posición inicial de Dark.
+const historia = (ucis) => {
+  const states = [parseFEN(INI + " dark")], hist = [];
+  for(const u of ucis){ const s0 = states[states.length - 1], mv = matchUci(s0, u); if(!mv) throw new Error("jugada ilegal " + u); hist.push(u); states.push(applyMove(s0, mv)); }
+  return { states, ucis: hist };
+};
+const fensDe = (h) => h.map(e => toFEN(e.pos) + " w=" + e.w.toFixed(6)).sort();
+// partida al azar con un generador con semilla (reproducible)
+const azar = (semilla) => { let x = semilla; return () => (x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; };
+
+prueba("todas las hipótesis coinciden con lo que ve claudIA, jugada a jugada, en 12 partidas al azar (y nunca se quedan sin ninguna)", () => {
+  ctx.dkbBuild.vacias = 0;
+  let comprobadas = 0;
+  for(let g = 0; g < 12; g++){
+    const rnd = azar(1000 + g), me = g % 2 ? "w" : "b", memo = {};
+    const states = [parseFEN(INI + " dark")], ucis = [];
+    for(let ply = 1; ply <= 45; ply++){
+      const s0 = states[states.length - 1], lm = legalMoves(s0); if(!lm.length) break;
+      const mv = lm[Math.floor(rnd() * lm.length)]; ucis.push(uciOf(mv)); states.push(applyMove(s0, mv));
+      const h = dkbBuild(states, ucis, me, 200, memo), real = dkbObs(states[states.length - 1], me);
+      assert(h.length > 0, "sin hipótesis en la partida " + g + ", jugada " + ply);
+      for(const e of h){ assert.strictEqual(dkbObs(e.pos, me), real, "hipótesis incompatible con lo visto (partida " + g + ", jugada " + ply + ")"); comprobadas++; }
+      const b = states[states.length - 1].board.flat(); if(!b.includes("wk") || !b.includes("bk")) break;
+    }
+  }
+  assert(comprobadas > 1000, "pocas comprobaciones: " + comprobadas);
+  assert.strictEqual(ctx.dkbBuild.vacias || 0, 0, "hubo casos sin hipótesis");
+});
+
+prueba("la memoria incremental da lo mismo que reconstruir desde el principio", () => {
+  const h = historia(["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6", "d2d3"]);
+  const memo = {};
+  for(let k = 1; k <= h.ucis.length; k++) dkbBuild(h.states.slice(0, k + 1), h.ucis.slice(0, k), "b", 200, memo);
+  assert.deepStrictEqual(fensDe(dkbBuild(h.states, h.ucis, "b", 200, memo)), fensDe(dkbBuild(h.states, h.ucis, "b", 200)));
+});
+
+prueba("SIN TRAMPA: dos partidas con las mismas observaciones pero distinto tablero oculto dan EXACTAMENTE las mismas hipótesis", () => {
+  // las blancas mueven en la oscuridad (a3/h3/c3 contra a4/h4/c4): las negras, con sus caballos en f6 y a6, no ven ninguna de esas casillas
+  const A = historia(["a2a3", "g8f6", "h2h3", "b8a6", "c2c3"]);
+  const B = historia(["a2a4", "g8f6", "h2h4", "b8a6", "c2c4"]);
+  for(let i = 0; i < A.states.length; i++) assert.strictEqual(dkbObs(A.states[i], "b"), dkbObs(B.states[i], "b"), "las observaciones deberían ser idénticas en la jugada " + i);
+  assert.notStrictEqual(toFEN(A.states[5]), toFEN(B.states[5]), "los tableros reales deberían ser distintos");
+  const hA = dkbBuild(A.states, A.ucis, "b", 200), hB = dkbBuild(B.states, B.ucis, "b", 200);
+  assert.deepStrictEqual(fensDe(hA), fensDe(hB));
+  assert.deepStrictEqual(fensDe(dkbPick(hA, 16)), fensDe(dkbPick(hB, 16)));
+  assert(hA.length > 20, "debería imaginar muchas posibilidades, no una sola (" + hA.length + ")");
+});
+
+prueba("SIN TRAMPA (reconstrucción): lo que se reparte en la sombra tampoco depende del tablero oculto", () => {
+  const A = historia(["a2a3", "g8f6", "h2h3", "b8a6", "c2c3"]), B = historia(["a2a4", "g8f6", "h2h4", "b8a6", "c2c4"]);
+  for(let i = 0; i < A.states.length; i++) assert.strictEqual(dkbObs(A.states[i], "b"), dkbObs(B.states[i], "b"), "las observaciones deberían ser idénticas en la jugada " + i);
+  const rA = dkbReseed(A.states, A.ucis, 5, "b", 50, 12345), rB = dkbReseed(B.states, B.ucis, 5, "b", 50, 12345);
+  assert(rA.length > 0, "debería reconstruir algo");
+  assert.deepStrictEqual(fensDe(rA), fensDe(rB));
+  for(const e of rA) assert.strictEqual(dkbObs(e.pos, "b"), dkbObs(A.states[5], "b"));
+});
+
+prueba("de lo oculto no queda nada fijo: tras 1.a3 hay hipótesis donde las blancas jugaron otra cosa", () => {
+  const A = historia(["a2a3", "d7d6"]);
+  const h = dkbBuild(A.states, A.ucis, "b", 200);
+  const real = toFEN(A.states[2]).split(" ")[0];
+  assert(h.some(e => toFEN(e.pos).split(" ")[0] !== real), "todas las hipótesis coinciden con el tablero real: hay trampa");
+  assert(h.some(e => toFEN(e.pos).split(" ")[0] === real), "la hipótesis verdadera debería seguir entre las posibles");
+});
+
+prueba("lo que se ve filtra: una pieza blanca que aparece a la vista elimina las hipótesis donde no podía estar", () => {
+  // 1.e4 e5 2.Qh5: la dama llega a h5 (casilla iluminada para las negras: su peón g6/g7... la ven)
+  const A = historia(["e2e4", "e7e5", "d1h5"]);
+  const h = dkbBuild(A.states, A.ucis, "b", 200);
+  assert(h.length > 0);
+  for(const e of h){ const [r, c] = [3, 7]; assert.strictEqual(e.pos.board[r][c], "wq", "toda hipótesis debe tener la dama blanca en h5 (la ven)"); }
+});
+
+prueba("dkbVote: elige la jugada más votada que sea legal en el tablero real y descarta el resto", () => {
+  const A = historia(["e2e4"]);   // turno de las negras
+  const pos = A.states[1];
+  assert.strictEqual(dkbVote([{ uci: "e7e5", w: 0.3 }, { uci: "d7d5", w: 0.7 }], pos), "d7d5");
+  assert.strictEqual(dkbVote([{ uci: "e7e5", w: 0.3 }, { uci: "a1a8", w: 0.7 }], pos), "e7e5", "una jugada ilegal en el tablero real no puede ganar");
+  assert.strictEqual(dkbVote([{ uci: "(none)", w: 1 }], pos), null);
+});
+
+prueba("el nivel manda: más hipótesis y más tiempo del motor al subir", () => {
+  assert(dkbCfg(15).n > dkbCfg(10).n && dkbCfg(10).n > dkbCfg(5).n && dkbCfg(5).n > dkbCfg(0).n);
 });
 
 prueba("darkLocked: se levanta con resultado, con «ver todo» y en Tablero libre", () => {

@@ -55,6 +55,77 @@ const CASOS = [
     if (c.espera === "capturaRey" && movio) ok(/x/.test(est.san || "") && (est.result || est.oc !== "normal"), "capturó al rey (" + est.san + ", resultado " + (est.result || est.oc) + ")");
     await page.close();
   }
+
+  // --- 2.142: claudIA a ciegas. Se registra cada posición que recibe el motor y se compara con el tablero real. ---
+  {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
+    page.on("pageerror", e => errores.push(String(e)));
+    await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
+    await page.addInitScript(() => {
+      window.__noBattleIntro = true; window.__fens = [];
+      const orig = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function (m) { if (typeof m === "string" && m.indexOf("position fen") === 0) window.__fens.push(m.slice(13)); return orig.apply(this, arguments); };
+    });
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      document.getElementById("mode-play").click();
+      switchVariant("dark");
+    });
+    // el botón de claudIA debe estar disponible en Dark y elegirla debe funcionar desde la interfaz
+    const ui = await page.evaluate(() => {
+      const b = document.getElementById("rival-maquina"); const habilitado = !b.disabled; b.click();
+      machineHumanColor = "w"; machineLevel = 15;
+      matchStarted = true; matchPaused = false; render();
+      return { habilitado, activa: vsMachine, variante: variantOf(liveState().board) };
+    });
+    ok(ui.habilitado && ui.activa && ui.variante === "dark", "en Dark se puede elegir a claudIA desde la interfaz (botón habilitado: " + ui.habilitado + ", activa: " + ui.activa + ")");
+    const ui2 = await page.evaluate(() => { switchVariant("clasico"); switchVariant("dark"); return vsMachine; });
+    ok(ui2 === true, "cambiar de variante y volver a Dark conserva a claudIA como rival");
+    await page.evaluate(() => { machineHumanColor = "w"; machineLevel = 15; matchStarted = true; matchPaused = false; render(); });
+    const jugadasHumano = ["e2e4", "g1f3", "f1c4", "b1c3"];
+    let todasMovio = true, tardoMax = 0;
+    for (const u of jugadasHumano) {
+      const n0 = await page.evaluate(() => game.sans.length);
+      await page.evaluate(u => { commitMove(matchUci(liveState(), u)); }, u);
+      const t0 = Date.now();
+      let movio = true;
+      try { await page.waitForFunction(n => game.sans.length >= n + 2, n0, { timeout: 30000 }); } catch (e) { movio = false; }
+      tardoMax = Math.max(tardoMax, Date.now() - t0);
+      if (!movio) { todasMovio = false; break; }
+    }
+    ok(todasMovio, "claudIA contestó las 4 jugadas seguidas sin trabarse (la más lenta tardó " + (tardoMax / 1000).toFixed(1) + " s)");
+    const r = await page.evaluate(() => {
+      const me = "b", real = dkbObs(liveState(), me);
+      const fens = Array.from(new Set(window.__fens));
+      let consistentes = 0, distintasDelReal = 0;
+      const realPlacement = toFEN(liveState()).split(" ")[0];
+      for (const f of fens) {
+        const pos = parseFEN(f + " dark");
+        if (dkbObs(pos, me) !== dkbObs(liveState(), me) && false) continue;
+        consistentes++;
+        if (toFEN(pos).split(" ")[0] !== realPlacement) distintasDelReal++;
+      }
+      // las posiciones enviadas en la ÚLTIMA consulta deben ser compatibles con lo que ve claudIA justo antes de mover
+      const ult = window.__fens.slice(-16);
+      return { total: window.__fens.length, distintas: fens.length, ult: ult.length, consistentes, distintasDelReal, realPlacement };
+    });
+    ok(r.total > 4, "el motor recibió varias consultas (" + r.total + ")");
+    ok(r.distintas > 4, "claudIA consultó posiciones distintas, no una sola (" + r.distintas + " posiciones distintas)");
+    // la última consulta: ¿alguna posición enviada coincide en la zona oculta con el tablero real? Lo normal es que casi ninguna.
+    const r2 = await page.evaluate(() => {
+      const n = game.sans.length;   // tras la última respuesta de claudIA, la consulta fue sobre el estado anterior a su jugada
+      const antes = game.states[n - 1], me = "b";
+      const ult = window.__fens.slice(-16).filter((v, i, a) => a.indexOf(v) === i);
+      const obsReal = dkbObs(antes, me), placement = toFEN(antes).split(" ")[0];
+      let compat = 0, iguales = 0;
+      for (const f of ult) { const q = parseFEN(f + " dark"); if (dkbObs(q, me) === obsReal) compat++; if (toFEN(q).split(" ")[0] === placement) iguales++; }
+      return { consultadas: ult.length, compat, iguales };
+    });
+    ok(r2.consultadas > 1 && r2.compat === r2.consultadas, "todas las posiciones consultadas son compatibles con lo que ve claudIA (" + r2.compat + "/" + r2.consultadas + ")");
+    ok(r2.iguales < r2.consultadas, "no consultó solo el tablero real: " + r2.iguales + " de " + r2.consultadas + " posiciones coinciden con el real");
+    await page.close();
+  }
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores.slice(0, 2).join(" | ") : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\n" + fallos + " fallo(s)" : "\nTodo bien");
