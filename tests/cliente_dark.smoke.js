@@ -262,6 +262,12 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     out.termina = { lift: boardEl.querySelectorAll(".cell.fog-lift").length, emerge: boardEl.querySelectorAll(".emerge").length };
     handleDarkObs(obs(3, base, pz)); await tick(150);
     out.cae = { fall: boardEl.querySelectorAll(".cell.fog.fog-fall").length, piezaNegra: boardEl.querySelectorAll(".piece.b").length };
+    // el rival llega desde la niebla a una casilla que YA estaba iluminada: también emerge
+    await tick(1700);
+    handleDarkObs(obs(4, base.concat(["3,3", "4,3"]), Object.assign({ "4,3": "bp" }, pz))); await tick(1700); render();
+    handleDarkObs(obs(5, base.concat(["3,3", "4,3"]), Object.assign({ "3,3": "bp" }, pz))); await tick(150);
+    out.llega = boardEl.querySelectorAll(".piece.b.emerge").length;
+    await tick(700); render(); out.llegaSigue = boardEl.querySelectorAll(".piece.b.emerge").length;
     return out;
   });
   console.log("  datos9:", JSON.stringify(r9));
@@ -270,6 +276,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r9.levanta.lift === 2 && r9.levanta.emerge === 1 && r9.levanta.propiasEmergen === 0, "al iluminarse dos casillas la niebla se levanta y SOLO la pieza enemiga emerge (" + JSON.stringify(r9.levanta) + ")");
   ok(r9.continua === 1, "un redibujo a mitad de la emergencia la continúa en vez de cortarla");
   ok(r9.termina.lift === 0 && r9.termina.emerge === 0, "pasado el tiempo, las clases de animación desaparecen");
+  ok(r9.llega === 1 && r9.llegaSigue === 1, "la pieza enemiga que llega a una casilla ya iluminada también emerge, y un redibujo no la corta (" + r9.llega + "/" + r9.llegaSigue + ")");
   ok(r9.cae.fall === 2 && r9.cae.piezaNegra === 0, "al dejar de ver las casillas la niebla vuelve a caer y la pieza ya no se dibuja");
 
   // 7) Coronación: animación de invocación (todas las variantes); en Dark solo si la casilla es visible para mí
