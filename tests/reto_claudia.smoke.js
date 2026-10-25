@@ -138,6 +138,36 @@ const CASOS = [
     ok(d.normal === 5000 && d.normalMs === 3000, "los avisos que no son de claudIA no cambian");
     await page.close();
   }
+
+  // --- 2.147: las frases de claudIA se quitan deslizándolas (a los lados o hacia arriba); un deslizamiento corto las deja en su sitio ---
+  {
+    const page = await browser.newPage({ viewport: { width: 420, height: 800 } });
+    await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); } });   // la pantalla de bienvenida tapa el aviso
+    const caja = async () => page.evaluate(() => { const r = document.getElementById("global-toast").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, show: document.getElementById("global-toast").classList.contains("show") }; });
+    const muestra = async (txt, opt) => { await page.evaluate(([t, o]) => showGlobalToast(t, o), [txt, opt]); await page.waitForTimeout(700); };
+    const arrastra = async (dx, dy) => { const c = await caja(); await page.mouse.move(c.x, c.y); await page.mouse.down(); for (let i = 1; i <= 6; i++) await page.mouse.move(c.x + dx * i / 6, c.y + dy * i / 6); await page.mouse.up(); await page.waitForTimeout(500); return caja(); };
+    const largo = "Para esta batalla, he elegido el campo de las sombras, donde nadie ve el tablero entero. Tienes la ventaja de las blancas.";
+    await muestra(largo, { voice: true, ms: 9000 });
+    ok((await caja()).show, "el aviso de claudIA aparece");
+    ok((await arrastra(30, 0)).show, "un deslizamiento corto (30 px) lo deja en su sitio");
+    ok(!(await arrastra(150, 0)).show, "deslizar a la derecha lo quita");
+    await muestra(largo, { voice: true, ms: 9000 });
+    ok(!(await arrastra(-150, 0)).show, "deslizar a la izquierda lo quita");
+    await muestra(largo, { voice: true, ms: 9000 });
+    ok(!(await arrastra(0, -90)).show, "deslizar hacia arriba lo quita");
+    await muestra(largo, { voice: true, ms: 9000 });
+    ok((await arrastra(0, 90)).show, "hacia abajo no se arrastra");
+    await muestra("Aviso normal", {});
+    const normal = await page.evaluate(() => getComputedStyle(document.getElementById("global-toast")).pointerEvents);
+    ok(normal === "none", "los avisos que no son de claudIA siguen dejando pasar los toques (" + normal + ")");
+    await muestra(largo, { voice: true, ms: 9000 });
+    const inline = await page.evaluate(() => { showGlobalToast("Otro aviso", { voice: true, ms: 5500 }); const e = document.getElementById("global-toast"); return e.style.transform + "|" + e.style.opacity; });
+    ok(inline === "|", "un aviso nuevo empieza limpio, sin restos del deslizamiento");
+    await page.close();
+  }
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
