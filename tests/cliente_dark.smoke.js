@@ -186,6 +186,14 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     applyGameRow({ id: liveGame.id, status: "finalizada", result: "0-1", winner_id: "22222222-2222-2222-2222-222222222222", draw_offered_by: null, paused_by: null });
     await tick(); await tick();
     out.reveal = { revelada: !!liveGame.darkRevealed, jugadas: game.sans.length, san2: game.sans[1], sinNiebla: boardEl.querySelectorAll(".cell.fog").length, negras: boardEl.querySelectorAll(".piece.b").length, bloqueado: darkLocked() };
+    // 2.117: el jaque mate (rey capturado) suena solo si el final ocurrió en vivo; al reabrir una partida vieja, no
+    const mates = []; const mate0 = SFX.mate, oc0 = outcome; SFX.mate = () => mates.push(1); outcome = () => "checkmate";
+    const fila = { id: liveGame.id, status: "finalizada", result: "0-1", winner_id: "22222222-2222-2222-2222-222222222222", draw_offered_by: null, paused_by: null };
+    liveGame.darkRevealed = false; liveGame.darkMoveAt = Date.now() - 600000; await darkRevealGame(fila); await tick();
+    const vieja = mates.length;
+    liveGame.darkRevealed = false; liveGame.darkMoveAt = Date.now(); await darkRevealGame(fila); await tick();
+    out.mate = { vieja, envivo: mates.length };
+    SFX.mate = mate0; outcome = oc0;
     SFX.move = sfxOrig;
     return out;
   });
@@ -196,6 +204,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r4.capturaRival.jugadas === 4 && r4.capturaRival.mov && r4.capturaRival.mov.capture === "wp" && r4.capturaRival.mov.hidden, "la captura del rival sobre mi peón se registra sin delatar de dónde vino");
   ok(r4.capturaRival.sonidos.includes("captura"), "suena la captura aunque la haya hecho el rival (" + r4.capturaRival.sonidos.join(",") + ")");
   ok(/×d5/.test(r4.capturaRival.lista) && !/[DQ]x?d5/.test(r4.capturaRival.lista), "la lista dice «×d5» y no la notación del rival: «" + r4.capturaRival.lista + "»");
+  ok(r4.mate.vieja === 0 && r4.mate.envivo === 1, "el jaque mate (rey capturado) suena al terminar en vivo y no al reabrir una partida vieja (" + r4.mate.vieja + "/" + r4.mate.envivo + ")");
   ok(r4.reveal.revelada && r4.reveal.jugadas === 4 && r4.reveal.san2 === "d5", "al terminar se revela la película verdadera (4 jugadas, la 2.ª es d5)");
   ok(r4.reveal.sinNiebla === 0 && r4.reveal.negras === 15, "terminada la partida cae la niebla (" + r4.reveal.sinNiebla + " casillas en niebla, " + r4.reveal.negras + " negras visibles)");
 
