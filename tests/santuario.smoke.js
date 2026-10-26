@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 95, "el Santuario tiene 95 fichas (" + r.masters + ")");
+  ok(r.masters === 96, "el Santuario tiene 96 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
