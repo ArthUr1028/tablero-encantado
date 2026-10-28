@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 96, "el Santuario tiene 96 fichas (" + r.masters + ")");
+  ok(r.masters === 102, "el Santuario tiene 102 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -56,6 +56,22 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     for (const id of ["reshevsky","euwe","fine","smyslov","petrosian","karpov","korchnoi","larsen"]) { const m = HOF.masters.find(x => x.id === id); for (const g of m.games.slice(-4)) if (!t(g.why)) sin.push(g.id + ".why"); }
     return sin;
   });
+  // 2.166: menciones honoríficas del Lote 6 (sin partidas): años, título y cada apartado con versión en inglés
+  const sinH = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    for (const id of ["lucena","damiano","ruylopez","greco","lolli","ponziani"]) {
+      const m = HOF.masters.find(x => x.id === id);
+      if (!m || !m.honor || !m.tema || m.games.length) { falta.push(id + ":estructura"); continue; }
+      if (m.era !== "primeros") falta.push(id + ":era");
+      if (!t(m.title)) falta.push(id + ".title");
+      if (!/^\d{4}–\d{4}$/.test(m.years) && !t(m.years)) falta.push(id + ".years");
+      for (const sc of m.secciones) { if (!["documentado","debate","leyenda"].includes(sc.nivel)) falta.push(id + ":nivel"); if (!t(sc.t)) falta.push(id + ".t:" + sc.t); if (!t(sc.txt)) falta.push(id + ".txt:" + sc.t); }
+    }
+    const orden = HOF.masters.filter(m => m.era === "primeros").map(m => m.id).join(",");
+    if (orden !== "lucena,damiano,ruylopez,greco,philidor,lolli,ponziani,labourdonnais,staunton") falta.push("orden:" + orden);
+    return falta;
+  });
+  ok(!sinH.length, "las seis menciones honoríficas (Lote 6) están completas, ordenadas y traducidas" + (sinH.length ? ": " + sinH.slice(0, 6).join(", ") : ""));
   ok(!sin.length, "los textos nuevos del Santuario tienen versión en inglés" + (sin.length ? ": " + sin.slice(0, 6).join(", ") : ""));
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   await browser.close(); srv.close();
