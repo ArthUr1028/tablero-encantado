@@ -132,6 +132,14 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await page.keyboard.press("Escape");
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
 
+  // 8b · escritorio ancho: tablero grande con el marcador al costado, y pieza en el título del panel
+  const w = await nueva(browser, url, { viewport: { width: 1440, height: 900 } });
+  ok(await w.page.evaluate(() => !!document.querySelector("#panel-coords > h2 .panel-ico")), "el panel del reto lleva una pieza al azar en el título, como los demás");
+  await w.page.evaluate(() => document.getElementById("cd-open").click()); await w.page.waitForTimeout(700);
+  const gr = await w.page.evaluate(() => { const g = document.getElementById("cd-grid").getBoundingClientRect(), h = document.querySelector(".cd-hud").getBoundingClientRect(), b = document.querySelector(".cd-box").getBoundingClientRect(); return { w: Math.round(g.width), h: Math.round(g.height), lado: h.x > g.right, cabe: b.top >= 0 && b.bottom <= innerHeight && b.right <= innerWidth }; });
+  ok(gr.w >= 700 && gr.w === gr.h && gr.lado && gr.cabe, "en 1440×900 el tablero mide " + gr.w + " px, con el marcador a su derecha y todo a la vista");
+  await w.page.close();
+
   // 9 · móvil táctil
   const m = await nueva(browser, url, { viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
   await m.page.evaluate(() => document.getElementById("cd-open").click()); await m.page.waitForTimeout(700);
