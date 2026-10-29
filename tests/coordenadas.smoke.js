@@ -72,7 +72,10 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok(s && s.dur === 4100, "el tiempo baja 100 ms por acierto: 5000 → 4100 (" + (s && s.dur) + ")");
   ok(giros >= 1, "el tablero giró al menos una vez en 9 aciertos (giros: " + giros + ")");
   const pz = await page.evaluate(() => ({ n: document.querySelectorAll("#cd-grid .piece").length, reyes: [...document.querySelectorAll("#cd-grid .piece")].filter(e => e.querySelector("use") && /king/.test(e.querySelector("use").getAttribute("href"))).length, pe: getComputedStyle(document.querySelector("#cd-grid .piece")).pointerEvents, giro: document.getElementById("cd-grid").classList.contains("cd-spin"), taunt: document.getElementById("cd-taunt").textContent.trim() }));
-  ok(s.piezas === 8 && pz.n === 8 && pz.reyes === 2, "con 9 aciertos hay 8 piezas: dos reyes al 3.º y una más por acierto (" + pz.n + ", reyes " + pz.reyes + ")");
+  ok(pz.n === s.piezas && pz.n >= 8 && pz.n <= 32 && pz.reyes === 2, "hay una posición real de ajedrez: " + pz.n + " piezas y dos reyes");
+  const cen = await page.evaluate(() => { const b = document.querySelector("#cd-grid .cd-sq .piece").parentElement.getBoundingClientRect(), pc = document.querySelector("#cd-grid .piece svg").getBoundingClientRect(); const g = document.getElementById("cd-grid").getBoundingClientRect(); return { dx: Math.abs((b.x + b.width / 2) - (pc.x + pc.width / 2)), dy: Math.abs((b.y + b.height / 2) - (pc.y + pc.height / 2)), r: pc.width / b.width, g: Math.round(g.width) }; });
+  ok(cen.dx < 1.5 && cen.dy < 1.5 && cen.r > .8, "las piezas están centradas y llenan la casilla (desvío " + cen.dx.toFixed(1) + "," + cen.dy.toFixed(1) + "; tamaño " + cen.r.toFixed(2) + ")");
+  ok(cen.g >= 450, "en escritorio el tablero es grande (" + cen.g + " px)");
   ok(pz.pe === "none" && !pz.giro, "las piezas no estorban al toque y el tablero queda derecho tras girar");
   ok(pz.taunt.length > 5, "claudIA habla con frases: «" + pz.taunt + "»");
   const real = await page.evaluate(() => { const b = [...document.querySelectorAll("#cd-grid .cd-sq")].find(x => x.querySelector(".piece")); const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return e === b; });
@@ -133,7 +136,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const m = await nueva(browser, url, { viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
   await m.page.evaluate(() => document.getElementById("cd-open").click()); await m.page.waitForTimeout(700);
   const med = await m.page.evaluate(() => { const g = document.getElementById("cd-grid").getBoundingClientRect(), b = document.querySelector(".cd-box").getBoundingClientRect(); return { w: Math.round(g.width), h: Math.round(g.height), bw: Math.round(b.width), ov: document.documentElement.scrollWidth <= innerWidth + 1, sq: Math.round(g.width / 8) }; });
-  ok(med.w === med.h && med.w <= 390 - 20 && med.ov, "en un móvil de 390 px la cuadrícula es cuadrada y cabe (" + JSON.stringify(med) + ")");
+  ok(med.w === med.h && med.w <= 390 - 20 && med.w >= 290 && med.ov, "en un móvil de 390 px la cuadrícula es cuadrada y cabe (" + JSON.stringify(med) + ")");
   await m.page.evaluate(() => document.getElementById("cd-start").click());
   const sm = await esperaTurno(m.page, -1, 3);
   const t = await objetivo(m.page);
