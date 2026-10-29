@@ -111,7 +111,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   // 6 · inglés
   await page.evaluate(() => setLang("en")); await page.waitForTimeout(400);
   const en = await page.evaluate(() => ({ h: [...document.querySelectorAll(".cd-hud small")].map(x => x.textContent), t: document.getElementById("cd-title").textContent, msg: document.getElementById("cd-msg").textContent, say: document.querySelector(".cd-says > span:last-child").textContent, help: document.querySelector("#cd-help").parentElement.textContent.trim().slice(0, 9) }));
-  ok(en.h.join() === "Hits,Misses,Record" && en.t === "Coordinates challenge" && en.say === "says:" && en.help === "With help", "los rótulos del reto están en inglés (" + en.h.join() + ")");
+  ok(en.h.join() === "Hits,Misses,Record" && en.t === "The Sixty-Four" && en.say === "says:" && en.help === "With help", "los rótulos del reto están en inglés (" + en.h.join() + ")");
   ok(/It was [a-h][1-8]/.test(en.msg), "el mensaje de fallo también (" + en.msg.trim() + ")");
   ok(await page.evaluate(() => window.__cdFrases.every(f => tx(f) !== f)), "todas las frases de claudIA tienen traducción al inglés");
   await page.evaluate(() => setLang("es"));
