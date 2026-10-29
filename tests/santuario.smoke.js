@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 102, "el Santuario tiene 102 fichas (" + r.masters + ")");
+  ok(r.masters === 112, "el Santuario tiene 112 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -48,7 +48,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   // inglés
   const sin = await page.evaluate(() => {
     setLang("en");
-    const nuevos = ["kotov","benko","seirawan","shirov","gelfand","svidler","kosteniuk","vachier-lagrave","so","firouzja","praggnanandhaa"];
+    const nuevos = ["alapin","grunfeld","sozin","samisch","colle","pirc","panov","veresov","rossolimo","sveshnikov","kotov","benko","seirawan","shirov","gelfand","svidler","kosteniuk","vachier-lagrave","so","firouzja","praggnanandhaa"];
     const ids = HOF.masters.filter(m => nuevos.includes(m.id));
     const sin = [];
     const t = s => window.tx(s) !== s;
@@ -71,6 +71,32 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (orden !== "lucena,damiano,ruylopez,greco,philidor,lolli,ponziani,labourdonnais,staunton") falta.push("orden:" + orden);
     return falta;
   });
+  // 2.167: Lote 7, diez fichas completas de maestros cuyo nombre vive en una apertura
+  const sin7 = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    const L7 = { alapin: 4, grunfeld: 5, sozin: 4, samisch: 4, colle: 4, pirc: 4, panov: 4, veresov: 4, rossolimo: 4, sveshnikov: 4 };
+    for (const id in L7) {
+      const m = HOF.masters.find(x => x.id === id);
+      if (!m) { falta.push(id + ":no existe"); continue; }
+      if (m.honor || m.tema) falta.push(id + ":no debe ser mención");
+      if (m.games.length !== L7[id]) falta.push(id + ":partidas " + m.games.length);
+      for (const c of ["title", "bio", "style", "legacy"]) if (!t(m[c])) falta.push(id + "." + c);
+      for (const g of m.games) {
+        if (!t(g.title)) falta.push(g.id + ".title"); if (!t(g.event)) falta.push(g.id + ".event"); if (!t(g.why)) falta.push(g.id + ".why");
+        if (!new RegExp("\\[White \"" + g.white + "\"\\]").test(g.pgn) || !new RegExp("\\[Black \"" + g.black + "\"\\]").test(g.pgn)) falta.push(g.id + ":jugadores del PGN");
+      }
+    }
+    const er = id => HOF.masters.filter(m => m.era === id).map(m => m.id).join(",");
+    if (!/pillsbury,alapin,janowski/.test(er("ciencia"))) falta.push("orden ciencia");
+    if (!/bogoljubov,grunfeld,nimzowitsch/.test(er("entreguerras"))) falta.push("orden grunfeld");
+    if (!/torre,sozin,samisch,colle,alekhine/.test(er("entreguerras"))) falta.push("orden sozin-samisch-colle");
+    if (!/sultankhan,pirc,flohr/.test(er("entreguerras"))) falta.push("orden pirc");
+    if (!/keres,panov,veresov,najdorf/.test(er("entreguerras"))) falta.push("orden panov-veresov");
+    if (!/kotov,rossolimo,smyslov/.test(er("sovietica"))) falta.push("orden rossolimo");
+    if (!/karpov,sveshnikov,timman/.test(er("fria"))) falta.push("orden sveshnikov");
+    return falta;
+  });
+  ok(!sin7.length, "las diez fichas del Lote 7 están completas, ordenadas y traducidas" + (sin7.length ? ": " + sin7.slice(0, 6).join(", ") : ""));
   ok(!sinH.length, "las seis menciones honoríficas (Lote 6) están completas, ordenadas y traducidas" + (sinH.length ? ": " + sinH.slice(0, 6).join(", ") : ""));
   ok(!sin.length, "los textos nuevos del Santuario tienen versión en inglés" + (sin.length ? ": " + sin.slice(0, 6).join(", ") : ""));
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
