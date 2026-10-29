@@ -1,4 +1,4 @@
-// Reto de coordenadas (2.168): abre, juega, acelera, gira, pierde con 3 fallos, guarda el récord, se traduce y cabe en el móvil. node tests/coordenadas.smoke.js
+// Reto de coordenadas (2.169): abre, juega, acelera, gira, coordenadas en los bordes, piezas, frases sin voz, pierde con 3 fallos, guarda el récord, se traduce y cabe en el móvil. node tests/coordenadas.smoke.js
 // Uso: node tests/coordenadas.smoke.js   (necesita playwright-core y un Chromium; busca /opt/node-tools)
 const http = require("http"), fs = require("fs"), path = require("path");
 let chromium;
@@ -46,9 +46,10 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
 
   // 1 · abrir
   await page.evaluate(() => document.getElementById("cd-open").click()); await page.waitForTimeout(700);
-  const abre = await page.evaluate(() => ({ vis: !document.getElementById("cd-ov").hidden && document.getElementById("cd-ov").classList.contains("show"), n: document.querySelectorAll("#cd-grid .cd-sq").length, lab: getComputedStyle(document.querySelector("#cd-grid .cd-lab")).display }));
+  const abre = await page.evaluate(() => ({ vis: !document.getElementById("cd-ov").hidden && document.getElementById("cd-ov").classList.contains("show"), n: document.querySelectorAll("#cd-grid .cd-sq").length, lab: getComputedStyle(document.getElementById("cd-ranks")).display, files: getComputedStyle(document.getElementById("cd-files")).display, voz: !!document.getElementById("cd-voice") || !!window.speechSynthesis && /speechSynthesis/.test(document.documentElement.innerHTML.split("cd-ov")[0].slice(-0)), frases: window.__cdFrases.length, lc: document.querySelectorAll("#cd-grid .cd-lab").length }));
   ok(abre.vis && abre.n === 64, "el reto se abre con una cuadrícula de 64 casillas");
-  ok(abre.lab === "none", "sin ayuda, los nombres de las casillas están ocultos");
+  ok(abre.lab === "none" && abre.files === "none" && abre.lc === 0, "sin ayuda, no hay coordenadas ni nombres en las casillas");
+  ok(!(await page.evaluate(() => !!document.getElementById("cd-voice"))) && abre.frases >= 25, "ya no hay voz y claudIA tiene sus frases (" + abre.frases + ")");
 
   // 2 · el atajo F del tablero no actúa con el reto abierto, y la jugada principal no se toca
   const f0 = await page.evaluate(() => flipped); await page.keyboard.press("f"); await page.waitForTimeout(100);
@@ -70,6 +71,12 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok(s && s.score === 9 && s.lives === 3, "nueve aciertos seguidos suman 9 sin perder fallos (" + (s && s.score) + ")");
   ok(s && s.dur === 4100, "el tiempo baja 100 ms por acierto: 5000 → 4100 (" + (s && s.dur) + ")");
   ok(giros >= 1, "el tablero giró al menos una vez en 9 aciertos (giros: " + giros + ")");
+  const pz = await page.evaluate(() => ({ n: document.querySelectorAll("#cd-grid .piece").length, reyes: [...document.querySelectorAll("#cd-grid .piece")].filter(e => e.querySelector("use") && /king/.test(e.querySelector("use").getAttribute("href"))).length, pe: getComputedStyle(document.querySelector("#cd-grid .piece")).pointerEvents, giro: document.getElementById("cd-grid").classList.contains("cd-spin"), taunt: document.getElementById("cd-taunt").textContent.trim() }));
+  ok(s.piezas === 8 && pz.n === 8 && pz.reyes === 2, "con 9 aciertos hay 8 piezas: dos reyes al 3.º y una más por acierto (" + pz.n + ", reyes " + pz.reyes + ")");
+  ok(pz.pe === "none" && !pz.giro, "las piezas no estorban al toque y el tablero queda derecho tras girar");
+  ok(pz.taunt.length > 5, "claudIA habla con frases: «" + pz.taunt + "»");
+  const real = await page.evaluate(() => { const b = [...document.querySelectorAll("#cd-grid .cd-sq")].find(x => x.querySelector(".piece")); const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return e === b; });
+  ok(real, "el toque sobre una casilla con pieza lo recibe la casilla, no la pieza");
   const giro = await page.evaluate(() => { const c = document.querySelector("#cd-grid .cd-sq"); return c.getAttribute("aria-label"); });
   ok(["a8", "h1"].includes(giro), "las dos orientaciones son las esperadas (arriba-izquierda: " + giro + ")");
 
@@ -98,6 +105,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const en = await page.evaluate(() => ({ h: [...document.querySelectorAll(".cd-hud small")].map(x => x.textContent), t: document.getElementById("cd-title").textContent, msg: document.getElementById("cd-msg").textContent, say: document.querySelector(".cd-says > span:last-child").textContent, help: document.querySelector("#cd-help").parentElement.textContent.trim().slice(0, 9) }));
   ok(en.h.join() === "Hits,Misses,Record" && en.t === "Coordinates challenge" && en.say === "says:" && en.help === "With help", "los rótulos del reto están en inglés (" + en.h.join() + ")");
   ok(/It was [a-h][1-8]/.test(en.msg), "el mensaje de fallo también (" + en.msg.trim() + ")");
+  ok(await page.evaluate(() => window.__cdFrases.every(f => tx(f) !== f)), "todas las frases de claudIA tienen traducción al inglés");
   await page.evaluate(() => setLang("es"));
 
   // 7 · Escape cierra
@@ -107,8 +115,9 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   // 8 · ayuda: muestra los nombres y no guarda récord
   await page.evaluate(() => document.getElementById("cd-open").click()); await page.waitForTimeout(600);
   await page.evaluate(() => { document.getElementById("cd-help").checked = true; document.getElementById("cd-help").dispatchEvent(new Event("change")); });
-  const lab = await page.evaluate(() => getComputedStyle(document.querySelector("#cd-grid .cd-lab")).display);
-  ok(lab === "block", "con ayuda se ven los nombres de las casillas");
+  const lab = await page.evaluate(() => ({ r: getComputedStyle(document.getElementById("cd-ranks")).display, f: getComputedStyle(document.getElementById("cd-files")).display, rt: [...document.querySelectorAll("#cd-ranks span")].map(x => x.textContent).join(""), ft: [...document.querySelectorAll("#cd-files span")].map(x => x.textContent).join(""), lc: document.querySelectorAll("#cd-grid .cd-lab").length }));
+  ok(lab.r === "grid" && lab.f === "grid" && lab.lc === 0, "con ayuda se ven las coordenadas en los bordes, no dentro de las casillas");
+  ok((lab.rt === "87654321" && lab.ft === "abcdefgh") || (lab.rt === "12345678" && lab.ft === "hgfedcba"), "los bordes siguen la orientación del tablero (" + lab.rt + " / " + lab.ft + ")");
   await page.evaluate(() => document.getElementById("cd-start").click());
   s = await esperaTurno(page, -1, 3);
   for (let i = 0; i < 12; i++) { const t = await objetivo(page); const antes = (await info(page)).score; await tocar(page, t); s = await esperaTurno(page, antes, 3); }
