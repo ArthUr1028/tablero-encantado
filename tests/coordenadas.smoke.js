@@ -59,6 +59,11 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await page.evaluate(() => document.getElementById("cd-start").click());
   let s = await esperaTurno(page, -1, 3);
   ok(s && /^[a-h][1-8]$/.test(await objetivo(page)), "claudIA nombra una casilla válida");
+  const bg = await page.evaluate(() => { const b = document.getElementById("cd-big"), g = document.getElementById("cd-grid").getBoundingClientRect(), r = b.getBoundingClientRect(); return { t: b.textContent, o: parseFloat(b.style.opacity), cx: Math.abs(r.x + r.width / 2 - (g.x + g.width / 2)), cy: Math.abs(r.y + r.height / 2 - (g.y + g.height / 2)), ancho: r.width / g.width, pe: getComputedStyle(b).pointerEvents }; });
+  ok(bg.t === (await objetivo(page)) && bg.o > .3 && bg.cx < 2 && bg.cy < 2 && bg.ancho > .3 && bg.pe === "none", "la casilla pedida aparece grande, centrada y traslúcida sobre el tablero (opacidad " + bg.o.toFixed(2) + ", ancho " + bg.ancho.toFixed(2) + ")");
+  await page.waitForTimeout(2200);
+  const oa = await page.evaluate(() => parseFloat(document.getElementById("cd-big").style.opacity));
+  ok(oa < bg.o - .15, "la coordenada se desvanece con el tiempo (" + bg.o.toFixed(2) + " → " + oa.toFixed(2) + ")");
   ok(s && s.dur === 5000, "el primer turno dura 5 s (" + (s && s.dur) + ")");
   const ori0 = await primera(page); let giros = 0, ultimo = ori0;
   for (let i = 1; i <= 9; i++) {
