@@ -50,7 +50,12 @@ async function networkFirst(event, req, key) {
 
   const net = fetch(new Request(req.url, { cache: "no-cache", credentials: "same-origin" }))
     .then((res) => {
-      if (res.ok) { cache.put(key, res.clone()); return res; }
+      if (res.ok) {
+        // La copia nueva debe terminar de guardarse aunque ya se haya servido la vieja (index.html pesa varios MB):
+        // sin esto el navegador podía apagar el service worker a medias y la copia vieja se quedaba para siempre.
+        event.waitUntil(cache.put(key, res.clone()).catch(() => {}));
+        return res;
+      }
       return cached || res;
     });
 
