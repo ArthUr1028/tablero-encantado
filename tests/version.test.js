@@ -8,6 +8,7 @@ assert(m, "no se encontró BUILD_ID en index.html");
 const build = m[1].split(" · ")[0].trim();
 const v = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
 assert.strictEqual(v.build, build, "version.json (" + v.build + ") no coincide con BUILD_ID (" + build + ")");
+if (v.min) { const a = v.min.split(".").map(Number), b = build.split(".").map(n => parseInt(n, 10)); assert(a[0] < b[0] || (a[0] === b[0] && a[1] <= b[1]), "min (" + v.min + ") no puede ser mayor que build (" + build + ")"); }
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 assert(/version\.json/.test(sw), "sw.js debe dejar pasar version.json directo a la red");
 console.log("version OK:", build);
