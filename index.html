@@ -20058,7 +20058,7 @@ syncBoardMetrics();
   var PROD = "https://tablero-encantado.pages.dev";
   var RUN = ""; try{ RUN = String(BUILD_ID).split(" · ")[0].trim(); }catch(e){}
   var T = function(m){ try{ return window.tx ? window.tx(m) : m; }catch(e){ return m; } };
-  var reg = null, banner = null, lastCheck = 0, pending = null;
+  var reg = null, banner = null, lastCheck = 0, pending = null, lastInput = Date.now();
 
   function num(v){ var m = /^(\d+)\.(\d+)/.exec(v || ""); return m ? [+m[1], +m[2]] : null; }
   function isNewer(a, b){ var x = num(a), y = num(b); if(!x || !y) return false; return x[0] > y[0] || (x[0] === y[0] && x[1] > y[1]); }
@@ -20119,6 +20119,14 @@ syncBoardMetrics();
       o.appendChild(t); o.appendChild(go); document.body.appendChild(o);
     }catch(e){}
   }
+
+  // Siempre la última: si hay una versión pendiente (el aviso se ignoró o había partida), se aplica sola
+  // en cuanto no haya partida en curso y la persona lleve un rato sin tocar nada.
+  function tryApply(){
+    if(pending && !busy() && document.visibilityState === "visible" && Date.now() - lastInput > 45000) hardUpdate(pending);
+  }
+  ["pointerdown", "keydown", "touchstart"].forEach(function(ev){ window.addEventListener(ev, function(){ lastInput = Date.now(); }, { passive: true, capture: true }); });
+  setInterval(tryApply, 15000);
 
   function check(onLoad){
     lastCheck = Date.now();
