@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const CACHE = "tablero-" + CACHE_VERSION;
 const NET_TIMEOUT_MS = 4000;
 
@@ -30,6 +30,9 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+
+  // version.json lo consulta la página para saber si hay versión nueva: siempre directo a la red.
+  if (url.origin === self.location.origin && url.pathname.endsWith("/version.json")) return;
 
   if (url.origin === self.location.origin) {
     const key = req.mode === "navigate"
