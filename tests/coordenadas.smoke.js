@@ -372,6 +372,24 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await C.evaluate(() => { setLang("es"); });
   ok(trad13, "las frases nuevas de claudIA tienen traducción al inglés");
   ok(clx.errores.length === 0, "sin errores de JavaScript con claudIA" + (clx.errores.length ? ": " + clx.errores[0] : ""));
+
+  // 14 · tema Aire de cristal (2.183): paneles y marco con desenfoque, casillas blancas más transparentes que las oscuras
+  const ai = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), A = ai.page;
+  await A.evaluate(() => document.documentElement.setAttribute("data-theme", "aire")); await A.waitForTimeout(400);
+  const cr = await A.evaluate(() => {
+    const alfa = el => { const m = [...getComputedStyle(el).backgroundImage.matchAll(/rgba\(\s*[\d.]+,\s*[\d.]+,\s*[\d.]+,\s*([\d.]+)\)/g)].map(x => +x[1]); return m.length ? m.reduce((a, b) => a + b, 0) / m.length : 1; };
+    const filtro = el => getComputedStyle(el).backdropFilter || getComputedStyle(el).webkitBackdropFilter || "";
+    const cs = [...document.querySelectorAll("#board .cell")], lgt = cs.find(c => c.classList.contains("lgt")), drk = cs.find(c => c.classList.contains("drk") && !c.querySelector(".piece"));
+    const panel = document.querySelector(".panel"), marco = document.querySelector(".board-frame");
+    return { lgt: alfa(lgt), drk: alfa(drk), panel: alfa(panel), pf: filtro(panel), mf: filtro(marco), ranks: getComputedStyle(document.querySelector(".ranks")).color };
+  });
+  ok(cr.lgt < cr.drk && cr.lgt > .3 && cr.drk < .95, "Aire: las casillas blancas son más transparentes que las oscuras sin ser invisibles (alfa " + cr.lgt.toFixed(2) + " frente a " + cr.drk.toFixed(2) + ")");
+  ok(cr.panel < .75 && /blur/.test(cr.pf) && /blur/.test(cr.mf), "Aire: los paneles y el marco del tablero son cristal translúcido con desenfoque (alfa del panel " + cr.panel.toFixed(2) + ")");
+  ok(cr.ranks === "rgb(15, 34, 54)", "Aire: las coordenadas del marco son oscuras para leerse sobre el cristal (" + cr.ranks + ")");
+  await A.evaluate(() => document.documentElement.removeAttribute("data-theme")); await A.waitForTimeout(300);
+  const sin = await A.evaluate(() => { const c = [...document.querySelectorAll("#board .cell")].find(x => x.classList.contains("lgt")); return /rgba\(\s*250,\s*253/.test(getComputedStyle(c).backgroundImage); });
+  ok(!sin, "el cristal es solo del tema Aire: con el tema normal las casillas no cambian");
+  ok(ai.errores.length === 0, "sin errores de JavaScript en Aire" + (ai.errores.length ? ": " + ai.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
