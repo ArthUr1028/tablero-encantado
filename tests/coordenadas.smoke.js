@@ -390,6 +390,32 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const sin = await A.evaluate(() => { const c = [...document.querySelectorAll("#board .cell")].find(x => x.classList.contains("lgt")); return /rgba\(\s*250,\s*253/.test(getComputedStyle(c).backgroundImage); });
   ok(!sin, "el cristal es solo del tema Aire: con el tema normal las casillas no cambian");
   ok(ai.errores.length === 0, "sin errores de JavaScript en Aire" + (ai.errores.length ? ": " + ai.errores[0] : ""));
+
+  // 15 · animaciones de fondo (2.184): brasas del tema Fuego, botón para apagarlas, que se recuerde y que respete «reducir movimiento»
+  const fu = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), F = fu.page;
+  const estado = () => F.evaluate(() => { const c = document.querySelector(".brasas"), b = document.getElementById("amb-toggle"), e = document.querySelector(".brasa"); const cs = getComputedStyle(c); return { n: document.querySelectorAll(".brasa").length, vis: cs.display !== "none", pos: cs.position, z: cs.zIndex, pe: cs.pointerEvents, btn: !b.hidden && getComputedStyle(b).display !== "none", pres: b.getAttribute("aria-pressed"), anim: getComputedStyle(e).animationName, ls: localStorage.getItem("tablero-encantado.ambiente") }; });
+  let e0 = await estado();
+  ok(!e0.vis && !e0.btn, "con el tema normal no hay brasas ni botón de animaciones");
+  await F.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await F.waitForTimeout(300);
+  e0 = await estado();
+  ok(e0.vis && e0.btn && e0.n === 14 && e0.pos === "fixed" && e0.z === "-1" && e0.pe === "none" && /brasaSube/.test(e0.anim), "en Fuego hay 14 brasas detrás del contenido, sin recibir toques, y aparece el botón (" + e0.n + ", z " + e0.z + ")");
+  const clip = await F.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2; const top = document.elementFromPoint(x, y); return top && !top.classList.contains("brasa") && !top.closest(".brasas"); });
+  ok(clip, "las brasas nunca quedan por encima del tablero");
+  await F.click("#amb-toggle"); await F.waitForTimeout(200);
+  let e1 = await estado();
+  ok(!e1.vis && e1.pres === "false" && e1.ls === "0", "el botón apaga las brasas y lo recuerda");
+  await F.reload({ waitUntil: "load" }); await F.waitForTimeout(900);
+  await F.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); } document.documentElement.setAttribute("data-theme", "fuego"); }); await F.waitForTimeout(300);
+  e1 = await estado();
+  ok(!e1.vis && e1.pres === "false", "tras recargar siguen apagadas");
+  await F.click("#amb-toggle"); await F.waitForTimeout(200);
+  e1 = await estado(); ok(e1.vis && e1.pres === "true" && e1.ls === "1", "y se vuelven a encender con el mismo botón");
+  await F.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await F.waitForTimeout(300);
+  e1 = await estado(); ok(!e1.vis && !e1.btn, "al cambiar a otro tema las brasas y el botón desaparecen");
+  await F.emulateMedia({ reducedMotion: "reduce" });
+  await F.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await F.waitForTimeout(300);
+  e1 = await estado(); ok(!e1.vis && !e1.btn, "con «reducir movimiento» no hay brasas ni botón");
+  ok(fu.errores.length === 0, "sin errores de JavaScript con las animaciones de fondo" + (fu.errores.length ? ": " + fu.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
