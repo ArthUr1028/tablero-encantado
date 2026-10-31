@@ -51,6 +51,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok(abre.lab === "none" && abre.files === "none" && abre.lc === 0, "sin ayuda, no hay coordenadas ni nombres en las casillas");
   ok(!(await page.evaluate(() => !!document.getElementById("cd-voice"))) && abre.frases >= 25, "ya no hay voz y claudIA tiene sus frases (" + abre.frases + ")");
 
+  await page.evaluate(() => { window.__cdTest.premios(false); window.__cdTest.apuestas(false); });   // las pruebas 3 a 9 miden el juego base; los corazones nuevos se prueban en la 11
   // 2 · el atajo F del tablero no actúa con el reto abierto, y la jugada principal no se toca
   const f0 = await page.evaluate(() => flipped); await page.keyboard.press("f"); await page.waitForTimeout(100);
   ok((await page.evaluate(() => flipped)) === f0, "la tecla F no voltea el tablero de la partida mientras el reto está abierto");
@@ -160,6 +161,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   // 10 · niveles (2.179): cuatro orientaciones, preguntas de color y de nombre, subida de nivel y giros coherentes
   const nv = await nueva(browser, url), P = nv.page;
   await P.evaluate(() => document.getElementById("cd-open").click()); await P.waitForTimeout(600);
+  await P.evaluate(() => window.__cdTest.apuestas(false));
   let okOr = true; const detOr = [];
   for (const [r, tl, bl] of [[0, "a8", "a1"], [1, "a1", "h1"], [2, "h1", "h8"], [3, "h8", "a8"]]) {
     const o = await P.evaluate(r => { window.__cdTest.rot(r); const c = [...document.querySelectorAll("#cd-grid .cd-sq")], lab = c.map(x => x.getAttribute("aria-label")); return { tl: lab[0], bl: lab[56], uniq: new Set(lab).size, a1: c.find(x => x.getAttribute("aria-label") === "a1").classList.contains("drk") }; }, r);
@@ -220,6 +222,81 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const fin2 = await info(P) || { lvl: -1, score: -1 };
   ok(fin2.score >= 27 && fin2.lvl === 2, "con 25 aciertos se llega al nivel Maestro (aciertos " + fin2.score + ", nivel " + fin2.lvl + ")");
   ok(nv.errores.length === 0, "sin errores de JavaScript en los niveles" + (nv.errores.length ? ": " + nv.errores[0] : ""));
+
+  // 11 · corazones (2.180): la Llama, el premio por giro y las tres apuestas de claudIA
+  const q2 = await nueva(browser, url), Q = q2.page;
+  await Q.evaluate(() => document.getElementById("cd-open").click()); await Q.waitForTimeout(600);
+  const datos = await Q.evaluate(() => { setLang("en"); const D = window.__cdTest.datos; const r = { m1: D.m1.length, m2: D.m2.length, ap: D.ap.length, trad: D.ap.every(x => tx(x.l) !== x.l), unic: new Set(D.ap.map(x => x.f)).size === D.ap.length, sol: D.m1.concat(D.m2).every(x => x.s.length >= 1 && x.s.length <= 2), nombres: D.ap.every(x => tx(x.n) !== x.n || ["Najdorf","Caro-Kann","Nimzo-Larsen","Bird","McConnell","Petrov","Pirc","Alekhine","Grünfeld","Benoni","Trompowsky"].includes(x.n)) }; setLang("es"); return r; });
+  ok(datos.m1 >= 40 && datos.m2 >= 8 && datos.ap === 31 && datos.trad && datos.unic && datos.sol && datos.nombres, "datos de las apuestas: " + datos.m1 + " mates en 1, " + datos.m2 + " en 2, " + datos.ap + " aperturas y defensas únicas, con la línea traducida");
+  await Q.evaluate(() => { window.__cdTest.apuestas(false); document.getElementById("cd-start").click(); });
+  let z = await esperaTurno(Q, -1, 3);
+  for (let i = 0; i < 4; i++) { const t = await objetivo(Q), antes = (await info(Q)).score; await tocar(Q, t); for (let k = 0; k < 60; k++) { const y = await info(Q); if (y && y.score > antes) break; await sleep(50); } if (i < 3) z = await esperaTurno(Q, antes, 3); }
+  await Q.waitForTimeout(200);
+  const llama = await info(Q), msgL = await Q.evaluate(() => document.getElementById("cd-msg").textContent);
+  ok(llama.lives === 4 && llama.llama === 0 && /Llama/.test(msgL), "cuatro aciertos rápidos llenan la Llama y dan un corazón (corazones " + llama.lives + ", llama " + llama.llama + ")");
+  z = await esperaTurno(Q, -1, 4);
+  let t5 = await objetivo(Q), a5 = (await info(Q)).score; await tocar(Q, t5); for (let k = 0; k < 60; k++) { const y = await info(Q); if (y && y.score > a5) break; await sleep(50); }
+  ok((await info(Q)).llama === 25, "un acierto rápido sube la Llama un cuarto");
+  z = await esperaTurno(Q, -1, 4); await Q.waitForTimeout(2200);
+  t5 = await objetivo(Q); a5 = (await info(Q)).score; await tocar(Q, t5); for (let k = 0; k < 60; k++) { const y = await info(Q); if (y && y.score > a5) break; await sleep(50); }
+  ok((await info(Q)).llama === 5, "dudar (más de 2 s) enfría la Llama (25 → " + (await info(Q)).llama + ")");
+  // premio por superar un giro de un cuarto de vuelta: la primera pregunta tras el giro, respondida pronto
+  z = await esperaTurno(Q, -1, 4); const vidasG = (await info(Q)).lives;
+  await Q.evaluate(() => window.__cdTest.giro(999));
+  t5 = await objetivo(Q); a5 = (await info(Q)).score; await Q.evaluate(() => window.__cdTest.pendienteGiro(true)); await tocar(Q, t5);
+  for (let k = 0; k < 60; k++) { const y = await info(Q); if (y && y.score > a5) break; await sleep(50); }
+  z = await esperaTurno(Q, -1, 4);
+  t5 = await objetivo(Q); a5 = (await info(Q)).score; await tocar(Q, t5); await Q.waitForTimeout(250);
+  const vG = await info(Q), msgG = await Q.evaluate(() => document.getElementById("cd-msg").textContent);
+  ok(vG.lives === Math.min(5, vidasG + 1) && /orientarte/.test(msgG), "acertar pronto la primera pregunta tras un giro de un cuarto da un corazón (" + vidasG + " → " + vG.lives + ")");
+  // las apuestas
+  const hitYOferta = async tipo => {
+    await Q.evaluate(t => window.__cdTest.apuesta(t), tipo);
+    z = await esperaTurno(Q, -1, -1); const tt = await objetivo(Q), aa = (await info(Q)).score; await tocar(Q, tt);
+    for (let k = 0; k < 80; k++) { const y = await info(Q); if (y && y.kind === "apuesta" && !y.locked) return y; await sleep(50); }
+    return null;
+  };
+  const clic = v => Q.evaluate(v => document.querySelector('#cd-ans .cd-opt[data-v="' + v + '"]').click(), v);
+  const volver = async () => { for (let k = 0; k < 120; k++) { const y = await info(Q); if (y && y.kind === "toca" && !y.locked) return y; await sleep(100); } return null; };
+  let of = await hitYOferta("mejor");
+  const bot = await Q.evaluate(() => ({ b: [...document.querySelectorAll("#cd-ans .cd-opt")].map(x => x.dataset.v).join(), t: document.getElementById("cd-target").textContent.trim(), msg: document.getElementById("cd-msg").textContent }));
+  ok(of && of.bet.fase === "oferta" && bot.b === "si,no" && bot.t === "¿Apuestas?" && /Apuestas un corazón/.test(bot.msg), "claudIA ofrece la apuesta con «Apuesto» y «Paso» (sin reloj)");
+  await clic("no"); ok(!!(await volver()) && (await info(Q)).bet === null, "«Paso» sigue con el juego sin costo");
+  // apuesta de mejor jugada, mal jugada
+  of = await hitYOferta("mejor"); await clic("si"); await Q.waitForTimeout(150);
+  const pj = await Q.evaluate(() => { const i = window.__cdInfo(); const lado = i.bet.lado; const pz = [...document.querySelectorAll("#cd-grid .cd-sq")].filter(x => x.querySelector(".piece." + lado)); const vacias = [...document.querySelectorAll("#cd-grid .cd-sq")].filter(x => !x.querySelector(".piece")); return { lado, sol: i.bet.sol, rot: i.rot, n: document.querySelectorAll("#cd-grid .piece").length, de: pz[0].getAttribute("aria-label"), a: vacias.map(x => x.getAttribute("aria-label")), dur: i.dur }; });
+  ok(pj.n >= 8 && pj.rot === (pj.lado === "w" ? 0 : 2) && pj.sol.length >= 1, "apuesta de mejor jugada: posición en el tablero, de frente para el bando que mueve (" + pj.lado + ", " + pj.n + " piezas, " + pj.dur + " ms)");
+  const vAntes = (await info(Q)).lives;
+  const dest = pj.a.find(x => !pj.sol.some(m => m.slice(0, 4) === pj.de + x));
+  await tocar(Q, pj.de); await tocar(Q, dest); await Q.waitForTimeout(250);
+  const mal2 = await Q.evaluate(() => document.getElementById("cd-msg").textContent);
+  ok((await info(Q)).lives === vAntes - 1 && /perdida/.test(mal2) && /La mejor jugada era/.test(mal2), "una jugada equivocada cuesta un corazón y muestra la buena (" + vAntes + " → " + (await info(Q)).lives + ")");
+  await volver();
+  // aperturas y defensas
+  of = await hitYOferta("apertura"); await clic("si"); await Q.waitForTimeout(150);
+  const ap = await Q.evaluate(() => { const i = window.__cdInfo(); return { resp: i.bet.resp, ops: [...document.querySelectorAll("#cd-ans .cd-opt")].map(x => x.dataset.v), q: document.getElementById("cd-msg").textContent.trim(), n: document.querySelectorAll("#cd-grid .piece").length, rot: i.rot }; });
+  ok(ap.ops.length === 3 && new Set(ap.ops).size === 3 && ap.ops.includes(ap.resp) && /Qué apertura/.test(ap.q) && ap.n >= 20 && ap.rot === 0, "apuesta de apertura: posición real y tres nombres, uno es el bueno (" + ap.resp + " entre " + ap.ops.join(", ") + ")");
+  const vA = (await info(Q)).lives; await clic(ap.resp); await Q.waitForTimeout(250);
+  const gano = await Q.evaluate(() => ({ msg: document.getElementById("cd-msg").textContent, linea: document.getElementById("cd-taunt").textContent.trim() }));
+  ok((await info(Q)).lives === Math.min(5, vA + 2) && /ganada/.test(gano.msg) && /^1\./.test(gano.linea), "acertar la apertura da dos corazones (tope 5) y muestra la línea de jugadas («" + gano.linea.slice(0, 28) + "…»)");
+  await volver();
+  of = await hitYOferta("defensa"); await clic("si"); await Q.waitForTimeout(150);
+  const df = await Q.evaluate(() => { const i = window.__cdInfo(); return { resp: i.bet.resp, ops: [...document.querySelectorAll("#cd-ans .cd-opt")].map(x => x.dataset.v), q: document.getElementById("cd-msg").textContent.trim() }; });
+  const vD = (await info(Q)).lives; await clic(df.ops.find(x => x !== df.resp)); await Q.waitForTimeout(250);
+  const perdio = await Q.evaluate(() => document.getElementById("cd-msg").textContent);
+  ok(/Qué defensa/.test(df.q) && (await info(Q)).lives === vD - 1 && /Era/.test(perdio), "apuesta de defensa: un nombre equivocado cuesta un corazón y dice cuál era (" + df.resp + ")");
+  await volver();
+  // mejor jugada acertada
+  of = await hitYOferta("mejor"); await clic("si"); await Q.waitForTimeout(150);
+  const bj = await info(Q), vM = bj.lives;
+  await tocar(Q, bj.bet.sol[0].slice(0, 2)); await tocar(Q, bj.bet.sol[0].slice(2, 4)); await Q.waitForTimeout(250);
+  ok((await info(Q)).lives === Math.min(5, vM + 2), "acertar la mejor jugada (" + bj.bet.sol[0] + ") da dos corazones (" + vM + " → " + (await info(Q)).lives + ")");
+  await volver();
+  // se acaba el tiempo en una apuesta
+  of = await hitYOferta("apertura"); await clic("si"); const vT = (await info(Q)).lives; await Q.waitForTimeout(5500);
+  ok((await info(Q)).lives === vT - 1, "dejar pasar el tiempo en una apuesta cuesta un corazón (" + vT + " → " + (await info(Q)).lives + ")");
+  await volver();
+  ok(q2.errores.length === 0, "sin errores de JavaScript en los corazones" + (q2.errores.length ? ": " + q2.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
