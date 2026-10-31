@@ -417,28 +417,32 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   e1 = await estado(); ok(!e1.vis && !e1.btn, "con «reducir movimiento» no hay brasas ni botón");
   ok(fu.errores.length === 0, "sin errores de JavaScript con las animaciones de fondo" + (fu.errores.length ? ": " + fu.errores[0] : ""));
 
-  // 16 · ondas del tema Agua (2.186): anillos finos detrás del contenido, mismo botón, límite de cuatro y respeto de «reducir movimiento»
+  // 16 · ondas por refracción del tema Agua (2.187): lentes dentro del fondo, mismo botón, límite de dos, freno automático y «reducir movimiento»
   const ag = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), G = ag.page;
-  const est2 = () => G.evaluate(() => { const c = document.querySelector(".ondas"), b = document.getElementById("amb-toggle"), cs = getComputedStyle(c); const os = [...document.querySelectorAll(".onda")]; return { n: os.length, vis: cs.display !== "none", z: cs.zIndex, pe: cs.pointerEvents, btn: !b.hidden && getComputedStyle(b).display !== "none", brasas: getComputedStyle(document.querySelector(".brasas")).display !== "none", anim: os[0] ? getComputedStyle(os[0]).animationName : "", dur: os.map(e => parseFloat(getComputedStyle(e).animationDuration)), op: os.map(e => +getComputedStyle(e).getPropertyValue("--o")), x: os.map(e => parseFloat(getComputedStyle(e).getPropertyValue("--x"))) }; });
-  await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await G.waitForTimeout(300);
+  const est2 = () => G.evaluate(() => { const b = document.getElementById("amb-toggle"), f = document.getElementById("fondo-batalla"), l = [...f.querySelectorAll(".lente")]; return { n: l.length, vis: l.length ? getComputedStyle(l[0]).display !== "none" : null, filtro: l[0] ? getComputedStyle(l[0]).filter : "", op: l.map(e => +getComputedStyle(e).opacity), btn: !b.hidden && getComputedStyle(b).display !== "none", brasas: getComputedStyle(document.querySelector(".brasas")).display !== "none", tieneFiltro: !!document.getElementById("ond-lente"), padre: l[0] ? l[0].parentElement.id : "" }; });
   let g0 = await est2();
-  ok(g0.vis && g0.btn && g0.z === "-1" && g0.pe === "none" && !g0.brasas, "en Agua hay un contenedor de ondas detrás del contenido, sin recibir toques, el botón de animaciones y ninguna brasa");
-  await G.evaluate(() => { for (let i = 0; i < 6; i++) AMBIENTE.onda({ x: 8 + i * 3, y: 20 + i * 10 }); }); await G.waitForTimeout(400);
+  ok(g0.tieneFiltro && g0.n === 0, "el filtro de ondas existe y en reposo no hay ninguna lente (el fondo no se filtra: costo cero)");
+  await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await G.waitForTimeout(300);
+  await G.evaluate(() => { AMBIENTE.onda({ x: 170, y: 420, vida: 20000, rmax: 200 }); AMBIENTE.onda({ x: 1100, y: 300, vida: 20000, rmax: 200 }); AMBIENTE.onda({ x: 100, y: 100, vida: 20000, rmax: 200 }); }); await G.waitForTimeout(1500);
   g0 = await est2();
-  ok(g0.n >= 4 && /ondaAbre/.test(g0.anim) && g0.dur.every(d => d >= 7 && d <= 10) && g0.op.every(o => o >= .26 && o <= .4), "las ondas son lentas (" + g0.dur.map(d => d.toFixed(1)).join(", ") + " s) y tenues (opacidad máx. " + Math.max(...g0.op) + ")");
-  await G.evaluate(() => { document.querySelectorAll(".onda").forEach(e => e.remove()); });
-  const nat = await (async () => { for (let k = 0; k < 20; k++) { const x = await est2(); if (x.n >= 1) return x; await sleep(500); } return await est2(); })();
-  ok(nat.n >= 1 && nat.x.every(x => x < 20 || x > 80), "nacen solas, por los costados (x = " + nat.x.map(v => v.toFixed(0)).join(", ") + " %)");
-  const sobre = await G.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest(".ondas"); });
+  ok(g0.n === 2 && g0.vis && /ond-lente/.test(g0.filtro) && g0.padre === "fondo-batalla" && g0.btn && !g0.brasas, "en Agua hay a lo sumo dos ondas vivas, nacen dentro del fondo con el filtro de refracción y aparece el botón (" + g0.n + " lentes)");
+  const bbox = await G.evaluate(() => { const l = document.querySelector(".lente").getBoundingClientRect(), f = document.getElementById("fondo-batalla").getBoundingClientRect(); return { w: Math.round(l.width), h: Math.round(l.height), dentro: l.width < f.width / 2 }; });
+  ok(bbox.w === bbox.h && bbox.dentro, "cada onda es un círculo pequeño y no todo el fondo (" + bbox.w + " px)");
+  const sobre = await G.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest("#fondo-batalla"); });
   ok(sobre, "las ondas nunca quedan por encima del tablero");
   await G.click("#amb-toggle"); await G.waitForTimeout(200);
-  g0 = await est2(); ok(!g0.vis, "el mismo botón apaga las ondas");
+  g0 = await est2(); ok(g0.n === 2 && g0.vis === false, "el mismo botón apaga las ondas (las lentes dejan de mostrarse)");
   await G.click("#amb-toggle"); await G.waitForTimeout(200);
+  g0 = await est2(); ok(g0.vis === true, "y las vuelve a mostrar con el mismo botón");
   await G.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await G.waitForTimeout(300);
-  g0 = await est2(); ok(!g0.vis && g0.brasas, "en Fuego se ven las brasas y ya no las ondas");
+  g0 = await est2(); ok(g0.vis === false && g0.brasas, "en Fuego se ven las brasas y las lentes de Agua no se muestran");
+  await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua"));
+  await G.evaluate(() => { AMBIENTE.frena(); }); await G.waitForTimeout(200);
+  g0 = await est2(); const lleno = await G.evaluate(() => AMBIENTE.onda({ x: 300, y: 300 }));
+  ok(g0.n === 0 && lleno === false, "el freno automático retira las ondas y no deja que nazcan más en esa sesión");
   await G.emulateMedia({ reducedMotion: "reduce" });
   await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await G.waitForTimeout(300);
-  g0 = await est2(); ok(!g0.vis && !g0.btn, "con «reducir movimiento» no hay ondas ni botón");
+  g0 = await est2(); ok(!g0.btn, "con «reducir movimiento» no aparece el botón y no nacen ondas por su cuenta");
   ok(ag.errores.length === 0, "sin errores de JavaScript con las ondas" + (ag.errores.length ? ": " + ag.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
