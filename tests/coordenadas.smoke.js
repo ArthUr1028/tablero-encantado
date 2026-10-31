@@ -95,7 +95,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
     if (k < 2) { s = await esperaTurno(page, 9, vidas); ok(s && s.lives === vidas - 1, "un fallo cuesta una vida (tocó " + mala + ", era " + t + ")"); }
   }
   await page.waitForTimeout(1500);
-  const fin = await page.evaluate(() => ({ msg: document.getElementById("cd-msg").textContent, start: !document.getElementById("cd-start").hidden, txt: document.getElementById("cd-start").textContent, best: localStorage.getItem("tablero.coordsBest"), bestEl: document.getElementById("cd-best").textContent }));
+  const fin = await page.evaluate(() => ({ msg: document.getElementById("cd-msg").textContent, start: !document.getElementById("cd-start").hidden, txt: document.getElementById("cd-start").textContent, best: localStorage.getItem("tablero.coordsBest2"), bestEl: document.getElementById("cd-best").textContent }));
   ok(/Fin del reto/.test(fin.msg) && /récord/i.test(fin.msg) && fin.start && fin.txt === "Jugar otra vez", "con 3 fallos termina, felicita el récord y ofrece jugar otra vez");
   ok(fin.best === "9" && fin.bestEl === "9", "el récord (9) se guarda en el dispositivo");
 
@@ -132,7 +132,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok(s && s.score === 12, "con ayuda también se juega (12 aciertos)");
   for (let k = 0; k < 3; k++) { const t = await objetivo(page); const v = (await info(page)).lives; await page.evaluate(t => { [...document.querySelectorAll("#cd-grid .cd-sq")].find(x => x.getAttribute("aria-label") !== t).click(); }, t); if (k < 2) await esperaTurno(page, 12, v); }
   await page.waitForTimeout(1500);
-  const ay = await page.evaluate(() => ({ msg: document.getElementById("cd-msg").textContent, best: localStorage.getItem("tablero.coordsBest") }));
+  const ay = await page.evaluate(() => ({ msg: document.getElementById("cd-msg").textContent, best: localStorage.getItem("tablero.coordsBest2") }));
   ok(/no cuenta para el récord/.test(ay.msg) && ay.best === "9", "con ayuda no se supera ni se guarda el récord (sigue en " + ay.best + ")");
   await page.keyboard.press("Escape");
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
@@ -157,6 +157,69 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await m.page.touchscreen.tap(caja.x, caja.y); await m.page.waitForTimeout(400);
   ok(sm && (await info(m.page)).score === 1, "un toque con el dedo en la casilla correcta cuenta como acierto");
   ok(m.errores.length === 0, "sin errores de JavaScript en el móvil" + (m.errores.length ? ": " + m.errores[0] : ""));
+  // 10 · niveles (2.179): cuatro orientaciones, preguntas de color y de nombre, subida de nivel y giros coherentes
+  const nv = await nueva(browser, url), P = nv.page;
+  await P.evaluate(() => document.getElementById("cd-open").click()); await P.waitForTimeout(600);
+  let okOr = true; const detOr = [];
+  for (const [r, tl, bl] of [[0, "a8", "a1"], [1, "a1", "h1"], [2, "h1", "h8"], [3, "h8", "a8"]]) {
+    const o = await P.evaluate(r => { window.__cdTest.rot(r); const c = [...document.querySelectorAll("#cd-grid .cd-sq")], lab = c.map(x => x.getAttribute("aria-label")); return { tl: lab[0], bl: lab[56], uniq: new Set(lab).size, a1: c.find(x => x.getAttribute("aria-label") === "a1").classList.contains("drk") }; }, r);
+    if (!(o.tl === tl && o.bl === bl && o.uniq === 64 && o.a1)) { okOr = false; detOr.push(r + ":" + JSON.stringify(o)); }
+  }
+  ok(okOr, "las cuatro orientaciones colocan las 64 casillas (arriba-izquierda a8 / a1 / h1 / h8) y a1 siempre es oscura " + detOr.join(" "));
+  await P.evaluate(() => { const h = document.getElementById("cd-help"); h.checked = true; h.dispatchEvent(new Event("change")); });
+  const rotulos = r => P.evaluate(r => { window.__cdTest.rot(r); return [...document.querySelectorAll("#cd-ranks span")].map(x => x.textContent).join("") + "/" + [...document.querySelectorAll("#cd-files span")].map(x => x.textContent).join(""); }, r);
+  const r1 = await rotulos(1), r3 = await rotulos(3);
+  ok(r1 === "abcdefgh/12345678" && r3 === "hgfedcba/87654321", "con ayuda, a un cuarto de vuelta los bordes cambian de eje: letras al costado, números abajo (" + r1 + " · " + r3 + ")");
+  await P.evaluate(() => { const h = document.getElementById("cd-help"); h.checked = false; h.dispatchEvent(new Event("change")); window.__cdTest.rot(0); window.__cdTest.kind("color"); document.getElementById("cd-start").click(); });
+  const espera = async kind => { for (let i = 0; i < 80; i++) { const x = await info(P); if (x && !x.locked && x.kind === kind) return x; await sleep(100); } return null; };
+  let q = await espera("color");
+  const col = await P.evaluate(() => ({ t: document.getElementById("cd-target").textContent.trim(), veil: document.getElementById("cd-board").classList.contains("cd-veil"), ops: [...document.querySelectorAll("#cd-ans .cd-opt")].map(x => x.dataset.v).join(), vis: !document.getElementById("cd-ans").hidden, msg: document.getElementById("cd-msg").textContent.trim() }));
+  await P.waitForTimeout(400);
+  const op = await P.evaluate(() => parseFloat(getComputedStyle(document.getElementById("cd-grid")).opacity));
+  ok(q && col.vis && col.veil && col.ops === "l,d" && /Clara u oscura/.test(col.msg) && /^[a-h][1-8]$/.test(col.t) && op < .3, "pregunta de color: casilla pedida, dos botones y el tablero apagado (opacidad " + op.toFixed(2) + ", " + col.t + ")");
+  const clara = t => (("abcdefgh".indexOf(t[0])) + (+t[1] - 1)) % 2 !== 0;
+  const pulsa = (v) => P.evaluate(v => document.querySelector('#cd-ans .cd-opt[data-v="' + v + '"]').click(), v);
+  await pulsa(clara(col.t) ? "d" : "l");           // a propósito, la contraria
+  await P.waitForTimeout(150);
+  const mal = await P.evaluate(() => ({ good: !!document.querySelector("#cd-ans .cd-opt.good"), msg: document.getElementById("cd-msg").textContent.trim(), veil: document.getElementById("cd-board").classList.contains("cd-veil") }));
+  ok((await info(P)).lives === 2 && mal.good && !mal.veil && /La casilla [a-h][1-8] es (clara|oscura)\./.test(mal.msg), "un error de color cuesta una vida, marca el botón bueno y enciende el tablero («" + mal.msg + "»)");
+  q = await espera("color");
+  const c2 = await objetivo(P);
+  await P.evaluate(() => window.__cdTest.kind("nombre"));
+  await pulsa(clara(c2) ? "l" : "d");
+  await P.waitForTimeout(300);
+  ok((await info(P)).score === 1, "acertar el color suma un acierto");
+  q = await espera("nombre");
+  const nm = await P.evaluate(() => { const a = document.querySelector("#cd-grid .cd-sq.ask"); return { cel: a && a.getAttribute("aria-label"), ops: [...document.querySelectorAll("#cd-ans .cd-opt")].map(x => x.dataset.v), t: document.getElementById("cd-target").textContent.trim(), veil: document.getElementById("cd-board").classList.contains("cd-veil"), msg: document.getElementById("cd-msg").textContent.trim() }; });
+  ok(q && nm.cel && nm.ops.length === 4 && new Set(nm.ops).size === 4 && nm.ops.includes(nm.cel) && nm.t === "?" && !nm.veil && /marcada/.test(nm.msg), "pregunta de nombre: casilla marcada, cuatro opciones distintas y la buena entre ellas (" + nm.cel + " entre " + nm.ops.join(",") + ")");
+  await P.evaluate(() => window.__cdTest.kind("toca"));
+  await pulsa(nm.cel);
+  await P.waitForTimeout(300);
+  ok((await info(P)).score === 2, "acertar el nombre suma un acierto");
+  // subir hasta el nivel Caballero (15 aciertos) solo con preguntas de tocar
+  let lv = null, avisoNivel = "", sc = null;
+  for (let i = 0; i < 13; i++) {
+    sc = await esperaTurno(P, -1, 2); if (!sc) break;
+    const t = await objetivo(P), antes = (await info(P)).score;
+    await tocar(P, t);
+    if (antes === 14) { await P.waitForTimeout(400); avisoNivel = await P.evaluate(() => document.getElementById("cd-msg").textContent.trim()); }
+    for (let k = 0; k < 80; k++) { const y = await info(P); if (y && y.score > antes) break; await sleep(50); }
+  }
+  lv = await info(P);
+  ok(lv && lv.score === 15 && lv.lvl === 1 && /Nivel nuevo/.test(avisoNivel) && /Caballero/.test(avisoNivel), "con 15 aciertos se sube al nivel Caballero y se avisa («" + avisoNivel + "»)");
+  // 12 aciertos más: los giros (de media vuelta o de un cuarto) dejan siempre la cuadrícula acorde a su orientación
+  let coherente = true, vistas = new Set(), det = "";
+  for (let i = 0; i < 12; i++) {
+    sc = await esperaTurno(P, -1, 2); if (!sc) { coherente = false; det = "sin turno"; break; }
+    const esperado = ["a8", "a1", "h1", "h8"][sc.rot], real = await primera(P); vistas.add(sc.rot);
+    if (esperado !== real) { coherente = false; det += sc.rot + ":" + real + " "; }
+    const t = await objetivo(P), antes = sc.score; await tocar(P, t);
+    for (let k = 0; k < 80; k++) { const y = await info(P); if (y && y.score > antes) break; await sleep(50); }
+  }
+  ok(coherente, "tras cada giro la cuadrícula coincide con su orientación (orientaciones vistas: " + [...vistas].join(",") + ") " + det);
+  const fin2 = await info(P) || { lvl: -1, score: -1 };
+  ok(fin2.score >= 27 && fin2.lvl === 2, "con 25 aciertos se llega al nivel Maestro (aciertos " + fin2.score + ", nivel " + fin2.lvl + ")");
+  ok(nv.errores.length === 0, "sin errores de JavaScript en los niveles" + (nv.errores.length ? ": " + nv.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
