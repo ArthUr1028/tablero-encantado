@@ -417,7 +417,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   e1 = await estado(); ok(!e1.vis && !e1.btn, "con «reducir movimiento» no hay brasas ni botón");
   ok(fu.errores.length === 0, "sin errores de JavaScript con las animaciones de fondo" + (fu.errores.length ? ": " + fu.errores[0] : ""));
 
-  // 16 · ondas por refracción del tema Agua (2.187): lentes dentro del fondo, mismo botón, límite de dos, freno automático y «reducir movimiento»
+  // 16 · ondas por refracción del tema Agua (2.187): lentes dentro del fondo, mismo botón, límite de tres, freno automático y «reducir movimiento»
   const ag = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), G = ag.page;
   const est2 = () => G.evaluate(() => { const b = document.getElementById("amb-toggle"), f = document.getElementById("fondo-batalla"), l = [...f.querySelectorAll(".lente")]; return { n: l.length, vis: l.length ? getComputedStyle(l[0]).display !== "none" : null, filtro: l[0] ? getComputedStyle(l[0]).filter : "", op: l.map(e => +getComputedStyle(e).opacity), btn: !b.hidden && getComputedStyle(b).display !== "none", brasas: getComputedStyle(document.querySelector(".brasas")).display !== "none", tieneFiltro: !!document.getElementById("ond-lente"), padre: l[0] ? l[0].parentElement.id : "" }; });
   let g0 = await est2();
@@ -425,13 +425,13 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await G.waitForTimeout(300);
   await G.evaluate(() => { AMBIENTE.onda({ x: 170, y: 420, vida: 20000, rmax: 200 }); AMBIENTE.onda({ x: 1100, y: 300, vida: 20000, rmax: 200 }); AMBIENTE.onda({ x: 100, y: 100, vida: 20000, rmax: 200 }); }); await G.waitForTimeout(1500);
   g0 = await est2();
-  ok(g0.n === 2 && g0.vis && /ond-lente/.test(g0.filtro) && g0.padre === "fondo-batalla" && g0.btn && !g0.brasas, "en Agua hay a lo sumo dos ondas vivas, nacen dentro del fondo con el filtro de refracción y aparece el botón (" + g0.n + " lentes)");
+  ok(g0.n === 3 && g0.vis && /ond-lente/.test(g0.filtro) && g0.padre === "fondo-batalla" && g0.btn && !g0.brasas, "en Agua hay a lo sumo tres ondas vivas, nacen dentro del fondo con el filtro de refracción y aparece el botón (" + g0.n + " lentes)");
   const bbox = await G.evaluate(() => { const l = document.querySelector(".lente").getBoundingClientRect(), f = document.getElementById("fondo-batalla").getBoundingClientRect(); return { w: Math.round(l.width), h: Math.round(l.height), dentro: l.width < f.width / 2 }; });
   ok(bbox.w === bbox.h && bbox.dentro, "cada onda es un círculo pequeño y no todo el fondo (" + bbox.w + " px)");
   const sobre = await G.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest("#fondo-batalla"); });
   ok(sobre, "las ondas nunca quedan por encima del tablero");
   await G.click("#amb-toggle"); await G.waitForTimeout(200);
-  g0 = await est2(); ok(g0.n === 2 && g0.vis === false, "el mismo botón apaga las ondas (las lentes dejan de mostrarse)");
+  g0 = await est2(); ok(g0.n === 3 && g0.vis === false, "el mismo botón apaga las ondas (las lentes dejan de mostrarse)");
   await G.click("#amb-toggle"); await G.waitForTimeout(200);
   g0 = await est2(); ok(g0.vis === true, "y las vuelve a mostrar con el mismo botón");
   await G.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await G.waitForTimeout(300);
