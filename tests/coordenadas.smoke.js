@@ -176,7 +176,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const espera = async kind => { for (let i = 0; i < 80; i++) { const x = await info(P); if (x && !x.locked && x.kind === kind) return x; await sleep(100); } return null; };
   let q = await espera("color");
   const col = await P.evaluate(() => ({ t: document.getElementById("cd-target").textContent.trim(), veil: document.getElementById("cd-board").classList.contains("cd-veil"), ops: [...document.querySelectorAll("#cd-ans .cd-opt")].map(x => x.dataset.v).join(), vis: !document.getElementById("cd-ans").hidden, msg: document.getElementById("cd-msg").textContent.trim() }));
-  await P.waitForTimeout(400);
+  await P.waitForTimeout(900);
   const op = await P.evaluate(() => parseFloat(getComputedStyle(document.getElementById("cd-grid")).opacity));
   ok(q && col.vis && col.veil && col.ops === "l,d" && /Clara u oscura/.test(col.msg) && /^[a-h][1-8]$/.test(col.t) && op < .3, "pregunta de color: casilla pedida, dos botones y el tablero apagado (opacidad " + op.toFixed(2) + ", " + col.t + ")");
   const clara = t => (("abcdefgh".indexOf(t[0])) + (+t[1] - 1)) % 2 !== 0;
@@ -325,6 +325,53 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const sPres = await info(R); await R.mouse.up(); await R.waitForTimeout(200);
   ok(scol && sPres.score === 4, "los botones de respuesta también responden al presionar con el ratón (aciertos " + (sPres && sPres.score) + ")");
   ok(rt.errores.length === 0, "sin errores de JavaScript con el ratón" + (rt.errores.length ? ": " + rt.errores[0] : ""));
+
+  // 13 · claudIA más presente (2.182): rostro, casillas enemigas, mapa de calor, diagnóstico y tamaño en ventanas bajas
+  const clx = await nueva(browser, url, { viewport: { width: 1280, height: 600 } }), C = clx.page;
+  await C.evaluate(() => document.getElementById("cd-open").click()); await C.waitForTimeout(700);
+  const tam = await C.evaluate(() => { const g = document.getElementById("cd-grid").getBoundingClientRect(), b = document.querySelector(".cd-box").getBoundingClientRect(); return { w: Math.round(g.width), h: Math.round(g.height), cabe: g.top >= 0 && g.bottom <= innerHeight + 1, caja: Math.round(b.height), alto: innerHeight }; });
+  ok(tam.w >= 400 && tam.w === tam.h && tam.cabe, "en una ventana de 1280×600 el tablero ya no se desploma: mide " + tam.w + " px y cabe entero (antes 260)");
+  const av = await C.evaluate(() => { const a = document.getElementById("cd-av"), r = a.getBoundingClientRect(); return { img: getComputedStyle(a).backgroundImage.startsWith("url("), w: Math.round(r.width) }; });
+  ok(av.img && av.w >= 36, "claudIA muestra su rostro junto a «dice:» (" + av.w + " px)");
+  await C.evaluate(() => { window.__cdTest.premios(false); window.__cdTest.apuestas(false); window.__cdTest.kind("toca"); document.getElementById("cd-start").click(); });
+  await esperaTurno(C, -1, 3);
+  let tt = await objetivo(C), a0 = (await info(C)).score; await tocar(C, tt);
+  const animoOk = await C.evaluate(() => document.getElementById("cd-av").classList.contains("ok"));
+  for (let k = 0; k < 40; k++) { const y = await info(C); if (y && y.score > a0) break; await sleep(50); }
+  ok(animoOk, "al acertar, el rostro de claudIA reacciona (brilla en verde)");
+  await esperaTurno(C, a0, 3); tt = await objetivo(C);
+  const malaC = await C.evaluate(t => { const b = [...document.querySelectorAll("#cd-grid .cd-sq")].find(x => x.getAttribute("aria-label") !== t); b.click(); return document.getElementById("cd-av").classList.contains("bad"); }, tt);
+  const guardado = await C.evaluate(t => JSON.parse(localStorage.getItem("tablero.coordsFallos") || "{}")[t], tt);
+  ok(malaC && guardado && guardado.f >= 1, "al fallar, el rostro reacciona (en rojo) y la casilla " + tt + " queda anotada como floja (" + JSON.stringify(guardado) + ")");
+  await C.waitForTimeout(1500);
+  // las casillas enemigas salen más seguido y se «curan» al acertarlas
+  await C.evaluate(() => { window.__cdTest.fallos({ e4: { f: 3, n: 4 }, g6: { f: 3, n: 4 }, b3: { f: 3, n: 4 }, f1: { f: 3, n: 4 }, d7: { f: 3, n: 4 } }); window.__cdTest.giro(999); });
+  let vistasF = 0; const flojas = ["e4", "g6", "b3", "f1", "d7"];
+  for (let i = 0; i < 40; i++) {
+    const s2 = await esperaTurno(C, -1, -1); if (!s2) break;
+    const q = await objetivo(C); if (flojas.includes(q)) vistasF++;
+    const antes = (await info(C)).score; await tocar(C, q);
+    for (let k = 0; k < 40; k++) { const y = await info(C); if (y && y.score > antes) break; await sleep(50); }
+  }
+  const rest = await C.evaluate(() => JSON.parse(localStorage.getItem("tablero.coordsFallos")));
+  ok(vistasF >= 4, "las casillas flojas salen más seguido que por azar (" + vistasF + " de 40 preguntas; por azar saldrían ~3)");
+  ok(flojas.some(k => rest[k].f < 3), "al acertarlas, la casilla floja se va «curando» (" + flojas.map(k => k + ":" + rest[k].f).join(" ") + ")");
+  // el final: mapa de calor, tus enemigas y diagnóstico
+  await C.evaluate(() => window.__cdTest.fallos({ e4: { f: 6, n: 8 }, g6: { f: 5, n: 7 }, b3: { f: 4, n: 6 }, f1: { f: .5, n: 2 } }));
+  for (let k = 0; k < 4; k++) { const s3 = await esperaTurno(C, -1, -1); if (!s3 || !s3.on) break; const q = await objetivo(C); await C.evaluate(q => { [...document.querySelectorAll("#cd-grid .cd-sq")].find(x => x.getAttribute("aria-label") !== q).click(); }, q); await C.waitForTimeout(1350); const y = await info(C); if (!y || !y.on) break; }
+  await C.waitForTimeout(600);
+  const fin3 = await C.evaluate(() => ({ calor: document.getElementById("cd-grid").classList.contains("cd-calor"), enem: [...document.querySelectorAll("#cd-grid .cd-enem")].map(x => x.textContent), tinte: document.querySelectorAll("#cd-grid .cd-sq.cal").length, taunt: document.getElementById("cd-taunt").textContent.replace(/\s+/g, " ").trim() }));
+  ok(fin3.calor && [...fin3.enem].sort().join() === "b3,e4,g6" && fin3.tinte >= 3 && /^Tus enemigas: .+ Las conozco bien\.$/.test(fin3.taunt), "al terminar, mapa de calor con tus peores casillas y claudIA las nombra («" + fin3.taunt + "»)");
+  await C.evaluate(() => { document.getElementById("cd-start").click(); });
+  ok(await C.evaluate(() => !document.getElementById("cd-grid").classList.contains("cd-calor") && !document.querySelector("#cd-grid .cd-enem")), "al empezar otra partida el mapa de calor se quita");
+  const dg = await C.evaluate(() => { const z = () => ({ ok: 0, mal: 0, t: 0 }); const f = (b, n, l) => ({ b: { ok: 0, mal: 0, t: 0, ...b }, n: { ok: 0, mal: 0, t: 0, ...n }, l: { ok: 0, mal: 0, t: 0, ...l } });
+    return [window.__cdTest.diag(f({ ok: 8, mal: 0 }, { ok: 5 }, { ok: 2, mal: 3 })), window.__cdTest.diag(f({ ok: 9, mal: 1 }, { ok: 2, mal: 3 }, { ok: 3 })), window.__cdTest.diag(f({ ok: 9, mal: 1, t: 3 }, {}, {})), window.__cdTest.diag(f({ ok: 6, mal: 3 }, {}, {}))]; });
+  ok(/de lado/.test(dg[0]) && /negras/.test(dg[1]) && /velocidad/.test(dg[2]) && dg[3] === null, "el diagnóstico distingue tablero de lado, negras, velocidad y sin patrón claro");
+  await C.evaluate(() => { setLang("en"); });
+  const trad13 = await C.evaluate(() => ["Tus enemigas:", "Las conozco bien.", "Con el tablero de lado fallas mucho más. Practica los giros.", "Desde las negras te cuesta más. Practica el tablero girado.", "No te falta conocimiento, te falta velocidad: pierdes más por tiempo que por error."].every(x => tx(x) !== x));
+  await C.evaluate(() => { setLang("es"); });
+  ok(trad13, "las frases nuevas de claudIA tienen traducción al inglés");
+  ok(clx.errores.length === 0, "sin errores de JavaScript con claudIA" + (clx.errores.length ? ": " + clx.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
