@@ -430,8 +430,24 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok(bbox.w === bbox.h && bbox.dentro, "cada onda es un círculo pequeño y no todo el fondo (" + bbox.w + " px)");
   const sobre = await G.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest("#fondo-batalla"); });
   ok(sobre, "las ondas nunca quedan por encima del tablero");
+  // 2.190 · tope adaptable: arranca en 3, sube de uno en uno solo con fotogramas fluidos y baja si el aparato se atraganta
+  const ad = await G.evaluate(() => { const A = AMBIENTE, r = {}; A.fijaTope(3); r.ini = A.tope();
+    for(let i = 0; i < 179; i++) A.evalua(16, true, 1000); r.antes = A.tope(); A.evalua(16, true, 1000); r.sube1 = A.tope();
+    for(let i = 0; i < 180; i++) A.evalua(16, false, 1000); r.sinLlenas = A.tope();      // si no están todas llenas no hay prueba de que aguante
+    for(let i = 0; i < 180; i++) A.evalua(16, true, 1000); r.sube2 = A.tope();
+    for(let i = 0; i < 400; i++) A.evalua(16, true, 1000); r.techo = A.tope();
+    for(let i = 0; i < 6; i++) A.evalua(60, true, 2000); r.baja = A.tope();
+    for(let i = 0; i < 400; i++) A.evalua(16, true, 3000); r.espera = A.tope();           // 90 s sin volver a subir
+    for(let i = 0; i < 180; i++) A.evalua(16, true, 100000); r.despues = A.tope();
+    for(let i = 0; i < 20; i++) A.evalua(60, true, 100000); r.piso = A.tope();
+    A.fijaTope(3); return r; });
+  ok(ad.ini === 3 && ad.antes === 3 && ad.sube1 === 4 && ad.sinLlenas === 4 && ad.sube2 === 5 && ad.techo === 5, "el tope de ondas arranca en 3, sube de uno en uno con ~3 s de fotogramas fluidos y todas las ondas llenas, y no pasa de 5 (" + JSON.stringify([ad.ini, ad.antes, ad.sube1, ad.sinLlenas, ad.sube2, ad.techo]) + ")");
+  ok(ad.baja === 4 && ad.espera === 4 && ad.despues === 5 && ad.piso === 3, "si el aparato se atraganta el tope baja un escalón, espera 90 s antes de volver a subir y nunca baja de 3 (" + JSON.stringify([ad.baja, ad.espera, ad.despues, ad.piso]) + ")");
+  await G.evaluate(() => { AMBIENTE.fijaTope(5); for(let i = 0; i < 6; i++) AMBIENTE.onda({ x: 100 + i * 150, y: 500, vida: 20000, rmax: 150 }); }); await G.waitForTimeout(300);
+  g0 = await est2(); ok(g0.n === 5, "con el tope en 5 caben cinco ondas vivas y no seis (" + g0.n + ")");
+  await G.evaluate(() => { AMBIENTE.fijaTope(3); }); 
   await G.click("#amb-toggle"); await G.waitForTimeout(200);
-  g0 = await est2(); ok(g0.n === 3 && g0.vis === false, "el mismo botón apaga las ondas (las lentes dejan de mostrarse)");
+  g0 = await est2(); ok(g0.n >= 3 && g0.vis === false, "el mismo botón apaga las ondas (las lentes dejan de mostrarse)");
   await G.click("#amb-toggle"); await G.waitForTimeout(200);
   g0 = await est2(); ok(g0.vis === true, "y las vuelve a mostrar con el mismo botón");
   await G.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await G.waitForTimeout(300);
