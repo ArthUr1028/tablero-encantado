@@ -297,6 +297,34 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok((await info(Q)).lives === vT - 1, "dejar pasar el tiempo en una apuesta cuesta un corazón (" + vT + " → " + (await info(Q)).lives + ")");
   await volver();
   ok(q2.errores.length === 0, "sin errores de JavaScript en los corazones" + (q2.errores.length ? ": " + q2.errores[0] : ""));
+
+  // 12 · ratón (2.181): se responde al presionar, no al soltar, y el clic posterior no cae sobre la pregunta siguiente
+  const rt = await nueva(browser, url, { viewport: { width: 1200, height: 900 } }), R = rt.page;
+  await R.evaluate(() => { document.getElementById("cd-open").click(); });
+  await R.waitForTimeout(600);
+  await R.evaluate(() => { window.__cdTest.premios(false); window.__cdTest.apuestas(false); document.getElementById("cd-start").click(); });
+  await esperaTurno(R, -1, 3);
+  const centro = async n => R.evaluate(n => { const r = document.querySelector('#cd-grid .cd-sq[aria-label="' + n + '"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, n);
+  let tr = await objetivo(R), c1 = await centro(tr);
+  await R.mouse.move(c1.x, c1.y); await R.mouse.down(); await R.waitForTimeout(80);
+  const alPresionar = (await info(R)).score;
+  await R.waitForTimeout(500);                       // se mantiene presionado más tiempo que la pausa entre preguntas
+  await R.mouse.up(); await R.waitForTimeout(300);
+  const tras = await info(R);
+  ok(alPresionar === 1 && tras.score === 1 && tras.lives === 3, "con el ratón el acierto cuenta al presionar (" + alPresionar + ") y soltar después no cuenta otra vez ni resta (aciertos " + tras.score + ", corazones " + tras.lives + ")");
+  await esperaTurno(R, 1, 3);
+  tr = await objetivo(R); c1 = await centro(tr); await R.mouse.click(c1.x, c1.y); await R.waitForTimeout(300);
+  ok((await info(R)).score === 2, "un clic normal con el ratón sigue sumando un solo acierto");
+  await esperaTurno(R, 2, 3);
+  await R.evaluate(() => { window.__cdTest.kind("color"); });
+  tr = await objetivo(R); const cl = await centro(tr); await R.mouse.click(cl.x, cl.y);   // acierto: la siguiente pregunta es la de color
+  const scol = await (async () => { for (let k = 0; k < 80; k++) { const y = await info(R); if (y && y.kind === "color" && !y.locked) return y; await sleep(50); } return null; })();
+  const tc = await objetivo(R), claraR = (("abcdefgh".indexOf(tc[0])) + (+tc[1] - 1)) % 2 !== 0;
+  const bt = await R.evaluate(v => { const r = document.querySelector('#cd-ans .cd-opt[data-v="' + v + '"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, claraR ? "l" : "d");
+  await R.mouse.move(bt.x, bt.y); await R.mouse.down(); await R.waitForTimeout(60);
+  const sPres = await info(R); await R.mouse.up(); await R.waitForTimeout(200);
+  ok(scol && sPres.score === 4, "los botones de respuesta también responden al presionar con el ratón (aciertos " + (sPres && sPres.score) + ")");
+  ok(rt.errores.length === 0, "sin errores de JavaScript con el ratón" + (rt.errores.length ? ": " + rt.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
