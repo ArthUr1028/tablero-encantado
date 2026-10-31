@@ -410,12 +410,31 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   ok(!e1.vis && e1.pres === "false", "tras recargar siguen apagadas");
   await F.click("#amb-toggle"); await F.waitForTimeout(200);
   e1 = await estado(); ok(e1.vis && e1.pres === "true" && e1.ls === "1", "y se vuelven a encender con el mismo botón");
-  await F.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await F.waitForTimeout(300);
-  e1 = await estado(); ok(!e1.vis && !e1.btn, "al cambiar a otro tema las brasas y el botón desaparecen");
+  await F.evaluate(() => document.documentElement.setAttribute("data-theme", "metal")); await F.waitForTimeout(300);
+  e1 = await estado(); ok(!e1.vis && !e1.btn, "al cambiar a un tema sin animación (Metal) las brasas y el botón desaparecen");
   await F.emulateMedia({ reducedMotion: "reduce" });
   await F.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await F.waitForTimeout(300);
   e1 = await estado(); ok(!e1.vis && !e1.btn, "con «reducir movimiento» no hay brasas ni botón");
   ok(fu.errores.length === 0, "sin errores de JavaScript con las animaciones de fondo" + (fu.errores.length ? ": " + fu.errores[0] : ""));
+
+  // 16 · reflejos del tema Agua (2.185): tres bandas detrás del contenido, mismo botón, y que respeten «reducir movimiento»
+  const ag = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), G = ag.page;
+  const est2 = () => G.evaluate(() => { const c = document.querySelector(".reflejos"), b = document.getElementById("amb-toggle"), cs = getComputedStyle(c); const rs = [...document.querySelectorAll(".reflejo")]; return { n: rs.length, vis: cs.display !== "none", z: cs.zIndex, pe: cs.pointerEvents, btn: !b.hidden && getComputedStyle(b).display !== "none", brasas: getComputedStyle(document.querySelector(".brasas")).display !== "none", anim: getComputedStyle(rs[0]).animationName, dur: rs.map(e => parseFloat(getComputedStyle(e).animationDuration)), op: rs.map(e => +getComputedStyle(e).getPropertyValue("--o")) }; });
+  await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await G.waitForTimeout(300);
+  let g0 = await est2();
+  ok(g0.vis && g0.btn && g0.n === 3 && g0.z === "-1" && g0.pe === "none" && /reflejoPasa/.test(g0.anim) && !g0.brasas, "en Agua hay tres bandas de luz detrás del contenido y el botón de animaciones, sin brasas (" + g0.n + " bandas)");
+  ok(g0.dur.every(d => d >= 45 && d <= 70) && g0.op.every(o => o > 0 && o <= .035), "las bandas son lentas (" + g0.dur.join(", ") + " s por cruce) y de brillo mínimo (" + g0.op.join(", ") + ")");
+  const sobre = await G.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest(".reflejos"); });
+  ok(sobre, "los reflejos nunca quedan por encima del tablero");
+  await G.click("#amb-toggle"); await G.waitForTimeout(200);
+  g0 = await est2(); ok(!g0.vis, "el mismo botón apaga los reflejos");
+  await G.click("#amb-toggle"); await G.waitForTimeout(200);
+  await G.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await G.waitForTimeout(300);
+  g0 = await est2(); ok(!g0.vis && g0.brasas, "en Fuego se ven las brasas y ya no los reflejos");
+  await G.emulateMedia({ reducedMotion: "reduce" });
+  await G.evaluate(() => document.documentElement.setAttribute("data-theme", "agua")); await G.waitForTimeout(300);
+  g0 = await est2(); ok(!g0.vis && !g0.btn, "con «reducir movimiento» no hay reflejos ni botón");
+  ok(ag.errores.length === 0, "sin errores de JavaScript con los reflejos" + (ag.errores.length ? ": " + ag.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
