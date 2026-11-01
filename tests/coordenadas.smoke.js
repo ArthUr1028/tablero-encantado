@@ -468,7 +468,9 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await tema("metal");
   const met = await M.evaluate(() => { const c = document.querySelector(".destellos"), cs = getComputedStyle(c), d = document.querySelectorAll(".destello"), b = document.getElementById("amb-toggle"); return { n: d.length, z: cs.zIndex, pe: cs.pointerEvents, pos: cs.position, anim: getComputedStyle(d[0]).animationName, dur: parseFloat(getComputedStyle(d[0]).animationDuration), op: +getComputedStyle(d[0]).getPropertyValue("--o"), btn: !b.hidden }; });
   ok(await vis(".destellos") && met.n === 1 && met.z === "-1" && met.pe === "none" && met.pos === "fixed" && /destelloPasa/.test(met.anim) && met.btn, "en Metal hay un solo destello detrás del contenido, sin recibir toques, y aparece el botón");
-  ok(met.dur >= 30 && met.op > 0 && met.op <= .05, "el destello es lento (un ciclo cada " + met.dur + " s) y de brillo mínimo (" + met.op + ")");
+  ok(met.dur >= 20 && met.dur <= 30 && met.op >= .05 && met.op <= .09, "el barrido cruza cada " + met.dur + " s con un brillo moderado (" + met.op + ")");
+  const chi = await M.evaluate(() => [...document.querySelectorAll(".chispa")].map(c => ({ d: parseFloat(getComputedStyle(c).animationDelay), n: getComputedStyle(c).animationName, s: parseFloat(c.style.getPropertyValue("--s")), o: +c.style.getPropertyValue("--o") })));
+  ok(chi.length >= 6 && chi.every(c => /chispaBrilla/.test(c.n) && c.d >= 1.5 && c.d <= 10.5 && c.s >= 25 && c.s <= 70 && c.o > 0 && c.o <= 1), "a su paso saltan destellos de estrella, cada uno sincronizado con el instante en que el barrido llega a su lugar (" + chi.length + " destellos)");
   ok(!(await vis(".brasas")) && !(await vis(".hojas")), "en Metal no se ven brasas ni hojas");
   const sobreM = await M.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest(".destellos"); });
   ok(sobreM, "el destello nunca queda por encima del tablero");
