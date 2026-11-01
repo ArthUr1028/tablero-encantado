@@ -395,7 +395,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   const fu = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), F = fu.page;
   const estado = () => F.evaluate(() => { const c = document.querySelector(".brasas"), b = document.getElementById("amb-toggle"), e = document.querySelector(".brasa"); const cs = getComputedStyle(c); return { n: document.querySelectorAll(".brasa").length, vis: cs.display !== "none", pos: cs.position, z: cs.zIndex, pe: cs.pointerEvents, btn: !b.hidden && getComputedStyle(b).display !== "none", pres: b.getAttribute("aria-pressed"), anim: getComputedStyle(e).animationName, ls: localStorage.getItem("tablero-encantado.ambiente") }; });
   let e0 = await estado();
-  ok(!e0.vis && !e0.btn, "con el tema normal no hay brasas ni botón de animaciones");
+  ok(!e0.vis && e0.btn, "con el tema normal (Tierra) no hay brasas, pero sí el botón de animaciones");
   await F.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await F.waitForTimeout(300);
   e0 = await estado();
   ok(e0.vis && e0.btn && e0.n === 14 && e0.pos === "fixed" && e0.z === "-1" && e0.pe === "none" && /brasaSube/.test(e0.anim), "en Fuego hay 14 brasas detrás del contenido, sin recibir toques, y aparece el botón (" + e0.n + ", z " + e0.z + ")");
@@ -411,7 +411,7 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await F.click("#amb-toggle"); await F.waitForTimeout(200);
   e1 = await estado(); ok(e1.vis && e1.pres === "true" && e1.ls === "1", "y se vuelven a encender con el mismo botón");
   await F.evaluate(() => document.documentElement.setAttribute("data-theme", "tierra")); await F.waitForTimeout(300);
-  e1 = await estado(); ok(!e1.vis && !e1.btn, "al cambiar a un tema sin animación (Tierra) las brasas y el botón desaparecen");
+  e1 = await estado(); ok(!e1.vis && e1.btn, "al volver a Tierra las brasas desaparecen y el botón se queda (Tierra también tiene animación)");
   await F.emulateMedia({ reducedMotion: "reduce" });
   await F.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await F.waitForTimeout(300);
   e1 = await estado(); ok(!e1.vis && !e1.btn, "con «reducir movimiento» no hay brasas ni botón");
@@ -496,6 +496,34 @@ const primera = page => page.evaluate(() => document.querySelector("#cd-grid .cd
   await tema("aire");
   ok(!(await vis(".destellos")) && !(await vis(".hojas")) && !bm, "con «reducir movimiento» no hay destello, ni hojas, ni botón");
   ok(ma.errores.length === 0, "sin errores de JavaScript en Metal y Aire" + (ma.errores.length ? ": " + ma.errores[0] : ""));
+
+  // 18 · Tierra (2.193): haces de luz con polvo y desprendimientos; activada por defecto
+  const ti = await nueva(browser, url, { viewport: { width: 1280, height: 800 } }), T = ti.page;
+  const visT = sel => T.evaluate(sel => { const c = document.querySelector(sel); return !!c && getComputedStyle(c).display !== "none"; }, sel);
+  const tz = await T.evaluate(() => { const c = document.querySelector(".polvo"), cs = getComputedStyle(c), b = document.getElementById("amb-toggle"), m = [...document.querySelectorAll(".mota")]; return { tema: document.documentElement.getAttribute("data-theme"), z: cs.zIndex, pe: cs.pointerEvents, pos: cs.position, haces: document.querySelectorAll(".haz").length, motas: m.length, anim: m[0] ? getComputedStyle(m[0]).animationName : "", btn: !b.hidden, pres: b.getAttribute("aria-pressed"), ls: (() => { try { return localStorage.getItem("tablero-encantado.ambiente"); } catch (e) { return "?"; } })(), o: +getComputedStyle(document.querySelector(".haz-luz")).getPropertyValue("--o") }; });
+  ok(!tz.tema && await visT(".polvo") && tz.haces === 2 && tz.motas === 16 && /motaFlota/.test(tz.anim) && tz.z === "-1" && tz.pe === "none" && tz.pos === "fixed", "en Tierra, sin tocar nada, hay dos haces de luz con 16 motas de polvo detrás del contenido y sin recibir toques");
+  ok(tz.btn && tz.pres === "true" && tz.ls !== "0", "la animación de Tierra viene activada por defecto y el botón de animaciones está disponible");
+  ok(tz.o > 0 && tz.o <= .07, "la luz de los haces es tenue (" + tz.o + ") y la motas y los haces no están por encima del tablero");
+  const sobreT = await T.evaluate(() => { const r = document.querySelector("#board").getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && !t.closest(".polvo"); });
+  ok(sobreT, "el polvo nunca queda por encima del tablero");
+  const dT1 = await T.evaluate(() => { const A = AMBIENTE, r = {}; r.a = A.desprendimiento({ granos: 6, piedras: 2 }); r.b = A.desprendimiento(); r.cae = A.cayendo(); return r; });
+  await T.waitForTimeout(400);
+  const nT1 = await T.evaluate(() => document.querySelectorAll(".grano").length);
+  ok(dT1.a === true && dT1.b === false && dT1.cae === true && nT1 === 8, "un desprendimiento a la vez: granos y piedritas nacen en una grieta (" + nT1 + " piezas) y no se acepta otro mientras dura");
+  let finT = false; for(let i = 0; i < 24 && !finT; i++){ await T.waitForTimeout(500); finT = await T.evaluate(() => !AMBIENTE.cayendo()); }
+  const nT2 = await T.evaluate(() => document.querySelectorAll(".grano, .puff").length);
+  ok(finT && nT2 === 0, "al terminar se retiran todas las piezas (" + nT2 + " restantes) y puede nacer otro desprendimiento");
+  await T.click("#amb-toggle"); await T.waitForTimeout(200);
+  ok(!(await visT(".polvo")), "el mismo botón apaga el polvo");
+  await T.click("#amb-toggle"); await T.waitForTimeout(200);
+  await T.evaluate(() => document.documentElement.setAttribute("data-theme", "fuego")); await T.waitForTimeout(300);
+  ok(!(await visT(".polvo")) && await visT(".brasas"), "en Fuego se ven las brasas y ya no el polvo de Tierra");
+  await T.evaluate(() => document.documentElement.setAttribute("data-theme", "tierra")); await T.waitForTimeout(300);
+  ok(await visT(".polvo"), "también con el tema marcado explícitamente como Tierra");
+  await T.emulateMedia({ reducedMotion: "reduce" }); await T.waitForTimeout(300);
+  const brT = await T.evaluate(() => !document.getElementById("amb-toggle").hidden && getComputedStyle(document.getElementById("amb-toggle")).display !== "none");
+  ok(!(await visT(".polvo")) && !brT, "con «reducir movimiento» no hay polvo ni botón");
+  ok(ti.errores.length === 0, "sin errores de JavaScript en Tierra" + (ti.errores.length ? ": " + ti.errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\nHAY FALLOS" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
