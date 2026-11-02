@@ -17,7 +17,7 @@ else
 fi
 EJ "initdb -D $DIR/data -A trust >/dev/null"
 EJ "pg_ctl -D $DIR/data -o '-p $PUERTO -k $DIR' -l $DIR/log -w start >/dev/null"
-CASOS="${1:-dark_candados dark_pausa dark_resultado cuaderno marcas reloj_entrada dark_asincrona push}"
+CASOS="${1:-dark_candados dark_pausa dark_resultado cuaderno marcas reloj_entrada dark_asincrona push convocatorias}"
 for caso in $CASOS; do
   echo "================ $caso ================"
   EJ "createdb -h $DIR -p $PUERTO prueba_$caso"
@@ -36,9 +36,13 @@ for caso in $CASOS; do
     EJ "$P -f $RAIZ/tests/sql/async_originales.sql" 2>&1 | grep -E "ERROR|denied|No such file" && echo "(error cargando async_originales.sql)"
     if [ -z "${SIN26:-}" ]; then EJ "$P -f $RAIZ/26_dark_asincrona.sql" 2>&1 | grep -E "ERROR|denied|No such file" && echo "(error cargando 26_dark_asincrona.sql)"; fi
   fi
-  if [ "$caso" = "push" ]; then
+  if [ "$caso" = "push" ] || [ "$caso" = "convocatorias" ]; then
     EJ "$P -f $RAIZ/tests/sql/push_stub.sql" 2>&1 | grep -E "ERROR|denied|No such file" && echo "(error cargando push_stub.sql)"
     EJ "$P -f $RAIZ/27_push.sql" 2>&1 | grep -E "ERROR|denied|No such file" && echo "(error cargando 27_push.sql)"
+  fi
+  if [ "$caso" = "convocatorias" ]; then
+    EJ "$P -f $RAIZ/tests/sql/convocatorias_stub.sql" 2>&1 | grep -E "ERROR|denied|No such file" && echo "(error cargando convocatorias_stub.sql)"
+    EJ "$P -f $RAIZ/28_convocatorias.sql" 2>&1 | grep -E "ERROR|denied|No such file" && echo "(error cargando 28_convocatorias.sql)"
   fi
   EJ "$P -f $RAIZ/tests/sql/$caso.sql" 2>&1
 done
