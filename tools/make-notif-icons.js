@@ -22,10 +22,7 @@ const srv = http.createServer((q, r) => { const f = path.join(RAIZ, q.url.split(
       const q = document.createElement("style"); q.id = "__stage-css";
       q.textContent = "#__stage #board::before,#__stage #board::after,#__stage .cell::before,#__stage .cell::after{display:none!important;content:none!important}#__stage .cell{background:none!important;box-shadow:none!important}";
       document.head.appendChild(q);
-      if(id.startsWith("sh-")){   // ficha de arcilla (como en el tablero de Shatranj): misma regla CSS, dentro de «#board .cell»
-        st.innerHTML = aro + '<div id="board" style="position:relative;display:block;width:340px;height:340px;background:none;border:0;box-shadow:none;padding:0;margin:0"><div class="cell lgt" style="position:relative;width:340px;height:340px;display:block;background:none;overflow:visible">' +
-          '<span class="piece w fairy" style="display:block;width:100%;height:100%;filter:drop-shadow(0 0 16px rgba(210,165,80,.45))"><svg viewBox="0 0 100 100" style="width:100%;height:100%;display:block"><use href="#' + id + '"></use></svg></span></div></div>';
-      } else {
+      {   // todas las piezas (también las de Shatranj, sin su ficha de arcilla) van en oro, igual que las demás
         st.innerHTML = aro +
           '<span class="piece w fairy" style="position:relative;display:block;width:300px;height:300px;color:#efd48c;--piece-edge:#8a6a2c;-webkit-text-stroke:0;filter:drop-shadow(0 0 14px rgba(210,165,80,.55))"><svg viewBox="0 0 100 100" style="width:100%;height:100%;display:block;fill:currentColor"><use href="#' + id + '"></use></svg></span>';
       }

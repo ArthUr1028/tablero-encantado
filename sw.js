@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v9";
+const CACHE_VERSION = "v10";
 const CACHE = "tablero-" + CACHE_VERSION;
 const NET_TIMEOUT_MS = 4000;
 
