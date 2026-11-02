@@ -27,21 +27,21 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await page.goto(url, { waitUntil: "load" });
   await page.waitForTimeout(1500);
 
-  // 1) El reto ofrece Dark Chess solo en vivo
+  // 1) El reto ofrece Dark Chess en vivo y (desde 2.194) también en asíncrona
   const r1 = await page.evaluate(() => {
     const sel = document.getElementById("club-compose-variant");
     const opt = sel.querySelector('option[value="dark"]');
     const out = { existe: !!opt, textoOpt: opt && opt.textContent };
     setClubKind("live"); out.vivoActiva = !opt.disabled && !opt.hidden;
     sel.value = "dark"; setClubKind("async");
-    out.asyncApagada = opt.disabled && opt.hidden; out.asyncVuelveAClasico = sel.value === "clasico";
+    out.asyncActiva = !opt.disabled && !opt.hidden; out.asyncConservaDark = sel.value === "dark";
     setClubKind("live"); out.vivoReactiva = !opt.disabled && !opt.hidden;
     return out;
   });
   ok(r1.existe, "el selector de reto tiene la opción Dark Chess (" + r1.textoOpt + ")");
   ok(r1.vivoActiva, "en «En vivo» la opción está activa");
-  ok(r1.asyncApagada && r1.asyncVuelveAClasico, "en «Asíncrona» se apaga y, si estaba elegida, vuelve a Clásico");
-  ok(r1.vivoReactiva, "al volver a «En vivo» se reactiva");
+  ok(r1.asyncActiva && r1.asyncConservaDark, "en «Asíncrona» la opción sigue activa y se conserva (2.194)");
+  ok(r1.vivoReactiva, "al volver a «En vivo» sigue activa");
 
   // 2) Entrar a una partida oscura (Supabase simulado)
   const r2 = await page.evaluate(async () => {
