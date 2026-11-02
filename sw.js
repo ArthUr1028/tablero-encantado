@@ -1,9 +1,10 @@
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const CACHE = "tablero-" + CACHE_VERSION;
 const NET_TIMEOUT_MS = 4000;
 
 const CORE = ["index.html", "supabase.js"];
-const OPTIONAL = ["fairy-stockfish-engine.js", "fairy-stockfish-engine.wasm", "stockfish-19-lite-single.wasm"];
+const NTF_ICONOS = ["caballo", "rey", "dama", "torre", "alfil", "peon", "arzobispo", "canciller", "amazona", "halcon", "elefante"].map((n) => "ntf-" + n + ".png");
+const OPTIONAL = ["fairy-stockfish-engine.js", "fairy-stockfish-engine.wasm", "stockfish-19-lite-single.wasm", "icono-192.png", "icono-insignia.png", ...NTF_ICONOS];
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (event) => {
@@ -91,7 +92,7 @@ self.addEventListener("push", (event) => {
     body: d.body || "",
     tag: d.tag || undefined,
     renotify: !!d.tag,
-    icon: "icono-192.png",
+    icon: NTF_ICONOS[Math.floor(Math.random() * NTF_ICONOS.length)],   // una pieza del Tablero al azar en cada aviso (están guardadas para verse también sin red)
     badge: "icono-insignia.png",
     data: { url: d.url || "/" },
   }));
