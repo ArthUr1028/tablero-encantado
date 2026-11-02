@@ -276,6 +276,34 @@ const PREPARAR = () => {
     ok(t10.guardado && t10.guardado.p_citas === false && t10.etiqueta === "Convocatorias", "La Armería: el interruptor «Convocatorias» llega a push_set_prefs como p_citas");
     ok(t10.intentos === 2, "si la base aún no tiene la función de 5 parámetros, reintenta con la de 4");
 
+    // ---------- 12. recordatorios en pantalla (voz de claudIA)
+    const t12 = await I(async () => {
+      const f = window.__fila, nowIso = m => new Date(Date.now() + m * 60000).toISOString();
+      window.__db.rows = [f("P1", { created_by: "ME", invited_id: "ANA", proposed_by: "ME", status: "pactada", starts_at: nowIso(8) }),
+        f("P2", { created_by: "ME", invited_id: "CRIS", proposed_by: "ME", status: "pactada", starts_at: nowIso(45) }),
+        f("P3", { created_by: "ME", invited_id: "FER", proposed_by: "ME", status: "propuesta", starts_at: nowIso(5) })];
+      await convLoad(); window.__toasts.length = 0;
+      convRemind(); const a = window.__toasts.slice(); window.__toasts.length = 0;
+      convRemind(); const b = window.__toasts.slice(); window.__toasts.length = 0;
+      window.__db.rows[0].starts_at = nowIso(-0.2); await convLoad(); window.__toasts.length = 0;
+      convRemind(); const c = window.__toasts.slice(); window.__toasts.length = 0;
+      convRemind(); const d = window.__toasts.slice(); window.__toasts.length = 0;
+      window.__db.rows.push(f("P4", { created_by: "ME", invited_id: "FER", proposed_by: "ME", status: "pactada", starts_at: nowIso(0.5) })); await convLoad(); window.__toasts.length = 0;
+      convRemind(); const e = window.__toasts.slice(); window.__toasts.length = 0;
+      window.__db.rows.push(f("P5", { created_by: "ME", invited_id: "CRIS", proposed_by: "ME", status: "pactada", starts_at: nowIso(4) })); await convLoad(); window.__toasts.length = 0;
+      Object.defineProperty(document, "hidden", { value: true, configurable: true }); convRemind(); const oculto = window.__toasts.slice(); Object.defineProperty(document, "hidden", { value: false, configurable: true });
+      setLang("en"); await new Promise(r => setTimeout(r, 300)); window.__db.rows.push(f("P6", { created_by: "ME", invited_id: "ANA", proposed_by: "ME", status: "pactada", starts_at: nowIso(3) })); await convLoad(); window.__toasts.length = 0;
+      convRemind(); const en = window.__toasts.slice(); setLang("es");
+      return { a, b, c, d, e, oculto, en };
+    });
+    ok(t12.a.length === 1 && /^B:Tienes una batalla con Ana en 8 minutos\. Que tu mente llegue antes que tus piezas\.$/.test(t12.a[0]), "a 8 minutos de una cita pactada: aviso grande «Tienes una batalla con Ana en 8 minutos…» (la de 45 min y la propuesta no avisan) → " + t12.a.join(" | "));
+    ok(t12.b.length === 0, "el mismo recordatorio no se repite");
+    ok(t12.c.length === 1 && /^B:Es la hora\. Ana ya aguarda en el campo\.$/.test(t12.c[0]) && t12.d.length === 0, "a la hora: «Es la hora. Ana ya aguarda en el campo.» una sola vez");
+    ok(t12.e.length === 1 && /en 1 minuto\./.test(t12.e[0]), "a 30 segundos dice «en 1 minuto» (singular) → " + t12.e.join(" | "));
+    ok(t12.oculto.length === 0, "con la pestaña oculta no avisa en pantalla (para eso está el push)");
+    ok(t12.en.length === 2 && t12.en.some(x => /^B:You have a battle with Ana in 3 minutes\. Let your mind arrive before your pieces\.$/.test(x)), "EN: «You have a battle with Ana in 3 minutes. Let your mind arrive before your pieces.» → " + t12.en.join(" | "));
+    ok(t12.en.some(x => /with Cris in [34] minutes/.test(x)), "el recordatorio que quedó pendiente mientras la pestaña estaba oculta sale al volver (no se pierde)");
+
     // ---------- 11. inglés
     await I(() => { window.__db.rows = [window.__fila("E1", { variant: "dark", time_initial: 600, note: "Una?" }), window.__fila("E2", { created_by: "ME", invited_id: "CRIS", proposed_by: "ME", starts_at: window.__iso(25) }), window.__fila("E3", { created_by: "ME", invited_id: "ANA", proposed_by: "ME", status: "pactada", starts_at: window.__iso(95) })]; clubShowTab("conv"); return convLoad(); });
     await I(() => setLang("en")); await page.waitForTimeout(500);
