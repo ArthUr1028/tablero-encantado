@@ -621,7 +621,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(r12.fin === 1 && r12.finUnaVez === 1 && r12.alAbrirTerminada === 0, "el fin de partida vibra una sola vez y no al abrir una ya terminada (" + r12.fin + "/" + r12.finUnaVez + "/" + r12.alAbrirTerminada + ")");
   ok(r12.botonVisible && r12.apagada === 0 && r12.guardado === "0" && r12.etiqueta === "false" && r12.encendida, "el botón apaga la vibración (y se recuerda) y se puede volver a encender");
   ok(/probada/.test(r12.avisoEncender) && r12.pruebaVibro === "[70,70,140]", "al encender, manda una vibración de prueba y lo avisa (" + r12.pruebaVibro + ")");
-  ok(/no permite vibrar/.test(r12.avisoSinSoporte), "sin soporte, el botón explica por qué no vibra (" + r12.avisoSinSoporte.slice(0, 50) + ")");
+  ok(/no puede hacer vibrar/.test(r12.avisoSinSoporte), "sin soporte, el botón explica por qué no vibra (" + r12.avisoSinSoporte.slice(0, 50) + ")");
   ok(r12.sinSoporte === false && r12.sinError, "sin soporte de vibración no falla");
 
   // 8) Los sonidos grabados están incrustados y se oye la pieza de MIS jugadas (viene de la posición anterior)

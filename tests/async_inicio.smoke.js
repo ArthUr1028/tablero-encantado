@@ -40,7 +40,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     return out;
   }, variantes);
   for (const r of res) {
-    const esperado = r.miColor === "b" ? /^Llevas las negras\..*puedes salir de la partida y te avisaremos cuando sea tu turno\.$/ : /^¡Partida asíncrona iniciada! Llevas las blancas: te toca mover\.$/;
+    const esperado = r.miColor === "b" ? /^Llevas las negras\..*puedes salir de la partida y te avisaremos cuando sea tu turno\.$/ : /^La partida asíncrona ha comenzado\. Llevas las blancas: te toca mover\.$/;
     ok(r.entradas === 1 && r.visible && esperado.test(r.texto || ""), r.v + " · " + (r.miColor === "b" ? "negras" : "blancas") + (r.falla ? " · abrir la partida falla" : "") + " → " + (r.texto || "").slice(0, 40));
   }
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores[0] : ""));
