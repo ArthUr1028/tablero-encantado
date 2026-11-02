@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const CACHE = "tablero-" + CACHE_VERSION;
 const NET_TIMEOUT_MS = 4000;
 
@@ -80,3 +80,32 @@ async function staleWhileRevalidate(event, req) {
   if (cached) { event.waitUntil(net.catch(() => {})); return cached; }
   return net;
 }
+
+// ---- Notificaciones push (2.200) ----
+// El servidor manda {title, body, url, tag}. `userVisibleOnly`: toda notificación push debe mostrarse. La misma etiqueta (turno-<partida>)
+// que usa el aviso local de la página hace que, si llegan las dos, se reemplacen en vez de duplicarse.
+self.addEventListener("push", (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { body: event.data ? event.data.text() : "" }; }
+  event.waitUntil(self.registration.showNotification(d.title || "El Tablero Encantado", {
+    body: d.body || "",
+    tag: d.tag || undefined,
+    renotify: !!d.tag,
+    icon: "icono-192.png",
+    badge: "icono-insignia.png",
+    data: { url: d.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const rel = String((event.notification.data && event.notification.data.url) || "/").replace(/^\//, "");
+  const target = new URL(rel, self.registration.scope).href;
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) {
+      try { await c.focus(); c.postMessage({ tipo: "abrir", url: target }); return; } catch (e) {}
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(target);
+  })());
+});
