@@ -86,6 +86,31 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     ok(ui.apagada.on === false && ui.apagada.volDis === true && ui.apagada.testDis === true, "al apagar la música se bloquean su volumen y «Escuchar»");
     ok(Math.abs(ui.vol - 0.2) < 1e-9, "el deslizador cambia el volumen de la música");
     ok(ui.testTxt === "Detener" && ui.testSuena === "dark" && ui.testTxt2 === "Escuchar", "«Escuchar» cambia a «Detener» mientras suena y vuelve");
+    // Botón rápido (nota musical) junto a los de vibración, sonido y pantalla completa
+    const q = await page.evaluate(async () => {
+      const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
+      const b = $("mus-toggle"); o.existe = !!b; if(!b) return o;
+      o.visible = b.offsetParent !== null && b.getBoundingClientRect().width > 10;
+      o.nota = !!b.querySelector("svg circle");
+      o.orden = [...document.querySelectorAll(".zen-toggle-row > button")].filter(x => !x.hidden).map(x => x.id);
+      SFX.setMusicOn(true); document.dispatchEvent(new Event("ajustes-sync")); await esperar(50);
+      o.inicio = b.getAttribute("aria-pressed");
+      b.click(); await esperar(100);
+      o.tras1 = { pressed: b.getAttribute("aria-pressed"), on: SFX.musicOn(), chk: $("aj-mus").checked, label: b.getAttribute("aria-label") };
+      b.click(); await esperar(100);
+      o.tras2 = { pressed: b.getAttribute("aria-pressed"), on: SFX.musicOn(), chk: $("aj-mus").checked };
+      $("aj-mus").checked = false; $("aj-mus").dispatchEvent(new Event("change")); await esperar(50);
+      o.desdeArmeria = b.getAttribute("aria-pressed");
+      SFX.setMusicOn(true); document.dispatchEvent(new Event("ajustes-sync")); await esperar(50);
+      o.sonidoNoLoToca = (SFX.toggle(), await esperar(50), b.getAttribute("aria-pressed")); SFX.toggle();
+      return o;
+    });
+    ok(q.existe && q.visible && q.nota, "el botón rápido de música existe, se ve y lleva una nota musical");
+    ok(q.orden && q.orden.indexOf("mus-toggle") === q.orden.indexOf("snd-toggle") - 1 && q.orden.indexOf("hap-toggle") === q.orden.indexOf("mus-toggle") - 1, "queda entre vibración y sonido (" + JSON.stringify(q.orden) + ")");
+    ok(q.tras1 && q.tras1.pressed === "false" && q.tras1.on === false && q.tras1.chk === false && q.tras1.label === "Música desactivada", "pulsarlo apaga la música y se refleja en La Armería");
+    ok(q.tras2 && q.tras2.pressed === "true" && q.tras2.on === true && q.tras2.chk === true, "pulsarlo otra vez la enciende");
+    ok(q.desdeArmeria === "false", "apagarla desde La Armería también repinta el botón rápido");
+    ok(q.sonidoNoLoToca === "true", "el botón de sonido no cambia el estado del de música");
     await page.close();
   }
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.join(" | ") : ""));
