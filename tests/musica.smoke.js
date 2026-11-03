@@ -99,18 +99,19 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       newGame(CAPABLANCA_START); render(); await esperar(300); o.capablanca = SFX.musicState().sonando;
       newGame(START); render();
       o.opciones = [...$("aj-mus-pista").options].map(x => x.value);
-      $("aj-mus-pista").value = "clasico"; SFX.musicWant(null); document.dispatchEvent(new Event("ajustes-sync"));
+      $("aj-mus-pista").value = "marcha"; SFX.musicWant(null); document.dispatchEvent(new Event("ajustes-sync"));
       $("aj-mus-test").click(); await esperar(400); o.pruebaClasico = SFX.musicState().sonando; o.txt = $("aj-mus-test").textContent;
+      $("aj-mus-pista").value = "clasico"; $("aj-mus-pista").dispatchEvent(new Event("change")); await esperar(400); o.cronica = SFX.musicState().sonando; await esperar(3000); o.cronicaSigue = SFX.musicState().sonando;
       $("aj-mus-pista").value = "dark"; $("aj-mus-pista").dispatchEvent(new Event("change")); await esperar(400); o.cambiaADark = SFX.musicState().sonando;
       $("aj-mus-test").click(); await esperar(300); o.corta = SFX.musicState().sonando;
       return o;
     });
-    ok(c.clasico === "clasico" && c.sigue === "clasico", "en el Clásico suena «La Crónica» y se mantiene");
-    ok(c.alDark === "dark" && c.deVuelta === "clasico", "pasar entre Clásico y Dark Chess cambia de pieza");
-    ok(c.libre === null && c.libreQuiere === null && c.deVueltaAJugar === "clasico", "en el Tablero libre no suena (tendrá la suya) y al volver a jugar regresa");
+    ok(c.clasico === "marcha" && c.sigue === "marcha", "en el Clásico suena «La Marcha» y se mantiene");
+    ok(c.alDark === "dark" && c.deVuelta === "marcha", "pasar entre Clásico y Dark Chess cambia de pieza");
+    ok(c.libre === null && c.libreQuiere === null && c.deVueltaAJugar === "marcha", "en el Tablero libre no suena (tendrá la suya) y al volver a jugar regresa");
     ok(c.capablanca === null, "las variantes sin pieza todavía no suenan");
-    ok(c.opciones.join() === "dark,clasico", "el selector de La Armería ofrece las dos piezas");
-    ok(c.pruebaClasico === "clasico" && c.txt === "Detener" && c.cambiaADark === "dark" && c.corta === null, "«Escuchar» toca la pieza elegida, cambia si eliges otra y se corta");
+    ok(c.opciones.join() === "dark,marcha,clasico", "el selector de La Armería ofrece las tres piezas");
+    ok(c.pruebaClasico === "marcha" && c.txt === "Detener" && c.cronica === "clasico" && c.cronicaSigue === "clasico" && c.cambiaADark === "dark" && c.corta === null, "«Escuchar» toca la pieza elegida (incluida La Crónica de reserva), cambia si eliges otra y se corta");
     // Botón rápido (nota musical) junto a los de vibración, sonido y pantalla completa
     const q = await page.evaluate(async () => {
       const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
