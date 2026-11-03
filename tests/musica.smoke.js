@@ -1,4 +1,4 @@
-// Música (2.213): «La Niebla» suena en Dark Chess (generativa, sin archivos), con interruptor y volumen propios en La Armería.
+// Música (2.213; independiente de los efectos desde la 2.214): «La Niebla» suena en Dark Chess (generativa, sin archivos), con interruptor y volumen propios en La Armería.
 // Se prueba con un AudioContext real (autoplay permitido): arranca, se detiene, respeta interruptor/volumen/Sonido general y no lanza errores.
 const http = require("http"), fs = require("fs"), path = require("path");
 let chromium;
@@ -42,9 +42,11 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       // 5) volumen 0 = silencio (y no gasta CPU); al subirlo vuelve
       SFX.setMusicVolume(0); await esperar(200); o.vol0 = SFX.musicState().sonando;
       SFX.setMusicVolume(0.6); await esperar(400); o.vol60 = SFX.musicState().sonando; o.volGuardado = localStorage.getItem("tablero-encantado.volumen-musica");
-      // 6) el interruptor general de Sonido la apaga y la devuelve
-      SFX.toggle(); await esperar(200); o.sonidoOff = SFX.musicState().sonando;
-      SFX.toggle(); await esperar(600); o.sonidoOn = SFX.musicState().sonando;
+      // 6) los efectos de sonido son independientes: apagar «Sonido» NO la calla (y los efectos sí quedan mudos)
+      SFX.toggle(); await esperar(300); o.sonidoOff = SFX.musicState().sonando; o.efectosOff = SFX.isOn();
+      SFX.setMusicOn(false); await esperar(200); o.musicaApagadaConSonidoOff = SFX.musicState().sonando;
+      SFX.setMusicOn(true); await esperar(400); o.musicaConSonidoOff = SFX.musicState().sonando;
+      SFX.toggle(); await esperar(400); o.sonidoOn = SFX.musicState().sonando;
       // 7) la intro abierta la calla
       document.documentElement.classList.add("intro-abierta"); SFX.musicWant("dark"); SFX.musicWant("dark"); await esperar(100);
       document.documentElement.classList.remove("intro-abierta");
@@ -61,7 +63,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     ok(r.duck === true, "una jugada baja la música sin errores");
     ok(r.apagada === null && r.encendida === "dark", "el interruptor de música la apaga y la devuelve");
     ok(r.vol0 === null && r.vol60 === "dark" && r.volGuardado === "0.6", "volumen 0 la detiene; al subirlo vuelve y se recuerda");
-    ok(r.sonidoOff === null && r.sonidoOn === "dark", "el interruptor general de Sonido también la apaga y la devuelve");
+    ok(r.efectosOff === false && r.sonidoOff === "dark" && r.musicaApagadaConSonidoOff === null && r.musicaConSonidoOff === "dark" && r.sonidoOn === "dark", "apagar «Sonido» (efectos) no calla la música; ella se gobierna sola");
     ok(r.otraVariante === null, "al pasar a otra variante se detiene");
     ok(r.prueba === "dark" && r.pruebaFin === null && r.pruebaRet[0] === true && r.pruebaRet[1] === false, "«Escuchar» la pone en cualquier variante y otra pulsación la corta");
     // La Armería: los controles existen, reflejan el estado y mandan
