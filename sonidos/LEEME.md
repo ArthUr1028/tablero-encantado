@@ -19,8 +19,8 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 - Origen de la pista original: NCS (NoCopyrightSounds), según Arthur.
 
 ## Banda sonora (2.218)
-- `musica/*.mp3`: seis pistas que aportó Arthur (`banda_sonora.zip`, 4-nov-2026), de ≈2 min y ≈2,9 MB cada una (192 kbps). Con «La Niebla» (generativa, sin archivo) son las siete pistas que suenan en orden aleatorio en TODAS las variantes y en el Tablero libre. Se quitaron «La Marcha» y «La Crónica».
-- Títulos: Steel Against the Sky · Beneath The Siege Wall · Before the Shield Wall · Iron Beneath the Shield · Before the Siege · Where Steel Meets Mud.
+- `musica/*.mp3`: siete pistas que aportó Arthur (`banda_sonora.zip` y «The Iron Toll Remains», 4-nov-2026; creadas por él con IA, sin licencias de terceros), de ≈2 min y ≈2,9 MB cada una (192 kbps). Con «La Niebla» (generativa, sin archivo) son las ocho pistas que suenan en orden aleatorio en TODAS las variantes y en el Tablero libre. Se quitaron «La Marcha» y «La Crónica».
+- Títulos: Steel Against the Sky · Beneath The Siege Wall · Before the Shield Wall · Iron Beneath the Shield · Before the Siege · Where Steel Meets Mud · The Iron Toll Remains.
 - Nivelación: las pistas vienen a ≈ −12 LUFS y La Niebla sale a ≈ −21; en `index.html` (`MUS_ARCH`) cada una lleva una ganancia que la deja a ≈ −20 LUFS. Si se cambia o añade una pista, medirla (`ffmpeg -af ebur128`) y ajustar su ganancia.
-- Orden: baraja por rondas (suenan las siete antes de repetir; la primera de una ronda nunca es la última de la anterior). Cruce de 5 s entre pistas; La Niebla dura 2:30 por turno.
+- Orden: baraja por rondas (suenan las ocho antes de repetir; la primera de una ronda nunca es la última de la anterior). Cruce de 5 s entre pistas; La Niebla dura 2:30 por turno.
 - Descarga: no se precargan en el service worker (serían ≈17 MB con datos móviles). Se baja la pista que suena y, mientras tanto, la siguiente; `sw.js` las guarda en su propia caché (`musica-v1`, que el cambio de versión no borra) y las sirve desde ahí. Sin red y sin caché, cae a La Niebla.

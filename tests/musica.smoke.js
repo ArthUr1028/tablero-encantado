@@ -57,7 +57,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       const b = SFX.musicPreview(); await esperar(200); o.pruebaFin = SFX.musicState().sonando; o.pruebaRet = [a, b];
       return o;
     });
-    const LISTA = ["niebla", "steel-against-the-sky", "beneath-the-siege-wall", "before-the-shield-wall", "iron-beneath-the-shield", "before-the-siege", "where-steel-meets-mud"];
+    const LISTA = ["niebla", "steel-against-the-sky", "beneath-the-siege-wall", "before-the-shield-wall", "iron-beneath-the-shield", "before-the-siege", "where-steel-meets-mud", "the-iron-toll-remains"];
     const enLista = n => LISTA.indexOf(n) >= 0;
     ok(r.defecto.on === true && Math.abs(r.defecto.vol - 0.45) < 1e-9, "por defecto: música encendida al 45 %");
     ok(r.sinNada === null, "sin música pedida no suena nada");
@@ -90,7 +90,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     ok(ui.apagada.on === false && ui.apagada.volDis === true && ui.apagada.testDis === true, "al apagar la música se bloquean su volumen y «Escuchar»");
     ok(Math.abs(ui.vol - 0.2) < 1e-9, "el deslizador cambia el volumen de la música");
     ok(ui.testTxt === "Detener" && ui.testSuena === "niebla" && ui.testTxt2 === "Escuchar", "«Escuchar» cambia a «Detener» mientras suena y vuelve");
-    // Banda sonora: todas las variantes comparten la lista; el selector ofrece las siete pistas y «Escuchar» toca la elegida
+    // Banda sonora: todas las variantes comparten la lista; el selector ofrece las ocho pistas y «Escuchar» toca la elegida
     const c = await page.evaluate(async () => {
       const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
       SFX.setMusicOn(true); SFX.setMusicVolume(0.5); document.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -107,21 +107,21 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       return o;
     });
     ok(c.clasico === "lista" && c.dark === "lista" && c.capablanca === "lista" && c.libre === "lista", "todas las variantes y el Tablero libre piden la misma banda sonora");
-    ok(c.opciones.join() === "lista," + LISTA.join(), "el selector de La Armería ofrece el orden aleatorio y las siete pistas");
+    ok(c.opciones.join() === "lista," + LISTA.join(), "el selector de La Armería ofrece el orden aleatorio y las ocho pistas");
     ok(c.pruebaArch === "steel-against-the-sky" && c.cambiaANiebla === "niebla", "«Escuchar» toca la pista elegida (grabada o La Niebla) y cambia al elegir otra");
     ok(c.corta !== undefined, "se puede cortar la prueba sin errores");
     // Orden aleatorio: la baraja por rondas no repite una pista hasta haberlas oído todas
     const sorteo = await page.evaluate(() => {
-      const ids = ["niebla", "steel-against-the-sky", "beneath-the-siege-wall", "before-the-shield-wall", "iron-beneath-the-shield", "before-the-siege", "where-steel-meets-mud"];
+      const ids = ["niebla", "steel-against-the-sky", "beneath-the-siege-wall", "before-the-shield-wall", "iron-beneath-the-shield", "before-the-siege", "where-steel-meets-mud", "the-iron-toll-remains"];
       let cola = [], ultima = null; const seq = [];
       const sorteo = () => { if(!cola.length){ const a = ids.slice(); for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } if(a[a.length - 1] === ultima){ const t = a[0]; a[0] = a[a.length - 1]; a[a.length - 1] = t; } cola = a; } ultima = cola.pop(); return ultima; };
-      for(let i = 0; i < 70; i++) seq.push(sorteo());
+      for(let i = 0; i < 72; i++) seq.push(sorteo());
       return seq;
     });
     let rondaOk = true, sinRepetir = true;
-    for (let i = 0; i < 70; i += 7) if (new Set(sorteo.slice(i, i + 7)).size !== 7) rondaOk = false;
-    for (let i = 1; i < 70; i++) if (sorteo[i] === sorteo[i - 1]) sinRepetir = false;
-    ok(rondaOk && sinRepetir, "el barajado suena las siete pistas por ronda y nunca repite la misma dos veces seguidas");
+    for (let i = 0; i < 72; i += 8) if (new Set(sorteo.slice(i, i + 8)).size !== 8) rondaOk = false;
+    for (let i = 1; i < 72; i++) if (sorteo[i] === sorteo[i - 1]) sinRepetir = false;
+    ok(rondaOk && sinRepetir, "el barajado suena las ocho pistas por ronda y nunca repite la misma dos veces seguidas");
     // Botón rápido (nota musical) junto a los de vibración, sonido y pantalla completa
     const q = await page.evaluate(async () => {
       const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
