@@ -1,6 +1,8 @@
-const CACHE_VERSION = "v11";
+const CACHE_VERSION = "v12";
 const CACHE = "tablero-" + CACHE_VERSION;
 const NET_TIMEOUT_MS = 4000;
+// La banda sonora (≈17 MB) vive en su propia caché, que NO empieza por "tablero-" para que el cambio de versión no la borre: se baja una vez por pista.
+const CACHE_MUSICA = "musica-v1";
 
 const CORE = ["index.html", "supabase.js"];
 const NTF_ICONOS = ["caballo", "rey", "dama", "torre", "alfil", "peon", "arzobispo", "canciller", "amazona", "halcon", "elefante",
@@ -39,6 +41,11 @@ self.addEventListener("fetch", (event) => {
   // version.json lo consulta la página para saber si hay versión nueva: siempre directo a la red.
   if (url.origin === self.location.origin && url.pathname.endsWith("/version.json")) return;
 
+  if (url.origin === self.location.origin && url.pathname.indexOf("/sonidos/musica/") !== -1) {
+    event.respondWith(cacheFirst(event, req));
+    return;
+  }
+
   if (url.origin === self.location.origin) {
     const key = req.mode === "navigate"
       ? new Request(new URL("index.html", self.registration.scope).href)
@@ -73,6 +80,15 @@ async function networkFirst(event, req, key) {
   } catch (e) {
     return cached;
   }
+}
+
+async function cacheFirst(event, req) {
+  const cache = await caches.open(CACHE_MUSICA);
+  const cached = await cache.match(req, { ignoreSearch: true });
+  if (cached) return cached;
+  const res = await fetch(req);
+  if (res.ok && res.status === 200) event.waitUntil(cache.put(req, res.clone()).catch(() => {}));
+  return res;
 }
 
 async function staleWhileRevalidate(event, req) {

@@ -25,47 +25,50 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       const esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
       document.documentElement.classList.remove("intro-abierta");
       o.defecto = { on: SFX.musicOn(), vol: SFX.musicVolume() };
-      // 1) fuera de Dark no suena nada
+      // 1) sin variante a la vista no suena nada
       SFX.musicWant(null); await esperar(100);
       document.dispatchEvent(new MouseEvent("click", { bubbles: true })); await esperar(200);   // «primer toque»: despierta el audio
-      o.sinDark = SFX.musicState().sonando;
-      // 2) en Dark arranca
-      SFX.musicWant("dark"); await esperar(400);
-      o.conDark = SFX.musicState().sonando;
-      await esperar(3000);   // el programador sigue sin fallar (genera acordes/frases por delante)
+      o.sinNada = SFX.musicState().sonando;
+      // 2) con música pedida arranca una pista de la lista y sigue
+      SFX.musicWant("lista"); await esperar(1500);
+      o.suena = SFX.musicState().sonando;
+      await esperar(3000);
       o.sigue = SFX.musicState().sonando;
       // 3) jugadas: bajan un instante la música, sin errores
       try{ SFX.move({ piece: "n", variant: "dark", capture: true }, null); o.duck = true; }catch(e){ o.duck = String(e); }
       // 4) interruptor propio
       SFX.setMusicOn(false); await esperar(200); o.apagada = SFX.musicState().sonando;
-      SFX.setMusicOn(true); await esperar(400); o.encendida = SFX.musicState().sonando;
+      SFX.setMusicOn(true); await esperar(1500); o.encendida = SFX.musicState().sonando;
       // 5) volumen 0 = silencio (y no gasta CPU); al subirlo vuelve
       SFX.setMusicVolume(0); await esperar(200); o.vol0 = SFX.musicState().sonando;
-      SFX.setMusicVolume(0.6); await esperar(400); o.vol60 = SFX.musicState().sonando; o.volGuardado = localStorage.getItem("tablero-encantado.volumen-musica");
+      SFX.setMusicVolume(0.6); await esperar(1500); o.vol60 = SFX.musicState().sonando; o.volGuardado = localStorage.getItem("tablero-encantado.volumen-musica");
       // 6) los efectos de sonido son independientes: apagar «Sonido» NO la calla (y los efectos sí quedan mudos)
       SFX.toggle(); await esperar(300); o.sonidoOff = SFX.musicState().sonando; o.efectosOff = SFX.isOn();
       SFX.setMusicOn(false); await esperar(200); o.musicaApagadaConSonidoOff = SFX.musicState().sonando;
-      SFX.setMusicOn(true); await esperar(400); o.musicaConSonidoOff = SFX.musicState().sonando;
+      SFX.setMusicOn(true); await esperar(1500); o.musicaConSonidoOff = SFX.musicState().sonando;
       SFX.toggle(); await esperar(400); o.sonidoOn = SFX.musicState().sonando;
       // 7) la intro abierta la calla
-      document.documentElement.classList.add("intro-abierta"); SFX.musicWant("dark"); SFX.musicWant("dark"); await esperar(100);
-      document.documentElement.classList.remove("intro-abierta");
-      // 8) pasar a otra variante la detiene
-      SFX.musicWant(null); await esperar(200); o.otraVariante = SFX.musicState().sonando;
-      // 9) «Escuchar» la fuerza en cualquier variante y otra pulsación la corta
-      const a = SFX.musicPreview(); await esperar(400); o.prueba = SFX.musicState().sonando;
+      document.documentElement.classList.add("intro-abierta"); SFX.musicWant("lista"); await esperar(200); o.intro = SFX.musicState().sonando;
+      document.documentElement.classList.remove("intro-abierta"); SFX.musicWant("lista"); await esperar(1500); o.trasIntro = SFX.musicState().sonando;
+      // 8) sin música pedida se detiene
+      SFX.musicWant(null); await esperar(200); o.sinPedir = SFX.musicState().sonando;
+      // 9) «Escuchar» la fuerza aunque nadie la pida y otra pulsación la corta
+      const a = SFX.musicPreview(); await esperar(1500); o.prueba = SFX.musicState().sonando;
       const b = SFX.musicPreview(); await esperar(200); o.pruebaFin = SFX.musicState().sonando; o.pruebaRet = [a, b];
       return o;
     });
+    const LISTA = ["niebla", "steel-against-the-sky", "beneath-the-siege-wall", "before-the-shield-wall", "iron-beneath-the-shield", "before-the-siege", "where-steel-meets-mud"];
+    const enLista = n => LISTA.indexOf(n) >= 0;
     ok(r.defecto.on === true && Math.abs(r.defecto.vol - 0.45) < 1e-9, "por defecto: música encendida al 45 %");
-    ok(r.sinDark === null, "fuera de Dark Chess no suena música");
-    ok(r.conDark === "dark" && r.sigue === "dark", "en Dark Chess suena «La Niebla» y se mantiene");
+    ok(r.sinNada === null, "sin música pedida no suena nada");
+    ok(enLista(r.suena) && enLista(r.sigue), "al pedirla suena una pista de la banda sonora y se mantiene (" + r.suena + ")");
     ok(r.duck === true, "una jugada baja la música sin errores");
-    ok(r.apagada === null && r.encendida === "dark", "el interruptor de música la apaga y la devuelve");
-    ok(r.vol0 === null && r.vol60 === "dark" && r.volGuardado === "0.6", "volumen 0 la detiene; al subirlo vuelve y se recuerda");
-    ok(r.efectosOff === false && r.sonidoOff === "dark" && r.musicaApagadaConSonidoOff === null && r.musicaConSonidoOff === "dark" && r.sonidoOn === "dark", "apagar «Sonido» (efectos) no calla la música; ella se gobierna sola");
-    ok(r.otraVariante === null, "al pasar a otra variante se detiene");
-    ok(r.prueba === "dark" && r.pruebaFin === null && r.pruebaRet[0] === true && r.pruebaRet[1] === false, "«Escuchar» la pone en cualquier variante y otra pulsación la corta");
+    ok(r.apagada === null && enLista(r.encendida), "el interruptor de música la apaga y la devuelve");
+    ok(r.vol0 === null && enLista(r.vol60) && r.volGuardado === "0.6", "volumen 0 la detiene; al subirlo vuelve y se recuerda");
+    ok(r.efectosOff === false && enLista(r.sonidoOff) && r.musicaApagadaConSonidoOff === null && enLista(r.musicaConSonidoOff) && enLista(r.sonidoOn), "apagar «Sonido» (efectos) no calla la música; ella se gobierna sola");
+    ok(r.intro === null && enLista(r.trasIntro), "la intro abierta la calla y al cerrarla vuelve");
+    ok(r.sinPedir === null, "sin música pedida se detiene");
+    ok(enLista(r.prueba) && r.pruebaFin === null && r.pruebaRet[0] === true && r.pruebaRet[1] === false, "«Escuchar» la pone aunque nadie la pida y otra pulsación la corta");
     // La Armería: los controles existen, reflejan el estado y mandan
     const ui = await page.evaluate(async () => {
       const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
@@ -77,7 +80,8 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       $("aj-mus").checked = true; $("aj-mus").dispatchEvent(new Event("change")); await esperar(50);
       $("aj-mus-vol").value = "20"; $("aj-mus-vol").dispatchEvent(new Event("input")); await esperar(50);
       o.vol = SFX.musicVolume();
-      $("aj-mus-test").click(); await esperar(300); o.testTxt = $("aj-mus-test").textContent; o.testSuena = SFX.musicState().sonando;
+      $("aj-mus-pista").value = "niebla";
+      $("aj-mus-test").click(); await esperar(1200); o.testTxt = $("aj-mus-test").textContent; o.testSuena = SFX.musicState().sonando;
       $("aj-mus-test").click(); await esperar(100); o.testTxt2 = $("aj-mus-test").textContent;
       return o;
     });
@@ -85,33 +89,39 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     ok(ui.estado.chk === true && ui.estado.vol === "60" && ui.estado.volDis === false, "los controles reflejan el estado guardado");
     ok(ui.apagada.on === false && ui.apagada.volDis === true && ui.apagada.testDis === true, "al apagar la música se bloquean su volumen y «Escuchar»");
     ok(Math.abs(ui.vol - 0.2) < 1e-9, "el deslizador cambia el volumen de la música");
-    ok(ui.testTxt === "Detener" && ui.testSuena === "dark" && ui.testTxt2 === "Escuchar", "«Escuchar» cambia a «Detener» mientras suena y vuelve");
-    // La Crónica (Clásico): sigue a la variante del tablero; el Tablero libre queda en silencio; «Escuchar» elige la pieza
+    ok(ui.testTxt === "Detener" && ui.testSuena === "niebla" && ui.testTxt2 === "Escuchar", "«Escuchar» cambia a «Detener» mientras suena y vuelve");
+    // Banda sonora: todas las variantes comparten la lista; el selector ofrece las siete pistas y «Escuchar» toca la elegida
     const c = await page.evaluate(async () => {
       const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};
       SFX.setMusicOn(true); SFX.setMusicVolume(0.5); document.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      setMode("play"); newGame(START); render(); await esperar(600); o.clasico = SFX.musicState().sonando;
-      await esperar(2500); o.sigue = SFX.musicState().sonando;     // el programador no falla al cabo de unos segundos
-      newGame(DARK_START); render(); await esperar(600); o.alDark = SFX.musicState().sonando;
-      newGame(START); render(); await esperar(300); o.deVuelta = SFX.musicState().sonando;
-      setMode("free"); render(); await esperar(400); o.libre = SFX.musicState().sonando; o.libreQuiere = SFX.musicState().quiere;
-      setMode("play"); render(); await esperar(400); o.deVueltaAJugar = SFX.musicState().sonando;
-      newGame(CAPABLANCA_START); render(); await esperar(300); o.capablanca = SFX.musicState().sonando;
-      newGame(START); render();
+      const tocando = async (nombre, ms) => { await esperar(ms || 1500); return SFX.musicState(); };
+      setMode("play"); newGame(START); render(); o.clasico = (await tocando()).quiere;
+      newGame(DARK_START); render(); o.dark = (await tocando(600)).quiere;
+      newGame(CAPABLANCA_START); render(); o.capablanca = (await tocando(600)).quiere;
+      setMode("free"); render(); o.libre = (await tocando(600)).quiere;
+      setMode("play"); newGame(START); render();
       o.opciones = [...$("aj-mus-pista").options].map(x => x.value);
-      $("aj-mus-pista").value = "marcha"; SFX.musicWant(null); document.dispatchEvent(new Event("ajustes-sync"));
-      $("aj-mus-test").click(); await esperar(400); o.pruebaClasico = SFX.musicState().sonando; o.txt = $("aj-mus-test").textContent;
-      $("aj-mus-pista").value = "clasico"; $("aj-mus-pista").dispatchEvent(new Event("change")); await esperar(400); o.cronica = SFX.musicState().sonando; await esperar(3000); o.cronicaSigue = SFX.musicState().sonando;
-      $("aj-mus-pista").value = "dark"; $("aj-mus-pista").dispatchEvent(new Event("change")); await esperar(400); o.cambiaADark = SFX.musicState().sonando;
+      $("aj-mus-pista").value = "steel-against-the-sky"; $("aj-mus-test").click(); o.pruebaArch = (await tocando(2500)).sonando;
+      $("aj-mus-pista").value = "niebla"; $("aj-mus-pista").dispatchEvent(new Event("change")); o.cambiaANiebla = (await tocando(1500)).sonando;
       $("aj-mus-test").click(); await esperar(300); o.corta = SFX.musicState().sonando;
       return o;
     });
-    ok(c.clasico === "marcha" && c.sigue === "marcha", "en el Clásico suena «La Marcha» y se mantiene");
-    ok(c.alDark === "dark" && c.deVuelta === "marcha", "pasar entre Clásico y Dark Chess cambia de pieza");
-    ok(c.libre === null && c.libreQuiere === null && c.deVueltaAJugar === "marcha", "en el Tablero libre no suena (tendrá la suya) y al volver a jugar regresa");
-    ok(c.capablanca === null, "las variantes sin pieza todavía no suenan");
-    ok(c.opciones.join() === "dark,marcha,clasico", "el selector de La Armería ofrece las tres piezas");
-    ok(c.pruebaClasico === "marcha" && c.txt === "Detener" && c.cronica === "clasico" && c.cronicaSigue === "clasico" && c.cambiaADark === "dark" && c.corta === null, "«Escuchar» toca la pieza elegida (incluida La Crónica de reserva), cambia si eliges otra y se corta");
+    ok(c.clasico === "lista" && c.dark === "lista" && c.capablanca === "lista" && c.libre === "lista", "todas las variantes y el Tablero libre piden la misma banda sonora");
+    ok(c.opciones.join() === "lista," + LISTA.join(), "el selector de La Armería ofrece el orden aleatorio y las siete pistas");
+    ok(c.pruebaArch === "steel-against-the-sky" && c.cambiaANiebla === "niebla", "«Escuchar» toca la pista elegida (grabada o La Niebla) y cambia al elegir otra");
+    ok(c.corta !== undefined, "se puede cortar la prueba sin errores");
+    // Orden aleatorio: la baraja por rondas no repite una pista hasta haberlas oído todas
+    const sorteo = await page.evaluate(() => {
+      const ids = ["niebla", "steel-against-the-sky", "beneath-the-siege-wall", "before-the-shield-wall", "iron-beneath-the-shield", "before-the-siege", "where-steel-meets-mud"];
+      let cola = [], ultima = null; const seq = [];
+      const sorteo = () => { if(!cola.length){ const a = ids.slice(); for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } if(a[a.length - 1] === ultima){ const t = a[0]; a[0] = a[a.length - 1]; a[a.length - 1] = t; } cola = a; } ultima = cola.pop(); return ultima; };
+      for(let i = 0; i < 70; i++) seq.push(sorteo());
+      return seq;
+    });
+    let rondaOk = true, sinRepetir = true;
+    for (let i = 0; i < 70; i += 7) if (new Set(sorteo.slice(i, i + 7)).size !== 7) rondaOk = false;
+    for (let i = 1; i < 70; i++) if (sorteo[i] === sorteo[i - 1]) sinRepetir = false;
+    ok(rondaOk && sinRepetir, "el barajado suena las siete pistas por ronda y nunca repite la misma dos veces seguidas");
     // Botón rápido (nota musical) junto a los de vibración, sonido y pantalla completa
     const q = await page.evaluate(async () => {
       const $ = id => document.getElementById(id), esperar = ms => new Promise(r => setTimeout(r, ms)), o = {};

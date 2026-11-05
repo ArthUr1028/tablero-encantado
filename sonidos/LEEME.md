@@ -17,3 +17,10 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 - `enroques/corto.mp3` (0,96 s, 2 golpes de tambor) y `enroques/largo.mp3` (1,81 s, 3 golpes): recortes de la pista `enroques.mp3` de Arthur, desde el segundo 0,24 (los tres primeros golpes, separados medio segundo; el corto es el largo sin su tercer golpe). Pico a −3 dB y fundido de salida para que no corten en seco.
 - Se usan en TODAS las variantes: enroque corto (`K`) = 2 golpes, largo (`Q`) = 3. Sin las muestras, el juego vuelve a los golpes de piedra de antes. En un enroque no suena el paso del rey: lo sustituyen los tambores.
 - Origen de la pista original: NCS (NoCopyrightSounds), según Arthur.
+
+## Banda sonora (2.218)
+- `musica/*.mp3`: seis pistas que aportó Arthur (`banda_sonora.zip`, 4-nov-2026), de ≈2 min y ≈2,9 MB cada una (192 kbps). Con «La Niebla» (generativa, sin archivo) son las siete pistas que suenan en orden aleatorio en TODAS las variantes y en el Tablero libre. Se quitaron «La Marcha» y «La Crónica».
+- Títulos: Steel Against the Sky · Beneath The Siege Wall · Before the Shield Wall · Iron Beneath the Shield · Before the Siege · Where Steel Meets Mud.
+- Nivelación: las pistas vienen a ≈ −12 LUFS y La Niebla sale a ≈ −21; en `index.html` (`MUS_ARCH`) cada una lleva una ganancia que la deja a ≈ −20 LUFS. Si se cambia o añade una pista, medirla (`ffmpeg -af ebur128`) y ajustar su ganancia.
+- Orden: baraja por rondas (suenan las siete antes de repetir; la primera de una ronda nunca es la última de la anterior). Cruce de 5 s entre pistas; La Niebla dura 2:30 por turno.
+- Descarga: no se precargan en el service worker (serían ≈17 MB con datos móviles). Se baja la pista que suena y, mientras tanto, la siguiente; `sw.js` las guarda en su propia caché (`musica-v1`, que el cambio de versión no borra) y las sirve desde ahí. Sin red y sin caché, cae a La Niebla.
