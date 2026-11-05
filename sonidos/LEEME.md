@@ -24,3 +24,8 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 - Nivelación: las pistas vienen a ≈ −12 LUFS y La Niebla sale a ≈ −21; en `index.html` (`MUS_ARCH`) cada una lleva una ganancia que la deja a ≈ −20 LUFS. Si se cambia o añade una pista, medirla (`ffmpeg -af ebur128`) y ajustar su ganancia.
 - Orden: baraja por rondas (suenan las ocho antes de repetir; la primera de una ronda nunca es la última de la anterior). Cruce de 5 s entre pistas; La Niebla dura 2:30 por turno.
 - Descarga: no se precargan en el service worker (serían ≈17 MB con datos móviles). Se baja la pista que suena y, mientras tanto, la siguiente; `sw.js` las guarda en su propia caché (`musica-v1`, que el cambio de versión no borra) y las sirve desde ahí. Sin red y sin caché, cae a La Niebla.
+
+## La Niebla grabada (2.220)
+- `musica/la-niebla-i.mp3` y `la-niebla-ii.mp3` (3:06, 128 kbps): La Niebla renderizada sin conexión con el mismo generador (`MUSICA_DARK`) y la misma reverberación, con 8 s de fundido final y nivelada a ≈ −20 LUFS (ganancia 1 en `MUS_ARCH`). Motivo: generada en vivo se cortaba en el teléfono (procesador justo); las pistas grabadas no. Con ellas son nueve pistas.
+- La generativa sigue en el código solo de respaldo (si falla la descarga de una pista, suena ella). Para renderizar otra versión: extraer `MUSICA_DARK` de `index.html`, correrla en un `OfflineAudioContext` de 186 s con un convolver de 5,5 s (ver `makeIRm`), fundido de 8 s y normalizar a −20 LUFS.
+- Nota de nivel: al nivelar la banda sonora (2.218) las pistas grabadas quedaron unos 7 dB por debajo de la antigua La Niebla en vivo (que salía a ≈ −12,7 LUFS antes del volumen de música). Las versiones grabadas de La Niebla van al mismo nivel que las demás.
