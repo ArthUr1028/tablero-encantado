@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 118, "el Santuario tiene 118 fichas (" + r.masters + ")");
+  ok(r.masters === 123, "el Santuario tiene 123 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -87,7 +87,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       }
     }
     const er = id => HOF.masters.filter(m => m.era === id).map(m => m.id).join(",");
-    if (!/pillsbury,alapin,janowski/.test(er("ciencia"))) falta.push("orden ciencia");
+    if (!/pillsbury,charousek,alapin,janowski/.test(er("ciencia"))) falta.push("orden ciencia");
     if (!/bogoljubov,grunfeld,nimzowitsch/.test(er("entreguerras"))) falta.push("orden grunfeld");
     if (!/torre,sozin,samisch,colle,alekhine/.test(er("entreguerras"))) falta.push("orden sozin-samisch-colle");
     if (!/sultankhan,pirc,flohr/.test(er("entreguerras"))) falta.push("orden pirc");
@@ -130,6 +130,30 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(ponFoto.img && ponFoto.cred && ponFoto.en, "Ponziani lleva su dibujo atribuido con crédito que indica el conflicto de rótulo y versión en inglés");
   ok(lolFoto.img && lolFoto.cred && lolFoto.en, "Lolli lleva su grabado atribuido con crédito que indica la duda y versión en inglés");
   ok(lucFoto.img && lucFoto.cred && lucFoto.en, "Lucena lleva su imagen atribuida con crédito que indica la duda y versión en inglés");
+  const sinB = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    const B = { nezhmetdinov: [3, "sovietica"], charousek: [3, "ciencia"], vidmar: [4, "ciencia"], juwenjun: [4, "moderna"], leitingjie: [4, "moderna"] };
+    for (const id in B) {
+      const m = HOF.masters.find(x => x.id === id);
+      if (!m) { falta.push(id + ":no existe"); continue; }
+      if (m.era !== B[id][1]) falta.push(id + ":era");
+      if (m.games.length !== B[id][0]) falta.push(id + ":partidas " + m.games.length);
+      for (const c of ["title", "bio", "style", "legacy"]) if (!t(m[c])) falta.push(id + "." + c);
+      for (const g of m.games) {
+        for (const c of ["title", "event", "why"]) { if (c === "event" && /^[A-Za-z]+, \d{4}$/.test(g.event)) continue; if (!t(g[c])) falta.push(g.id + "." + c); }
+        if (!/^\[Event /.test(g.pgn) || !g.pgn.trim().endsWith(g.result)) falta.push(g.id + ":pgn");
+        if (g.moves !== Math.ceil(g.pgn.split("\n\n")[1].replace(/\s*(1-0|0-1|1\/2-1\/2)\s*$/, "").split(/\s+/).filter(x => !/^\d+\.$/.test(x)).length / 2)) falta.push(g.id + ":moves");
+      }
+    }
+    const ids = HOF.masters.map(m => m.id), ix = id => ids.indexOf(id);
+    if (ix("nezhmetdinov") !== ix("tal") - 1) falta.push("orden nezhmetdinov");
+    if (ix("charousek") !== ix("pillsbury") + 1) falta.push("orden charousek");
+    if (ix("vidmar") !== ix("marshall") + 1) falta.push("orden vidmar");
+    if (ix("juwenjun") !== ix("so") + 1) falta.push("orden juwenjun");
+    if (ix("leitingjie") !== ix("firouzja") + 1) falta.push("orden leitingjie");
+    return falta;
+  });
+  ok(!sinB.length, "las cinco fichas del Grupo B están completas, ordenadas y traducidas" + (sinB.length ? ": " + sinB.slice(0, 6).join(", ") : ""));
   ok(!sinA.length, "las seis menciones honoríficas del Grupo A están completas, ordenadas y traducidas" + (sinA.length ? ": " + sinA.slice(0, 6).join(", ") : ""));
   ok(!sin7.length, "las diez fichas del Lote 7 están completas, ordenadas y traducidas" + (sin7.length ? ": " + sin7.slice(0, 6).join(", ") : ""));
   ok(!sinH.length, "las seis menciones honoríficas (Lote 6) están completas, ordenadas y traducidas" + (sinH.length ? ": " + sinH.slice(0, 6).join(", ") : ""));
