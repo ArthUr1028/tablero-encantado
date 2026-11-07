@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 112, "el Santuario tiene 112 fichas (" + r.masters + ")");
+  ok(r.masters === 118, "el Santuario tiene 118 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -68,7 +68,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       for (const sc of m.secciones) { if (!["documentado","debate","leyenda"].includes(sc.nivel)) falta.push(id + ":nivel"); if (!t(sc.t)) falta.push(id + ".t:" + sc.t); if (!t(sc.txt)) falta.push(id + ".txt:" + sc.t); }
     }
     const orden = HOF.masters.filter(m => m.era === "primeros").map(m => m.id).join(",");
-    if (orden !== "lucena,damiano,ruylopez,greco,philidor,lolli,ponziani,labourdonnais,staunton") falta.push("orden:" + orden);
+    if (orden !== "lucena,damiano,ruylopez,greco,philidor,lolli,ponziani,petrov,evans,labourdonnais,staunton") falta.push("orden:" + orden);
     return falta;
   });
   // 2.167: Lote 7, diez fichas completas de maestros cuyo nombre vive en una apertura
@@ -96,6 +96,27 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (!/karpov,sveshnikov,timman/.test(er("fria"))) falta.push("orden sveshnikov");
     return falta;
   });
+  // 2.222: Grupo A, seis menciones honoríficas más (Petrov, Evans, Max Lange, Kann, Caro, Albin)
+  const sinA = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    const A = { petrov: "primeros", evans: "primeros", lange: "romantica", kann: "ciencia", caro: "ciencia", albin: "ciencia" };
+    for (const id in A) {
+      const m = HOF.masters.find(x => x.id === id);
+      if (!m || !m.honor || !m.tema || m.games.length) { falta.push(id + ":estructura"); continue; }
+      if (m.era !== A[id]) falta.push(id + ":era");
+      if (!m.wiki) falta.push(id + ".wiki");
+      if (!t(m.title)) falta.push(id + ".title");
+      if (!/^\d{4}–\d{4}$/.test(m.years)) falta.push(id + ".years");
+      if (!m.secciones.length) falta.push(id + ":sin secciones");
+      for (const sc of m.secciones) { if (!["documentado","debate","leyenda"].includes(sc.nivel)) falta.push(id + ":nivel"); if (!t(sc.t)) falta.push(id + ".t:" + sc.t); if (!t(sc.txt)) falta.push(id + ".txt:" + sc.t); }
+    }
+    const er = id => HOF.masters.filter(m => m.era === id).map(m => m.id).join(",");
+    if (!/anderssen,bird,lange,morphy/.test(er("romantica"))) falta.push("orden lange");
+    if (!/winawer,kann,caro,chigorin/.test(er("ciencia"))) falta.push("orden kann-caro");
+    if (!/tarrasch,albin,lasker/.test(er("ciencia"))) falta.push("orden albin");
+    return falta;
+  });
+  ok(!sinA.length, "las seis menciones honoríficas del Grupo A están completas, ordenadas y traducidas" + (sinA.length ? ": " + sinA.slice(0, 6).join(", ") : ""));
   ok(!sin7.length, "las diez fichas del Lote 7 están completas, ordenadas y traducidas" + (sin7.length ? ": " + sin7.slice(0, 6).join(", ") : ""));
   ok(!sinH.length, "las seis menciones honoríficas (Lote 6) están completas, ordenadas y traducidas" + (sinH.length ? ": " + sinH.slice(0, 6).join(", ") : ""));
   ok(!sin.length, "los textos nuevos del Santuario tienen versión en inglés" + (sin.length ? ": " + sin.slice(0, 6).join(", ") : ""));
