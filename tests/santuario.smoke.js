@@ -126,6 +126,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(sozBio.es && sozBio.en, "la ficha de Sozin incluye su origen (Nóvgorod, familia de sacerdote) y su servicio en la guerra, con versión en inglés");
   const verFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.veresov === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.veresov), cred: /2002/.test(HOF_LOCAL_CRED.veresov || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.veresov) !== HOF_LOCAL_CRED.veresov) }));
   const nezFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.nezhmetdinov === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.nezhmetdinov), cred: /Aimchess/.test(HOF_LOCAL_CRED.nezhmetdinov || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.nezhmetdinov) !== HOF_LOCAL_CRED.nezhmetdinov) }));
+  const pacFoto = await page.evaluate(() => ({ img: /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.pachman || ""), cred: /ChessBase/.test(HOF_LOCAL_CRED.pachman || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.pachman) !== HOF_LOCAL_CRED.pachman) }));
+  ok(pacFoto.img && pacFoto.cred && pacFoto.en, "Pachman lleva su retrato de 1943 con crédito de procedencia y versión en inglés");
   ok(nezFoto.img && nezFoto.cred && nezFoto.en, "Nezhmetdinov lleva su retrato con crédito de procedencia y versión en inglés");
   ok(verFoto.img && verFoto.cred && verFoto.en, "Veresov lleva su retrato de la portada del libro de 2002 con crédito y versión en inglés");
   ok(sozFoto.img && sozFoto.cred && sozFoto.en, "Sozin lleva su fotografía con crédito de procedencia y versión en inglés");
