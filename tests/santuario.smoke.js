@@ -124,6 +124,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const sozFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.sozin === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.sozin), cred: /50chess\.ru/.test(HOF_LOCAL_CRED.sozin || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.sozin) !== HOF_LOCAL_CRED.sozin) }));
   const sozBio = await page.evaluate(() => { const m = HOF.masters.find(x => x.id === "sozin"); return { es: /Nóvgorod, en una familia de sacerdote/.test(m.bio), en: (setLang("en"), /Novgorod, into a priest's family/.test(window.tx(m.bio))) }; });
   ok(sozBio.es && sozBio.en, "la ficha de Sozin incluye su origen (Nóvgorod, familia de sacerdote) y su servicio en la guerra, con versión en inglés");
+  const verFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.veresov === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.veresov), cred: /2002/.test(HOF_LOCAL_CRED.veresov || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.veresov) !== HOF_LOCAL_CRED.veresov) }));
+  ok(verFoto.img && verFoto.cred && verFoto.en, "Veresov lleva su retrato de la portada del libro de 2002 con crédito y versión en inglés");
   ok(sozFoto.img && sozFoto.cred && sozFoto.en, "Sozin lleva su fotografía con crédito de procedencia y versión en inglés");
   ok(ponFoto.img && ponFoto.cred && ponFoto.en, "Ponziani lleva su dibujo atribuido con crédito que indica el conflicto de rótulo y versión en inglés");
   ok(lolFoto.img && lolFoto.cred && lolFoto.en, "Lolli lleva su grabado atribuido con crédito que indica la duda y versión en inglés");
