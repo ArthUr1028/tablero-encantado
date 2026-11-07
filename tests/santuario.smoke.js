@@ -116,6 +116,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (!/tarrasch,albin,lasker/.test(er("ciencia"))) falta.push("orden albin");
     return falta;
   });
+  const kannFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.kann === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.kann), cred: !!HOF_LOCAL_CRED.kann, en: (setLang("en"), window.tx(HOF_LOCAL_CRED.kann) !== HOF_LOCAL_CRED.kann) }));
+  ok(kannFoto.img && kannFoto.cred && kannFoto.en, "Marcus Kann lleva su retrato propio con crédito y versión en inglés");
   ok(!sinA.length, "las seis menciones honoríficas del Grupo A están completas, ordenadas y traducidas" + (sinA.length ? ": " + sinA.slice(0, 6).join(", ") : ""));
   ok(!sin7.length, "las diez fichas del Lote 7 están completas, ordenadas y traducidas" + (sin7.length ? ": " + sin7.slice(0, 6).join(", ") : ""));
   ok(!sinH.length, "las seis menciones honoríficas (Lote 6) están completas, ordenadas y traducidas" + (sinH.length ? ": " + sinH.slice(0, 6).join(", ") : ""));
