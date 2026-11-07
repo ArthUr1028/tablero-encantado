@@ -119,6 +119,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const kannFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.kann === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.kann), cred: !!HOF_LOCAL_CRED.kann, en: (setLang("en"), window.tx(HOF_LOCAL_CRED.kann) !== HOF_LOCAL_CRED.kann) }));
   ok(kannFoto.img && kannFoto.cred && kannFoto.en, "Marcus Kann lleva su retrato propio con crédito y versión en inglés");
   const lucFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.lucena === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.lucena), cred: /podría ser un retrato imaginario/.test(HOF_LOCAL_CRED.lucena || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.lucena) !== HOF_LOCAL_CRED.lucena) }));
+  const lolFoto = await page.evaluate(() => ({ img: typeof HOF_LOCAL_IMG.lolli === "string" && /^data:image\/jpeg;base64,/.test(HOF_LOCAL_IMG.lolli), cred: /identificación no está confirmada/.test(HOF_LOCAL_CRED.lolli || ""), en: (setLang("en"), window.tx(HOF_LOCAL_CRED.lolli) !== HOF_LOCAL_CRED.lolli) }));
+  ok(lolFoto.img && lolFoto.cred && lolFoto.en, "Lolli lleva su grabado atribuido con crédito que indica la duda y versión en inglés");
   ok(lucFoto.img && lucFoto.cred && lucFoto.en, "Lucena lleva su imagen atribuida con crédito que indica la duda y versión en inglés");
   ok(!sinA.length, "las seis menciones honoríficas del Grupo A están completas, ordenadas y traducidas" + (sinA.length ? ": " + sinA.slice(0, 6).join(", ") : ""));
   ok(!sin7.length, "las diez fichas del Lote 7 están completas, ordenadas y traducidas" + (sin7.length ? ": " + sin7.slice(0, 6).join(", ") : ""));
