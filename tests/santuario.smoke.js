@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 133, "el Santuario tiene 133 fichas (" + r.masters + ")");
+  ok(r.masters === 141, "el Santuario tiene 141 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -157,6 +157,26 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (ix("leitingjie") !== ix("firouzja") + 1) falta.push("orden leitingjie");
     return falta;
   });
+  const sinC2 = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    const C = { adams: 3, leko: 3, radjabov: 3, grischuk: 3, karjakin: 3, mamedyarov: 3, giri: 3, weiyi: 3 };
+    const ids = HOF.masters.map(m => m.id), ix = id => ids.indexOf(id);
+    for (const id in C) {
+      const m = HOF.masters.find(x => x.id === id);
+      if (!m) { falta.push(id + ":no existe"); continue; }
+      if (m.games.length !== C[id]) falta.push(id + ":partidas " + m.games.length);
+      if (!m.wiki || !/^\d{4}–(\d{4})?$/.test(m.years)) falta.push(id + ":wiki/years");
+      for (const c of ["title", "bio", "style", "legacy"]) if (!t(m[c])) falta.push(id + "." + c);
+      for (const g of m.games) {
+        for (const c of ["title", "event", "why"]) { if (c === "event" && /^[A-Za-z]+, \d{4}(\/\d{2})?$/.test(g.event)) continue; if (!t(g[c])) falta.push(g.id + "." + c); }
+        if (!/^\[Event /.test(g.pgn) || !g.pgn.trim().endsWith(g.result)) falta.push(g.id + ":pgn");
+      }
+    }
+    for (const [a, b] of [["gelfand", "adams"], ["svidler", "leko"], ["kramnik", "radjabov"], ["topalov", "grischuk"], ["aronian", "karjakin"], ["karjakin", "mamedyarov"], ["caruana", "giri"], ["vachier-lagrave", "weiyi"]])
+      if (ix(b) !== ix(a) + 1) falta.push("orden " + b);
+    return falta;
+  });
+  ok(!sinC2.length, "las ocho fichas del Grupo C-2 están completas, ordenadas y traducidas" + (sinC2.length ? ": " + sinC2.slice(0, 6).join(", ") : ""));
   const sinC1 = await page.evaluate(() => {
     const falta = [], t = s => window.tx(s) !== s;
     const C = { levenfish: 3, lilienthal: 3, stahlberg: 4, szabo: 3, pachman: 3, averbakh: 3, andersson: 3, ljubojevic: 3, beliavsky: 3, vaganian: 3 };
