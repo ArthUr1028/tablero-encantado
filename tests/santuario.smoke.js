@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 123, "el Santuario tiene 123 fichas (" + r.masters + ")");
+  ok(r.masters === 133, "el Santuario tiene 133 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -142,7 +142,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       if (m.games.length !== B[id][0]) falta.push(id + ":partidas " + m.games.length);
       for (const c of ["title", "bio", "style", "legacy"]) if (!t(m[c])) falta.push(id + "." + c);
       for (const g of m.games) {
-        for (const c of ["title", "event", "why"]) { if (c === "event" && /^[A-Za-z]+, \d{4}$/.test(g.event)) continue; if (!t(g[c])) falta.push(g.id + "." + c); }
+        for (const c of ["title", "event", "why"]) { if (c === "event" && /^[A-Za-z]+, \d{4}(\/\d{2})?$/.test(g.event)) continue; if (!t(g[c])) falta.push(g.id + "." + c); }
         if (!/^\[Event /.test(g.pgn) || !g.pgn.trim().endsWith(g.result)) falta.push(g.id + ":pgn");
         if (g.moves !== Math.ceil(g.pgn.split("\n\n")[1].replace(/\s*(1-0|0-1|1\/2-1\/2)\s*$/, "").split(/\s+/).filter(x => !/^\d+\.$/.test(x)).length / 2)) falta.push(g.id + ":moves");
       }
@@ -155,6 +155,26 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (ix("leitingjie") !== ix("firouzja") + 1) falta.push("orden leitingjie");
     return falta;
   });
+  const sinC1 = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    const C = { levenfish: 3, lilienthal: 3, stahlberg: 4, szabo: 3, pachman: 3, averbakh: 3, andersson: 3, ljubojevic: 3, beliavsky: 3, vaganian: 3 };
+    const ids = HOF.masters.map(m => m.id), ix = id => ids.indexOf(id);
+    for (const id in C) {
+      const m = HOF.masters.find(x => x.id === id);
+      if (!m) { falta.push(id + ":no existe"); continue; }
+      if (m.games.length !== C[id]) falta.push(id + ":partidas " + m.games.length);
+      if (!m.wiki || !/^\d{4}–(\d{4})?$/.test(m.years)) falta.push(id + ":wiki/years");
+      for (const c of ["title", "bio", "style", "legacy"]) if (!t(m[c])) falta.push(id + "." + c);
+      for (const g of m.games) {
+        for (const c of ["title", "event", "why"]) { if (c === "event" && /^[A-Za-z]+, \d{4}(\/\d{2})?$/.test(g.event)) continue; if (!t(g[c])) falta.push(g.id + "." + c); }
+        if (!/^\[Event /.test(g.pgn) || !g.pgn.trim().endsWith(g.result)) falta.push(g.id + ":pgn");
+      }
+    }
+    for (const [a, b] of [["flohr", "levenfish"], ["euwe", "lilienthal"], ["lilienthal", "stahlberg"], ["gligoric", "szabo"], ["benko", "pachman"], ["smyslov", "averbakh"], ["timman", "andersson"], ["andersson", "ljubojevic"], ["seirawan", "beliavsky"], ["beliavsky", "vaganian"]])
+      if (ix(b) !== ix(a) + 1) falta.push("orden " + b);
+    return falta;
+  });
+  ok(!sinC1.length, "las diez fichas del Grupo C-1 están completas, ordenadas y traducidas" + (sinC1.length ? ": " + sinC1.slice(0, 6).join(", ") : ""));
   ok(!sinB.length, "las cinco fichas del Grupo B están completas, ordenadas y traducidas" + (sinB.length ? ": " + sinB.slice(0, 6).join(", ") : ""));
   ok(!sinA.length, "las seis menciones honoríficas del Grupo A están completas, ordenadas y traducidas" + (sinA.length ? ": " + sinA.slice(0, 6).join(", ") : ""));
   ok(!sin7.length, "las diez fichas del Lote 7 están completas, ordenadas y traducidas" + (sin7.length ? ": " + sin7.slice(0, 6).join(", ") : ""));
