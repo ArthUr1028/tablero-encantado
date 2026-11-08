@@ -16,11 +16,11 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
 
 const KEYS = ["clasico", "capablanca", "maharaja", "amazonas", "seirawan", "shatranj", "dark"];
 const CASOS = [
-  { variante: "dark", color: "b", nivel: 10 },
-  { variante: "dark", color: "w", nivel: 10 },
-  { variante: "shatranj", color: "b", nivel: 10 },
-  { variante: "maharaja", color: "w", nivel: 5 },    // el humano es el Maharajá: claudIA juega los Cipayas en Amateur
-  { variante: "maharaja", color: "b", nivel: 10 },   // el humano lleva los Cipayas: claudIA (Maharajá) en Club
+  { variante: "dark", color: "b", nivel: 15 },
+  { variante: "dark", color: "w", nivel: 15 },
+  { variante: "shatranj", color: "b", nivel: 15 },
+  { variante: "maharaja", color: "w", nivel: 10 },   // el humano es el Maharajá: claudIA juega los Cipayas en Miles (2.253)
+  { variante: "maharaja", color: "b", nivel: 15 },   // el humano lleva los Cipayas: claudIA (Maharajá) en Praeceptor (2.253)
 ];
 (async () => {
   await new Promise(r => srv.listen(0, r));
