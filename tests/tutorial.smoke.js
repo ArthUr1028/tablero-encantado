@@ -111,4 +111,61 @@ async function realista(inicioVista){const ctx=await b.newContext({viewport:{wid
 {const e=await realista(true);ok(e.abierta&&/Las puertas del Clan/.test(e.t),"con la guía de inicio ya vista, al abrir El Clan sale su guía → "+e.t);}
 {const e=await realista(false);ok(!e.abierta||!/Las puertas del Clan/.test(e.t),"si aún no vio la de inicio, no apila la del Clan → "+(e.abierta?e.t:"cerrada"));}
 
+// 8) claudIA habla con su rostro y sus chispas azules en cada guía, y un aviso común no se las apaga
+{const r=await abrir({width:1280,height:800},"?tuto=1");const page=r.page;await page.waitForFunction(()=>window.tutorialActive&&window.tutorialActive(),null,{timeout:8000}).catch(()=>{});
+ await page.waitForTimeout(2500);
+ let a=await page.evaluate(()=>{const im=document.getElementById("tuto-av");return{av:!!im&&!im.hidden&&im.naturalWidth>0,w:im?im.getBoundingClientRect().width:0,arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}});
+ ok(a.av&&a.w>=40,"la tarjeta muestra el rostro de claudIA ("+Math.round(a.w)+" px)");ok(a.arcos,"la tarjeta lleva su lienzo de arcos eléctricos");
+ await page.evaluate(()=>showGlobalToast("Aviso de prueba",{voice:true,ms:1500}));await page.waitForTimeout(3200);
+ a=await page.evaluate(()=>({arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}));
+ ok(a.arcos&&a.piezas>0,"tras un aviso de claudIA las chispas de la guía siguen vivas ("+a.piezas+" activas)");
+ await page.click("#tuto-saltar");await page.waitForTimeout(200);
+ ok(await page.evaluate(()=>!document.querySelector("#tuto-tarjeta .cl-arcs")),"al cerrar, las chispas se apagan");
+ ok(r.errs.length===0,"sin errores de JavaScript "+r.errs.slice(0,2));await r.ctx.close();}
+
+// 9) guía de La Batalla: con partida en marcha pausa el reloj y lo reanuda; sin partida no toca nada; en reto no se abre
+async function batalla(preparar,vp){const r=await abrir(vp||{width:1280,height:800});const page=r.page;
+ await page.evaluate(preparar);await page.waitForTimeout(300);
+ const antes=await page.evaluate(()=>({p:matchPaused,s:matchStarted}));
+ await page.evaluate(()=>window.tutorialStart("batalla"));await page.waitForTimeout(600);
+ const e0=await estado(page);const durante=await page.evaluate(()=>matchPaused);
+ const vistos=[],malos=[];
+ for(let k=0;k<12;k++){const e=await estado(page);if(!e.abierta)break;vistos.push(e.t);
+  if(!/^(Al pie|La batalla es)/.test(e.t)){
+   if(e.foco.includes("sin")||e.r.w<15||e.r.h<8)malos.push(e.t+" sin foco");
+   if(!(e.tarj.l>=0&&e.tarj.r<=e.vw&&e.tarj.t>=0&&e.tarj.b<=e.vh))malos.push(e.t+" tarjeta fuera");
+   if(!(e.tarj.r<e.r.l||e.tarj.l>e.r.l+e.r.w||e.tarj.b<e.r.t||e.tarj.t>e.r.t+e.r.h))malos.push(e.t+" tapa el elemento");}
+  if(SHOTS&&vp)await page.screenshot({path:`${SHOTS}/batalla_${k}.png`});
+  await page.click("#tuto-sigue");await page.waitForTimeout(1600);}
+ const despues=await page.evaluate(()=>({p:matchPaused,abierta:!document.getElementById("tuto").hidden,f:localStorage.getItem("tablero-encantado.tutorial-batalla.v1")}));
+ return {antes,durante,e0,vistos,malos,despues,errs:r.errs,ctx:r.ctx,page};}
+const PREP_JUEGO=()=>{setMode("play");matchStarted=true;matchPaused=false;render();};
+{const r=await batalla(PREP_JUEGO);
+ ok(r.durante===true,"con la partida en marcha, la guía pausa el reloj mientras habla");
+ ok(r.despues.p===false&&!r.despues.abierta&&r.despues.f==="1","al cerrar, reanuda la partida y queda marcada");
+ ok(r.vistos.length>=8&&["campo de batalla","Nombra","toca","tiempo","Atrás","crónica","tuya"].every(w=>r.vistos.join("|").toLowerCase().includes(w.toLowerCase())),"recorre sus pasos → "+r.vistos.join(" | "));
+ ok(r.malos.length===0,"cada paso ilumina su elemento y la tarjeta cabe sin taparlo "+r.malos.join("; "));
+ ok(r.errs.length===0,"sin errores de JavaScript "+r.errs.slice(0,2));await r.ctx.close();}
+{const r=await batalla(PREP_JUEGO,{width:412,height:915});ok(r.malos.length===0&&r.vistos.length>=8,"en teléfono: pasos correctos "+r.malos.join("; "));await r.ctx.close();}
+{const r=await batalla(()=>{setMode("play");render();});
+ ok(r.antes.p===false&&r.durante===false&&r.despues.p===false,"sin partida en marcha no toca la pausa");
+ const txt=await r.page.evaluate(()=>1);ok(!r.vistos.some(v=>/descansa/.test(v)),"y no promete detener un reloj que no corre");await r.ctx.close();}
+{const r=await abrir({width:1280,height:800});const page=r.page;await page.evaluate(()=>{setMode("play");retoActive={variant:"clasico",level:10,color:"w",ended:false};});
+ await page.evaluate(()=>window.tutorialStart("batalla"));await page.waitForTimeout(500);
+ const e=await estado(page);const toast=await page.evaluate(()=>document.querySelector(".global-toast")&&document.querySelector(".global-toast").textContent);
+ ok(!e.abierta&&/no admite pausas/.test(toast||""),"en un reto o duelo no se abre y claudIA lo explica → "+(toast||"").slice(0,50));await r.ctx.close();}
+
+// 10) aviso suave la primera vez que se empieza una batalla
+{const ctx=await b.newContext({viewport:{width:1280,height:800}});
+ await ctx.addInitScript(()=>{Object.defineProperty(navigator,"webdriver",{get:()=>false});try{localStorage.setItem("tablero-encantado.tutorial.v1","1");}catch(e){}});
+ const page=await ctx.newPage();await page.route(/^(?!http:\/\/127\.0\.0\.1).*/,r=>r.abort());
+ await page.goto(base,{waitUntil:"load"});await page.waitForTimeout(900);
+ await page.evaluate(()=>{const s=document.getElementById("intro-saltar");if(s)s.click();for(const id of["intro","battle-intro"]){const e=document.getElementById(id);if(e)e.remove()}document.documentElement.classList.remove("intro-abierta");setMode("play");});
+ await page.waitForTimeout(500);
+ await page.evaluate(()=>{document.getElementById("match-start").click();matchStarted=true;matchPaused=false;render();});await page.waitForTimeout(3600);
+ const t1=await page.evaluate(()=>[...document.querySelectorAll(".global-toast")].map(e=>e.textContent).join("|"));
+ ok(/cómo se libra una batalla/.test(t1),"la primera batalla trae el ofrecimiento de claudIA → "+t1.slice(0,60));
+ ok(await page.evaluate(()=>!!localStorage.getItem("tablero-encantado.tutorial-batalla-aviso.v1")&&!localStorage.getItem("tablero-encantado.tutorial-batalla.v1")),"se ofrece una sola vez y no marca la guía como vista");
+ await ctx.close();}
+
 await b.close();srv.close();console.log(fallos?"HAY FALLOS":"Todo bien");process.exit(fallos?1:0)})();
