@@ -117,7 +117,7 @@ async function realista(inicioVista){const ctx=await b.newContext({viewport:{wid
  let a=await page.evaluate(()=>{const im=document.getElementById("tuto-av");return{av:!!im&&!im.hidden&&im.naturalWidth>0,w:im?im.getBoundingClientRect().width:0,arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}});
  ok(a.av&&a.w>=40,"la tarjeta muestra el rostro de claudIA ("+Math.round(a.w)+" px)");ok(a.arcos,"la tarjeta lleva su lienzo de arcos eléctricos");
  await page.evaluate(()=>showGlobalToast("Aviso de prueba",{voice:true,ms:1500}));await page.waitForTimeout(3200);
- a=await page.evaluate(()=>({arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}));
+ a={arcos:false,piezas:0};for(let i=0;i<8;i++){const x=await page.evaluate(()=>({arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}));a.arcos=x.arcos;a.piezas=Math.max(a.piezas,x.piezas);if(a.piezas>0)break;await page.waitForTimeout(250);}
  ok(a.arcos&&a.piezas>0,"tras un aviso de claudIA las chispas de la guía siguen vivas ("+a.piezas+" activas)");
  await page.click("#tuto-saltar");await page.waitForTimeout(200);
  ok(await page.evaluate(()=>!document.querySelector("#tuto-tarjeta .cl-arcs")),"al cerrar, las chispas se apagan");
@@ -167,5 +167,29 @@ const PREP_JUEGO=()=>{setMode("play");matchStarted=true;matchPaused=false;render
  ok(/cómo se libra una batalla/.test(t1),"la primera batalla trae el ofrecimiento de claudIA → "+t1.slice(0,60));
  ok(await page.evaluate(()=>!!localStorage.getItem("tablero-encantado.tutorial-batalla-aviso.v1")&&!localStorage.getItem("tablero-encantado.tutorial-batalla.v1")),"se ofrece una sola vez y no marca la guía como vista");
  await ctx.close();}
+
+// 11) guía de La Armería: recorre, abre «Más ajustes» y lo deja como estaba
+async function armeria(vp,abrirMas){const r=await abrir(vp);const page=r.page;
+ await page.evaluate(m=>{expandPanelExclusive(document.getElementById("panel-ajustes"));document.getElementById("aj-mas").open=!!m;},abrirMas);await page.waitForTimeout(400);
+ const antes=await page.evaluate(()=>document.getElementById("aj-mas").open);
+ await page.evaluate(()=>window.tutorialStart("armeria"));await page.waitForTimeout(700);
+ const vistos=[],malos=[];let durante=null;
+ for(let k=0;k<14;k++){const e=await estado(page);if(!e.abierta)break;vistos.push(e.t);
+  if(/estruendo/i.test(e.t))durante=await page.evaluate(()=>document.getElementById("aj-mas").open);
+  if(!/^(Entre armas|La Armería está)/.test(e.t)){
+   if(e.foco.includes("sin")||e.r.w<15||e.r.h<8)malos.push(e.t+" sin foco");
+   if(!(e.tarj.l>=0&&e.tarj.r<=e.vw&&e.tarj.t>=0&&e.tarj.b<=e.vh))malos.push(e.t+" tarjeta fuera");
+   if(!(e.tarj.r<e.r.l||e.tarj.l>e.r.l+e.r.w||e.tarj.b<e.r.t||e.tarj.t>e.r.t+e.r.h))malos.push(e.t+" tapa el elemento");}
+  if(SHOTS&&vp.width<500)await page.screenshot({path:`${SHOTS}/armeria_${k}.png`});
+  await page.click("#tuto-sigue");await page.waitForTimeout(1600);}
+ const despues=await page.evaluate(()=>({mas:document.getElementById("aj-mas").open,abierta:!document.getElementById("tuto").hidden,f:localStorage.getItem("tablero-encantado.tutorial-armeria.v1")}));
+ return {antes,durante,vistos,malos,despues,errs:r.errs,ctx:r.ctx};}
+for(const [n,vp] of [["escritorio",{width:1280,height:800}],["teléfono",{width:412,height:915}]]){
+ const r=await armeria(vp,false);
+ ok(r.vistos.length>=10&&["cuenta","idioma","elementos","relieve","estruendo","música"].every(w=>r.vistos.join("|").toLowerCase().includes(w)),n+": recorre sus pasos → "+r.vistos.length);
+ ok(r.malos.length===0,n+": cada paso ilumina y la tarjeta cabe "+r.malos.join("; "));
+ ok(r.antes===false&&r.durante===true&&r.despues.mas===false&&r.despues.f==="1","'Más ajustes' se abre para explicar y se pliega al cerrar");
+ ok(r.errs.length===0,n+": sin errores de JavaScript "+r.errs.slice(0,2));await r.ctx.close();}
+{const r=await armeria({width:1280,height:800},true);ok(r.despues.mas===true,"si ya estaba abierto, se queda abierto");await r.ctx.close();}
 
 await b.close();srv.close();console.log(fallos?"HAY FALLOS":"Todo bien");process.exit(fallos?1:0)})();
