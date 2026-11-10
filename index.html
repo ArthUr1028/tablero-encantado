@@ -3933,6 +3933,8 @@
      y se materializa en el impacto. Sale de la misma capa que el desmoronamiento (#crumble-layer). Tiempos: --gd = espera (la pieza que
      mueve termina su trayecto), impacto a --gd + .42 s. */
   .cell:has(> .piece.summon){ overflow:visible; z-index:2; }
+  /* 2.268 · Dark: durante la llegada la casilla tampoco se eleva sobre la niebla (recortaba un cuadrado limpio antes del rayo) */
+  #board:has(> .fog-body) .cell:has(> .piece.summon){ z-index:auto; }
   .piece.summon{ animation:summonPop .75s cubic-bezier(.2,.9,.25,1) calc(var(--gd,.24s) + .42s) backwards; }
   .piece.summon > svg{ animation:summonGlow .95s ease-out calc(var(--gd,.24s) + .42s) backwards; }
   @keyframes summonPop{
