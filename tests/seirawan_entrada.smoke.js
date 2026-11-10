@@ -12,7 +12,7 @@ const srv = http.createServer((req, res) => {
 let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") + m); if (!c) fallos++; };
 const FRAMES = process.env.FRAMES;
 async function abrir(browser, reducir) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: reducir ? "reduce" : "no-preference" });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: +(process.env.DSF || 1), reducedMotion: reducir ? "reduce" : "no-preference" });
   const page = await ctx.newPage(); const errores = []; page.on("pageerror", e => errores.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
   await page.addInitScript(() => { window.__noBattleIntro = true; try{ localStorage.clear(); }catch(e){} });
@@ -43,7 +43,7 @@ const JUGAR = (cfg) => {
       fx: document.querySelectorAll(".gatefx").length, cls: (document.querySelector(".gatefx") || {}).className,
       feather: document.querySelectorAll(".gatefx .feather").length, spark: document.querySelectorAll(".gatefx .spark").length,
       shade: document.querySelectorAll(".gatefx .shade").length, dust: document.querySelectorAll(".gatefx .dust").length, peb: document.querySelectorAll(".gatefx .pebble").length,
-      dive: document.querySelectorAll(".sumfx .dive").length, crk: document.querySelectorAll(".sumfx .crk").length,
+      dive: document.querySelectorAll(".sumfx .dive").length, crk: document.querySelectorAll(".sumfx .crk").length, puff: document.querySelectorAll(".gatefx .dpuff").length, speck: document.querySelectorAll(".gatefx .dspeck").length, rock: document.querySelectorAll(".gatefx .rock").length,
       beam: (() => { const b = document.querySelector(".gatefx .beam"); return b ? getComputedStyle(b).display : "sin"; })(),
       pieza: (document.querySelector(".piece.summon") || {}).className, gd: (document.querySelector(".piece.summon") || { style: {} }).style.getPropertyValue("--gd"),
     }));
@@ -51,7 +51,7 @@ const JUGAR = (cfg) => {
     ok(r.fx === 1 && /\b(hawk|ele)\b/.test(r.cls) && r.cls.includes(clase), nombre + ": la capa de efectos es la suya (" + r.cls + ")");
     ok(r.pieza && r.pieza.includes(clase), nombre + ": la pieza lleva su propia entrada");
     if (gate === "a") ok(r.feather === 10 && r.dive === 5 && r.crk === 0 && r.shade === 0, "halcón: 10 plumas y estela de picada (5 trazos), sin grietas ni sombra");
-    else ok(r.shade === 1 && r.dust === 7 && r.peb === 11 && r.crk === 0 && r.dive === 0 && r.feather === 0, "elefante: sombra, 7 polvaredas, 11 guijarros, sin grietas ni plumas");
+    else ok(r.shade === 0 && r.puff === 17 && r.speck === 18 && r.rock === 20 && r.crk === 0 && r.dive === 0 && r.feather === 0, "elefante: 17 nubes de polvo, 18 motas y 20 guijarros; sin sombra, grietas ni plumas");
     ok(r.beam === "none" || r.beam === "sin", nombre + ": sin la columna dorada genérica");
     // el impacto sincroniza la sacudida: ligera para el halcón, pesada para el elefante
     await page.waitForTimeout(760);
@@ -60,7 +60,7 @@ const JUGAR = (cfg) => {
     if (FRAMES) {
       await page.evaluate(JUGAR, { fen: SEIR, gate }); await page.waitForTimeout(60);
       fs.mkdirSync(FRAMES, { recursive: true });
-      const tiempos = gate === "a" ? [["a", 420], ["b", 580], ["c", 700], ["d", 900], ["e", 1250]] : [["a", 380], ["b", 600], ["c", 720], ["d", 900], ["e", 1400]];
+      const tiempos = gate === "a" ? [["a", 420], ["b", 580], ["c", 700], ["d", 900], ["e", 1250]] : [["a", 560], ["b", 760], ["c", 900], ["d", 1150], ["e", 1700]];
       for (const [n, ms] of tiempos) {
         await page.evaluate(ms => { document.getAnimations().forEach(a => { try{ a.pause(); a.currentTime = ms; }catch(e){} }); }, ms);
         await page.waitForTimeout(80);

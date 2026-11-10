@@ -37,6 +37,6 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 
 ## Llegada del Halcón y del Elefante (2.263)
 - Sin archivos nuevos: los chillidos (`halcon`, `elefante`) son los de siempre; lo nuevo es la capa sintetizada de `creatureSfx()` y la animación. Impacto a t + 0,42 s (igual que el visual: `--gd` + 0,42 s).
-- Halcón: soplo de aire que se afina (picada), aleteo de 4 ráfagas agudas y un destello. Elefante (sin grietas desde la 2.264): retumbo grave que se acerca, pisotón (sub-grave + golpe medio para bocinas de celular), polvo, eco a los 0,28 s (coincide con la segunda sacudida, `quake-heavy`) y cinco guijarros.
+- Halcón: soplo de aire que se afina (picada), aleteo de 4 ráfagas agudas y un destello. Elefante (sin grietas ni caída desde la 2.264-2.265; polvo y guijarros con física en `spawnStompDebris`): retumbo grave que se acerca, pisotón (sub-grave + golpe medio para bocinas de celular), polvo, eco a los 0,28 s (coincide con la segunda sacudida, `quake-heavy`) y cinco guijarros.
 - En el enroque con convocatoria la llegada espera a los tambores (0,8 s corto / 1,3 s largo): visual y sonido comparten ese retraso. Prueba: `node tests/seirawan_entrada.smoke.js` (`FRAMES=/carpeta` guarda capturas congeladas).
 
