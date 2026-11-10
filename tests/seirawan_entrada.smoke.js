@@ -51,7 +51,7 @@ const JUGAR = (cfg) => {
     ok(r.fx === 1 && /\b(hawk|ele)\b/.test(r.cls) && r.cls.includes(clase), nombre + ": la capa de efectos es la suya (" + r.cls + ")");
     ok(r.pieza && r.pieza.includes(clase), nombre + ": la pieza lleva su propia entrada");
     if (gate === "a") ok(r.feather === 10 && r.dive === 5 && r.crk === 0 && r.shade === 0, "halcón: 10 plumas y estela de picada (5 trazos), sin grietas ni sombra");
-    else ok(r.shade === 1 && r.dust === 7 && r.peb === 11 && r.crk === 16 && r.dive === 0 && r.feather === 0, "elefante: sombra, 7 polvaredas, 11 guijarros y 8 grietas (16 trazos), sin plumas");
+    else ok(r.shade === 1 && r.dust === 7 && r.peb === 11 && r.crk === 0 && r.dive === 0 && r.feather === 0, "elefante: sombra, 7 polvaredas, 11 guijarros, sin grietas ni plumas");
     ok(r.beam === "none" || r.beam === "sin", nombre + ": sin la columna dorada genérica");
     // el impacto sincroniza la sacudida: ligera para el halcón, pesada para el elefante
     await page.waitForTimeout(760);
