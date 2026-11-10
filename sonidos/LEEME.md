@@ -35,3 +35,8 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 - Suena en TODA coronación, en todas las variantes (incluido Dark Chess, igual que antes con el sonido de coronación), arrancando en el impacto del rayo: 0,26 s (espera) + 0,42 s (caída) tras la jugada. Sin la muestra, vuelve la invocación sintetizada de siempre (`summonSfx`). Se incrusta con `python3 tools/build-sfx.py` (clave `trueno`).
 - Visual: `spawnBolt()` en `index.html` (rayo SVG de tres trazos, ramas y arcos a ras de la casilla, destello de tablero con a lo sumo dos picos por segundo; sin filtros de desenfoque, ligero en celular). Con «reducir movimiento» no se dibuja nada. Prueba: `node tests/coronacion_rayo.smoke.js` (con `FRAMES=/carpeta` guarda capturas congeladas; `CASO=negras` prueba la coronación larga).
 
+## Llegada del Halcón y del Elefante (2.263)
+- Sin archivos nuevos: los chillidos (`halcon`, `elefante`) son los de siempre; lo nuevo es la capa sintetizada de `creatureSfx()` y la animación. Impacto a t + 0,42 s (igual que el visual: `--gd` + 0,42 s).
+- Halcón: soplo de aire que se afina (picada), aleteo de 4 ráfagas agudas y un destello. Elefante: retumbo grave que se acerca, pisotón (sub-grave + golpe medio para bocinas de celular), polvo, eco a los 0,28 s (coincide con la segunda sacudida, `quake-heavy`) y cinco guijarros.
+- En el enroque con convocatoria la llegada espera a los tambores (0,8 s corto / 1,3 s largo): visual y sonido comparten ese retraso. Prueba: `node tests/seirawan_entrada.smoke.js` (`FRAMES=/carpeta` guarda capturas congeladas).
+
