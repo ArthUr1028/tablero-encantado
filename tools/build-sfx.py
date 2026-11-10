@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Incrusta en index.html los sonidos de sonidos/ (window.SFX_AUDIO): un clip por pieza (claves pz_p, pz_n, ...) y las capturas nuevas,
+"""Incrusta en index.html los sonidos de sonidos/ (window.SFX_AUDIO): un clip por pieza (claves pz_p, pz_n, ...), el trueno de la coronación (trueno) y las capturas nuevas,
 que se añaden a las 11 originales del arreglo «cap». Es idempotente: se puede correr cuantas veces haga falta tras cambiar un archivo.
 Uso:  python3 tools/build-sfx.py"""
 import base64, json, os, sys
@@ -20,6 +20,8 @@ for clave, arch in (("enr_c", "corto.mp3"), ("enr_l", "largo.mp3")):   # enroque
     if os.path.exists(ruta): d[clave] = b64(ruta)
 ruta = os.path.join(RAIZ, "sonidos", "entrada", "batalla.mp3")   # 2.136: pista de la entrada a la batalla (15 s)
 if os.path.exists(ruta): d["batalla"] = b64(ruta)
+ruta = os.path.join(RAIZ, "sonidos", "coronacion", "trueno.mp3")   # 2.262: trueno de la coronación (4,4 s)
+if os.path.exists(ruta): d["trueno"] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))
 d["cap"] = d["cap"][:ORIGINALES] + [b64(os.path.join(RAIZ, "sonidos", "capturas", f)) for f in nuevas]
 nuevo = "window.SFX_AUDIO=" + json.dumps(d, separators=(",", ":")) + resto
