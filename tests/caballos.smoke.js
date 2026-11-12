@@ -103,6 +103,34 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(c.undoOn && parseInt(c.trasUndo) === parseInt(c.n) - 1, "tras un callejón se puede deshacer un salto (" + c.n + " → " + c.trasUndo + ")");
   ok(c.tip, "la sugerencia de Warnsdorff marca una casilla");
 
+  // ----- arrastrar y soltar con ratón real
+  const centro = async i => page.evaluate(i => { const r = document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, i);
+  const arrastra = async (de, a, soltar = true) => {
+    const p0 = await centro(de), p1 = await centro(a);
+    await page.mouse.move(p0.x, p0.y); await page.mouse.down();
+    await page.mouse.move((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, { steps: 4 }); await page.mouse.move(p1.x, p1.y, { steps: 4 });
+    const flotante = await page.evaluate(() => !!document.querySelector(".kn-float"));
+    if (soltar) await page.mouse.up();
+    return flotante;
+  };
+  await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="guarini"]').click(); });
+  const g0 = await page.evaluate(() => document.getElementById("kn-n1").textContent);
+  const fl = await arrastra(0, 5);               // 0 → 5 es un salto de caballo en 3×3
+  const g1 = await page.evaluate(() => ({ n: document.getElementById("kn-n1").textContent, flot: !!document.querySelector(".kn-float"), pieza5: !!document.querySelector('#kn-board .kn-sq[data-i="5"] .kn-pc') }));
+  ok(fl && g1.n === "1" && g1.pieza5 && !g1.flot, "Guarini: arrastrar un caballo a una casilla libre de salto lo mueve (" + g0 + " → " + g1.n + ")");
+  await arrastra(5, 4);                          // 5→4 no es salto de caballo: no debe mover
+  const g2 = await page.evaluate(() => ({ n: document.getElementById("kn-n1").textContent, pieza5: !!document.querySelector('#kn-board .kn-sq[data-i="5"] .kn-pc'), flot: !!document.querySelector(".kn-float") }));
+  ok(g2.n === "1" && g2.pieza5 && !g2.flot, "Guarini: soltar en una casilla ilegal no mueve nada");
+  const p5 = await centro(5); await page.mouse.click(p5.x, p5.y); await page.waitForTimeout(50);
+  const sel = await page.evaluate(() => !!document.querySelector("#kn-board .kn-sq.sel"));
+  ok(sel, "el toque simple sigue funcionando (selecciona el caballo)");
+  await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="tour"]').click(); });
+  const t0 = await centro(0); await page.mouse.click(t0.x, t0.y);
+  const dest = await page.evaluate(() => +document.querySelector("#kn-board .kn-sq.go").dataset.i);
+  await arrastra(0, dest);
+  const t1 = await page.evaluate(d => ({ n: document.getElementById("kn-n1").textContent, cur: !!document.querySelector('#kn-board .kn-sq.cur[data-i="' + d + '"]') }), dest);
+  ok(t1.n.startsWith("2") && t1.cur, "Recorrido: arrastrar el caballo a una casilla verde lo mueve (" + t1.n + ")");
+
   // ----- inglés
   const en = await page.evaluate(() => {
     document.getElementById("kn-back").click(); setLang("en");
