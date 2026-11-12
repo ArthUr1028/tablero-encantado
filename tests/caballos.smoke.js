@@ -10,6 +10,8 @@ const srv = http.createServer((req, res) => {
   const t = f.endsWith(".js") ? "application/javascript" : f.endsWith(".wasm") ? "application/wasm" : f.endsWith(".html") ? "text/html; charset=utf-8" : "application/octet-stream";
   res.writeHead(200, { "Content-Type": t }); fs.createReadStream(f).pipe(res);
 });
+const LIBRES = `window.__libres = () => { const q = document.querySelector("#kn-board .kn-sq.cur"); if (!q) return []; const c = +q.dataset.i, x = c % 8, y = (c / 8) | 0, r = [];
+    for (const [dx, dy] of [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]]) { const a = x + dx, b = y + dy; if (a < 0 || a > 7 || b < 0 || b > 7) continue; const e = document.querySelector('#kn-board .kn-sq[data-i="' + (b * 8 + a) + '"]'); if (e && !e.classList.contains("vis") && !e.classList.contains("cur")) r.push(e); } return r; };`;
 let fallos = 0;
 const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c) fallos++; };
 (async () => {
@@ -19,6 +21,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
   const errores = []; page.on("pageerror", e => errores.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
+  await page.addInitScript(LIBRES);
   await page.goto(url, { waitUntil: "load" }); await page.waitForTimeout(1000);
   await page.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); localStorage.removeItem("tablero.knBest"); } });
 
@@ -90,7 +93,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     const sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
     // a1 (índice 56) y saltos sin cuidado hasta quedarse sin salidas
     let guard = 0; sq(56).click();
-    while (guard++ < 70) { const go = document.querySelector("#kn-board .kn-sq.go"); if (!go) break; go.click(); }
+    while (guard++ < 70) { const go = window.__libres()[0]; if (!go) break; go.click(); }
     const fin = document.getElementById("kn-msg").textContent, n = document.getElementById("kn-n1").textContent;
     const undoOn = !document.getElementById("kn-undo").disabled;
     document.getElementById("kn-undo").click();
@@ -126,10 +129,10 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(sel, "el toque simple sigue funcionando (selecciona el caballo)");
   await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="tour"]').click(); });
   const t0 = await centro(0); await page.mouse.click(t0.x, t0.y);
-  const dest = await page.evaluate(() => +document.querySelector("#kn-board .kn-sq.go").dataset.i);
+  const dest = await page.evaluate(() => +window.__libres()[0].dataset.i);
   await arrastra(0, dest);
   const t1 = await page.evaluate(d => ({ n: document.getElementById("kn-n1").textContent, cur: !!document.querySelector('#kn-board .kn-sq.cur[data-i="' + d + '"]') }), dest);
-  ok(t1.n.startsWith("2") && t1.cur, "Recorrido: arrastrar el caballo a una casilla verde lo mueve (" + t1.n + ")");
+  ok(t1.n.startsWith("2") && t1.cur, "Recorrido: arrastrar el caballo a un salto legal lo mueve (" + t1.n + ")");
 
   // ----- tamaño, 3D y sonido
   await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="tour"]').click(); window.__sfx = []; const o = SFX.move; SFX.move = (m, oc) => { window.__sfx.push(m && m.piece); return o && 0; }; });
@@ -144,10 +147,13 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(c3.img, "con el 3D encendido las casillas llevan la textura del elemento");
   await page.evaluate(() => { document.body.classList.remove("relieve"); document.getElementById("kn-reset").click(); });
   const t00 = await centro(0); await page.mouse.click(t00.x, t00.y);
-  const d00 = await page.evaluate(() => +document.querySelector("#kn-board .kn-sq.go").dataset.i);
+  const d00 = await page.evaluate(() => +window.__libres()[0].dataset.i);
   const q0 = await centro(d00); await page.mouse.click(q0.x, q0.y);
   const sfx = await page.evaluate(() => window.__sfx.slice());
   ok(sfx.length === 1 && sfx[0] === "n", "al mover el caballo suena el galope (" + JSON.stringify(sfx) + "): colocarlo no suena, saltar sí");
+
+  const verdes = await page.evaluate(() => { document.getElementById('kn-reset').click(); document.querySelector('#kn-board .kn-sq[data-i="27"]').click(); return document.querySelectorAll('#kn-board .kn-sq.go').length; });
+  ok(verdes === 0, 'el recorrido no marca los saltos posibles (' + verdes + ' marcas)');
 
   // ----- inglés
   const en = await page.evaluate(() => {
