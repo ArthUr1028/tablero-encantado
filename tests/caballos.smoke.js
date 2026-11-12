@@ -124,9 +124,6 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await arrastra(5, 4);                          // 5→4 no es salto de caballo: no debe mover
   const g2 = await page.evaluate(() => ({ n: document.getElementById("kn-n1").textContent, pieza5: !!document.querySelector('#kn-board .kn-sq[data-i="5"] .kn-pc'), flot: !!document.querySelector(".kn-float") }));
   ok(g2.n === "1" && g2.pieza5 && !g2.flot, "Guarini: soltar en una casilla ilegal no mueve nada");
-  const p5 = await centro(5); await page.mouse.click(p5.x, p5.y); await page.waitForTimeout(50);
-  const sel = await page.evaluate(() => !!document.querySelector("#kn-board .kn-sq.sel"));
-  ok(sel, "el toque simple sigue funcionando (selecciona el caballo)");
   await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="tour"]').click(); });
   const t0 = await centro(0); await page.mouse.click(t0.x, t0.y);
   const dest = await page.evaluate(() => +window.__libres()[0].dataset.i);
@@ -154,6 +151,23 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
 
   const verdes = await page.evaluate(() => { document.getElementById('kn-reset').click(); document.querySelector('#kn-board .kn-sq[data-i="27"]').click(); return document.querySelectorAll('#kn-board .kn-sq.go').length; });
   ok(verdes === 0, 'el recorrido no marca los saltos posibles (' + verdes + ' marcas)');
+
+  // ----- toque con ratón real (origen y destino) y sin marcas verdes, también en Guarini
+  await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="guarini"]').click(); });
+  const clic = async i => { const p = await centro(i); await page.mouse.click(p.x, p.y); await page.waitForTimeout(60); };
+  await clic(0);
+  const g3 = await page.evaluate(() => ({ sel: !!document.querySelector("#kn-board .kn-sq.sel"), verdes: document.querySelectorAll("#kn-board .kn-sq.go").length }));
+  ok(g3.sel && g3.verdes === 0, "Guarini: un toque selecciona el caballo y no marca saltos posibles (sel " + g3.sel + ", marcas " + g3.verdes + ")");
+  await clic(5);
+  const g4 = await page.evaluate(() => ({ n: document.getElementById("kn-n1").textContent, p5: !!document.querySelector('#kn-board .kn-sq[data-i="5"] .kn-pc') }));
+  ok(g4.n === "1" && g4.p5, "Guarini: tocar el caballo y luego la casilla de destino lo mueve con ratón real");
+  await clic(5); await clic(5);
+  const g5 = await page.evaluate(() => !!document.querySelector("#kn-board .kn-sq.sel"));
+  ok(!g5, "Guarini: volver a tocar el caballo seleccionado lo deselecciona");
+  await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="tour"]').click(); });
+  await clic(27); const dd = await page.evaluate(() => +window.__libres()[0].dataset.i); await clic(dd);
+  const t2 = await page.evaluate(() => document.getElementById("kn-n1").textContent);
+  ok(t2.startsWith("2"), "Recorrido: tocar el destino con ratón real mueve el caballo (" + t2 + ")");
 
   // ----- inglés
   const en = await page.evaluate(() => {
