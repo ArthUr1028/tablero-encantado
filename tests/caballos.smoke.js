@@ -131,6 +131,24 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const t1 = await page.evaluate(d => ({ n: document.getElementById("kn-n1").textContent, cur: !!document.querySelector('#kn-board .kn-sq.cur[data-i="' + d + '"]') }), dest);
   ok(t1.n.startsWith("2") && t1.cur, "Recorrido: arrastrar el caballo a una casilla verde lo mueve (" + t1.n + ")");
 
+  // ----- tamaño, 3D y sonido
+  await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="tour"]').click(); window.__sfx = []; const o = SFX.move; SFX.move = (m, oc) => { window.__sfx.push(m && m.piece); return o && 0; }; });
+  for (const [w, h] of [[1440, 900], [390, 800]]) {
+    await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(150);
+    const r = await page.evaluate(() => { const b = document.getElementById("kn-board").getBoundingClientRect(), x = document.querySelector(".kn-box").getBoundingClientRect(); return { b: Math.round(b.width), alto: Math.round(b.height), cabe: x.height <= innerHeight && x.width <= innerWidth + 1 }; });
+    ok(w >= 1000 ? r.b >= 560 : r.b >= 300, "el tablero del recorrido se ve grande a " + w + "×" + h + " (" + r.b + "px)");
+  }
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.evaluate(() => { document.body.classList.add("relieve"); });
+  const c3 = await page.evaluate(() => { const q = document.querySelector("#kn-board .kn-sq.lgt"), cs = getComputedStyle(q); return { img: cs.backgroundImage.includes("url("), }; });
+  ok(c3.img, "con el 3D encendido las casillas llevan la textura del elemento");
+  await page.evaluate(() => { document.body.classList.remove("relieve"); document.getElementById("kn-reset").click(); });
+  const t00 = await centro(0); await page.mouse.click(t00.x, t00.y);
+  const d00 = await page.evaluate(() => +document.querySelector("#kn-board .kn-sq.go").dataset.i);
+  const q0 = await centro(d00); await page.mouse.click(q0.x, q0.y);
+  const sfx = await page.evaluate(() => window.__sfx.slice());
+  ok(sfx.length === 1 && sfx[0] === "n", "al mover el caballo suena el galope (" + JSON.stringify(sfx) + "): colocarlo no suena, saltar sí");
+
   // ----- inglés
   const en = await page.evaluate(() => {
     document.getElementById("kn-back").click(); setLang("en");
