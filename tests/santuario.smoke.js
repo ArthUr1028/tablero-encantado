@@ -71,6 +71,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (orden !== "lucena,damiano,guarini,ruylopez,greco,philidor,lolli,ponziani,petrov,evans,labourdonnais,staunton") falta.push("orden:" + orden);
     return falta;
   });
+  // 2.271: Guarini lleva su diagrama propio con crédito honesto y versión en inglés
+  const guar = await page.evaluate(() => { setLang("en"); const m = HOF.masters.find(x => x.id === "guarini"); const c = HOF_LOCAL_CRED.guarini; return { img: /^data:image\/webp;base64,/.test(HOF_LOCAL_IMG.guarini || ""), cred: !!c && window.tx(c) !== c, setas: /setas/.test(JSON.stringify(m)) && !/nenúfar/.test(JSON.stringify(m)) }; });
+  ok(guar.img && guar.cred && guar.setas, "Guarini lleva su diagrama antiguo con crédito y versión en inglés, y Dudeney habla de setas");
   // 2.167: Lote 7, diez fichas completas de maestros cuyo nombre vive en una apertura
   const sin7 = await page.evaluate(() => {
     const falta = [], t = s => window.tx(s) !== s;
