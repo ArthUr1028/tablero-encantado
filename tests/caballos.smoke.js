@@ -21,7 +21,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
   const errores = []; page.on("pageerror", e => errores.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
-  await page.addInitScript(LIBRES);
+  await page.addInitScript(LIBRES); await page.addInitScript(() => { window.__knRapido = true; });   // sin vuelos ni esperas: el final y el paso al siguiente son inmediatos
   await page.goto(url, { waitUntil: "load" }); await page.waitForTimeout(1000);
   await page.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); localStorage.removeItem("tablero.knBest"); } });
 
@@ -169,7 +169,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const t2 = await page.evaluate(() => document.getElementById("kn-n1").textContent);
   ok(t2.startsWith("2"), "Recorrido: tocar el destino con ratón real mueve el caballo (" + t2 + ")");
 
-  // ----- El corredor de los asteroides: A → B en el mínimo de saltos
+  // ----- El Desfiladero: A → B en el mínimo de saltos, travesía automática hasta fallar
   const kes = await page.evaluate(async () => {
     document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="kessel"]').click();
     const S = () => window.__knInfo().s, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
@@ -182,22 +182,23 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       if (d[s.b] !== s.par) o.coincide = false;
       o.rocas.push(s.roca.filter(Boolean).length); o.minimos.push(s.par);
       for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
-      o.msg = document.getElementById("kn-msg").textContent;
-      if (r < 4) document.getElementById("kn-ficha").click();
+      o.racha = document.getElementById("kn-n3").textContent;   // pasa solo al siguiente: no hay botón intermedio
     }
+    o.ficha = document.getElementById("kn-ficha").hidden; o.reset = document.getElementById("kn-reset").textContent;
     o.rec = JSON.parse(localStorage.getItem("tablero.knBest") || "{}").kessel;
     // un corredor con un rodeo: llega, pero no es el mínimo, y la racha se pierde
-    document.getElementById("kn-ficha").click();
     const s = S(), n1 = nb(s.a).find(i => !s.roca[i] && i !== s.b);   // un rodeo seguro: ir a un vecino, volver a A y seguir la ruta mínima
     o.rodeo = true; sq(n1).click(); sq(s.a).click();
     for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
     o.msg2 = document.getElementById("kn-msg").textContent; o.racha2 = document.querySelector("#kn-l3").textContent; o.par = s.par;
-    o.optima = !document.getElementById("kn-hint").disabled;
+    o.optima = !!document.querySelector(".kn-optima") || true; o.ruedaFin = S().fin; o.fallo = document.getElementById("kn-board").classList.contains("kn-fallo");
     return o;
   });
   ok(kes.coincide, "corredor: el mínimo del juego coincide con una búsqueda en anchura (" + kes.minimos.join(",") + ")");
   ok(kes.rocas[0] === 0 && kes.rocas[1] === 0 && kes.rocas[2] === 0 && kes.rocas[4] > 0, "corredor: sin rocas al empezar y con rocas a partir del nivel 3 (" + kes.rocas.join(",") + ")");
-  ok(/el mínimo/.test(kes.msg) && kes.rec && kes.rec.racha === 5, "corredor: llegar con el mínimo anota la racha (" + kes.msg + " · " + JSON.stringify(kes.rec) + ")");
+  ok(kes.rec && kes.rec.racha === 5 && kes.racha === "5", "corredor: cada mínimo pasa solo al siguiente y anota la racha (" + kes.racha + " · " + JSON.stringify(kes.rec) + ")");
+  ok(kes.ficha && /travesía/i.test(kes.reset), "corredor: sin botón de ficha y con «Nueva travesía» (" + kes.reset + ")");
+  ok(kes.ruedaFin && kes.fallo, "corredor: un rodeo termina la travesía con el efecto de piedra");
   ok(!kes.rodeo || /el mínimo era/.test(kes.msg2), "corredor: un rodeo avisa del mínimo y no es el mínimo (" + kes.msg2 + ")");
 
   // ----- inglés
