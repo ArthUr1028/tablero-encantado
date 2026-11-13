@@ -184,6 +184,27 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   ok(dbl.tras.every(m => Math.abs(m.x - dbl.tras[0].x) < .6 && Math.abs(m.y - dbl.tras[0].y) < .6), "tras aterrizar la pieza real NO se mueve: queda quieta en su casilla");
   ok(dbl.copias === 0, "no queda ninguna copia ni sombra flotando");
 
+  // ---- con el relieve 3D activado la pieza en vuelo lleva el MISMO filtro que en su casilla (blancas y negras), de principio a fin
+  const rel = await page.evaluate(async () => {
+    const T = ms => new Promise(r => setTimeout(r, ms)), out = {};
+    document.body.classList.add("relieve");
+    for (const [color, from, to] of [["w", [7, 6], [5, 5]], ["b", [0, 6], [2, 5]]]) {
+      setMode("play"); newGame(color === "w" ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1", { white: "Yo", black: "R", result: "", resultNote: "" });
+      vsMachine = false; matchStarted = true; matchPaused = false; flipped = false; render();
+      commitMove(legalMoves(liveState()).find(x => sameSq(x.from, from) && sameSq(x.to, to)));
+      await T(120);
+      const vuelo = document.querySelector("#board .fly-layer .piece.fly");
+      const f1 = vuelo ? getComputedStyle(vuelo).filter : "sin copia";
+      for (let k = 0; k < 40 && document.querySelector("#board .fly-layer"); k++) await T(50);
+      const dest = document.querySelector('#board .cell[data-r="' + to[0] + '"][data-c="' + to[1] + '"] .piece');
+      out[color] = { vuelo: f1, reposo: dest ? getComputedStyle(dest).filter : "sin pieza" };
+    }
+    document.body.classList.remove("relieve");
+    return out;
+  });
+  console.log("  relieve:", JSON.stringify(rel));
+  for (const c of ["w", "b"]) ok(/relieve-pieza/.test(rel[c].reposo) && rel[c].vuelo === rel[c].reposo, "relieve 3D: la pieza " + (c === "w" ? "blanca" : "negra") + " en vuelo conserva el mismo filtro que en reposo");
+
   // ---- la copia aterriza y se limpia: no quedan copias ni sombras ni piezas ocultas
   await page.waitForTimeout(900);
   const limpio = await page.evaluate(() => ({ fly: document.querySelectorAll("#board .piece.fly, #board .fly-shadow").length, ocultas: document.querySelectorAll("#board .fly-on").length }));
