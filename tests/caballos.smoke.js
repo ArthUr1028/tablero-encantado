@@ -212,7 +212,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       else { const D = [[1,1],[1,-1],[-1,1],[-1,-1]], O = [[1,0],[-1,0],[0,1],[0,-1]]; for (const [dx, dy] of (g.t === "b" ? D : g.t === "r" ? O : D.concat(O))) { let a = x + dx, b = y + dy; while (a >= 0 && a < 8 && b >= 0 && b < 8) { o.push(b * 8 + a); if (occ[b * 8 + a]) break; a += dx; b += dy; } } }
       return o; };
     const minimo = s => { const gd = s.guardias, full = 1 << gd.length, tab = {};
-      const T = m => tab[m] || (tab[m] = (() => { const occ = s.roca.slice(), t = Array(64).fill(false); gd.forEach((g, k) => { if (!(m >> k & 1)) occ[g.i] = true; }); gd.forEach((g, k) => { if (!(m >> k & 1)) for (const q of ataca(g, occ)) t[q] = true; }); return t; })());
+      const T = m => tab[m] || (tab[m] = (() => { const occ = s.roca.slice(), t = Array(64).fill(false); occ[s.b] = true; gd.forEach((g, k) => { if (!(m >> k & 1)) occ[g.i] = true; }); gd.forEach((g, k) => { if (!(m >> k & 1)) for (const q of ataca(g, occ)) t[q] = true; }); return t; })());
       const d = new Map([[s.a, 0]]), q = [s.a];
       for (let h = 0; h < q.length; h++) { const id = q[h], pos = id % 64, m = (id / 64) | 0;
         for (const j of nb(pos)) { if (s.roca[j]) continue; const k = gd.findIndex(g => g.i === j), nm = (k >= 0 && !(m >> k & 1)) ? m | (1 << k) : m; if (T(nm)[j]) continue; const nid = nm * 64 + j; if (d.has(nid)) continue; d.set(nid, d.get(id) + 1); if (j === s.b) return d.get(nid); q.push(nid); } }
@@ -228,7 +228,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     o.racha = document.getElementById("kn-n3").textContent; o.rec = JSON.parse(localStorage.getItem("tablero.knBest") || "{}").kessel;
     // caer en una casilla defendida: una torre negra cubre la fila del vecino de A
     const s = S(); s.roca = Array(64).fill(false); s.amiga = {};
-    const j = nb(s.a).find(i => i !== s.b), fila = (j / 8) | 0, col = [0, 7, 3, 4].find(c => fila * 8 + c !== s.a && fila * 8 + c !== s.b && fila * 8 + c !== j && Math.abs(c - j % 8) > 1);
+    const j = nb(s.a).find(i => i !== s.b && ((i / 8) | 0) !== ((s.b / 8) | 0)), fila = (j / 8) | 0, col = [0, 7, 3, 4].find(c => fila * 8 + c !== s.a && fila * 8 + c !== s.b && fila * 8 + c !== j && Math.abs(c - j % 8) > 1);
     s.guardias = [{ i: fila * 8 + col, t: "r" }]; sq(j).click();
     o.tomado = s.fin && !!s.tomado; o.msg = document.getElementById("kn-msg").textContent;
     o.sinPieza = !document.querySelector('#kn-board .kn-sq.cur .kn-pc.w');
