@@ -244,7 +244,12 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     document.getElementById("kn-back").click(); setLang("en");
     const falta = [], tt = s => window.tx(s) !== s;
     const txt = ["Los Caballos", "Retos del caballo", "El problema de Guarini", "El recorrido del caballo", "Pasa por las 64 casillas sin repetir ninguna.", "Cuatro caballos en un tablero de 3×3: intercambia los blancos con los negros.", "‹ Retos", "Deshacer", "Ver el hilo", "Ocultar el hilo", "Sugerencia", "Conoce a Guarini", "Saltos", "Jugadas", "Casillas", "Salidas", "Mejor", "Toca una casilla para colocar el caballo.", "16 es el mínimo posible.", "¡Las 64 casillas! Recorrido completo.", "Cerrar Los Caballos",
-      "Mejor: 16 saltos · 7 jugadas", "Mejor: 64 de 64 · ¡Completado!", "Mejor: 40 de 64", "¡Lo lograste en 16 saltos y 7 jugadas!", "Sin salidas: pisaste 40 de 64 casillas. Deshaz algunos saltos para probar otro camino."];
+      "Mejor: 16 saltos · 7 jugadas", "Mejor: 64 de 64 · ¡Completado!", "Mejor: 40 de 64", "¡Lo lograste en 16 saltos y 7 jugadas!", "Sin salidas: pisaste 40 de 64 casillas. Deshaz algunos saltos para probar otro camino.",
+      "La Senda del Caballero", "Nueva travesía", "Mínimo", "Ver el mínimo (3)", "Nivel 4 · racha 6", "Nivel 5 · 2 peñascos · 2 piezas amigas · 2 guardias.", "Captura a la torre en C8.", "Captura al alfil en C6.",
+      "¡Mínimo! 6 saltos: +420 puntos (con bono sin ayuda).", "Racha de 8 · 1480 puntos (¡mejor travesía!).", "El mínimo son 4 saltos.",
+      "Fin de la travesía: llegaste en 8 saltos y el mínimo era 6.", "Casilla defendida: te tomó la torre negra en h6.", "Capturaste el peón negro en d4.",
+      "Esa casilla la defendía la dama negra y no te lo dije.", "Se podía en 5 saltos.", "Mira la ruta del relámpago y vuelve a intentarlo.",
+      "Te quedaste a 3 casillas del final.", "Te encerraste en el salto 40.", "Las 64 casillas, sin repetir ninguna.", ", pisada 5", ", objetivo: torre", ", salida"];
     for (const s of txt) if (!tt(s)) falta.push(s);
     return falta;
   });
