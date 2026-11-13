@@ -20,12 +20,13 @@ const JUGAR = async (cfg) => {
   if (!m) return { sinJugada: true };
   if (cfg.drop) slideSkipFly = true;
   commitMove(m);
-  const out = [...document.querySelectorAll("#board .piece.slide")].map(e => {
-    const svg = e.querySelector("svg"), cs = svg ? getComputedStyle(svg) : null, bs = getComputedStyle(e, "::before");
+  const lee = e => { const svg = e.querySelector("svg"), cs = svg ? getComputedStyle(svg) : null, bs = getComputedStyle(e, "::before");
     return { cls: e.className, fdur: e.style.getPropertyValue("--fdur"), tilt: e.style.getPropertyValue("--tilt"), alt: e.style.getPropertyValue("--alt"),
-      fdx: e.style.getPropertyValue("--fdx"), svgAnim: cs ? cs.animationName : "", shAnim: bs.animationName };
-  });
-  return { piezas: out, fly: document.querySelectorAll('#board .piece.fly').length, sombras: document.querySelectorAll('#board .fly-shadow').length, ocultas: document.querySelectorAll('#board .piece.fly-on').length, anims: document.getAnimations().length };
+      fdx: e.style.getPropertyValue("--fdx"), svgAnim: cs ? cs.animationName : "", shAnim: bs.animationName }; };
+  // fuera de Dark la pieza viaja como copia (.fly); en Dark y al soltar con el dedo se anima la pieza real por CSS (.slide)
+  const copias = [...document.querySelectorAll("#board .piece.fly")].map(e => ({ cls: "mv-" + e.dataset.kind, fdur: e.dataset.dur + "s", tilt: e.dataset.tilt + "deg", alt: "", fdx: e.dataset.fdx, svgAnim: "", shAnim: "", fly: true }));
+  const out = copias.concat([...document.querySelectorAll("#board .piece.slide")].map(lee));
+  return { piezas: out, fly: document.querySelectorAll('#board .piece.fly').length, sombras: document.querySelectorAll('#board .fly-shadow').length, ocultas: [...document.querySelectorAll('#board .piece')].filter(e => e.style.visibility === "hidden").length, anims: document.getAnimations().length, slideReal: document.querySelectorAll('#board .piece.slide').length };
 };
 const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"])[0]);
 
@@ -54,7 +55,7 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   let r = await J({ fen: START, from: [7, 6], to: [5, 5] });
   ok(clase(r)[0] === "mv-leap" && r.piezas.length === 1, "clásico · Cf3 salta en arco (" + clase(r) + ")");
   ok(r.fly === 1 && r.sombras === 1 && r.ocultas === 1 && r.anims >= 4, "  vuela una copia con su sombra aparte y la pieza real queda oculta (copias " + r.fly + ", sombras " + r.sombras + ", ocultas " + r.ocultas + ")");
-  ok(r.piezas[0] && parseFloat(r.piezas[0].alt) < -40 && parseFloat(r.piezas[0].alt) > -60 && parseFloat(r.piezas[0].fdur) > .44 && parseFloat(r.piezas[0].fdur) < .5, "  arco más alto que antes (" + (r.piezas[0] || {}).alt + ") y ≈.47 s (" + (r.piezas[0] || {}).fdur + ")");
+  ok(r.piezas[0] && r.piezas[0].fdur === "0.480s" && r.slideReal === 0, "  el salto dura 0,48 s (igual que La Senda) y la pieza real no lleva .slide (" + (r.piezas[0] || {}).fdur + ")");
   r = await J({ fen: START, from: [6, 4], to: [5, 4] });
   ok(clase(r)[0] === "mv-step" && r.fly === 1, "clásico · e3 es un pasito");
   r = await J({ fen: START, from: [6, 4], to: [4, 4] });
@@ -115,7 +116,6 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   const SH = "3s4/8/8/8/8/8/8/R2SF2L w - - 0 1";
   r = await J({ fen: SH, from: [7, 7], to: [5, 5] });
   ok(clase(r)[0] === "mv-leap", "Shatranj · el fil salta dos casillas en diagonal (" + clase(r) + ")");
-  ok(r.piezas[0] && parseFloat(r.piezas[0].alt) < -45, "  su arco es un poco más alto que el del caballo (" + (r.piezas[0] || {}).alt + ")");
   r = await J({ fen: SH, from: [7, 4], to: [6, 3] });
   ok(clase(r)[0] === "mv-step", "Shatranj · el ferz da un pasito");
   r = await J({ fen: SH, from: [7, 3], to: [6, 3] });
@@ -159,6 +159,31 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   console.log("  dark(destino oculto):", JSON.stringify(dk));
   ok(!dk.sinJugada && dk.animadas.length === 0 && dk.enNiebla === 0, "Dark Chess · si el destino está en la niebla tampoco se anima ni se delata el rumbo");
 
+  // ---- NO se mueve dos veces: tras el vuelo la pieza real queda quieta en su casilla (sin animaciones propias) y no hay saltos de posición
+  const dbl = await page.evaluate(async () => {
+    const T = ms => new Promise(r => setTimeout(r, ms));
+    setMode("play"); newGame("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", { white: "Yo", black: "R", result: "", resultNote: "" });
+    vsMachine = false; matchStarted = true; matchPaused = false; flipped = false; render();
+    commitMove(legalMoves(liveState()).find(x => sameSq(x.from, [7, 6]) && sameSq(x.to, [5, 5])));
+    const celda = document.querySelector('#board .cell[data-r="5"][data-c="5"]'), cr = celda.getBoundingClientRect();
+    const real = () => celda.querySelector(".piece:not(.fly)");
+    const o = { medio: null, tras: [] };
+    await T(200); o.copiaAun = document.querySelectorAll("#board .piece.fly").length; o.realOculta = real() && real().style.visibility === "hidden";
+    for (let k = 0; k < 40 && real().style.visibility === "hidden"; k++) await T(50);   // espera a que termine el vuelo (480 ms)
+    for (let i = 0; i < 6; i++) {
+      const p = real(), r = p.getBoundingClientRect();
+      o.tras.push({ x: Math.round((r.left + r.width / 2 - cr.left) * 10) / 10, y: Math.round((r.top + r.height / 2 - cr.top) * 10) / 10, anims: p.getAnimations({ subtree: true }).length, vis: p.style.visibility, slide: p.classList.contains("slide") });
+      await T(60);
+    }
+    o.copias = document.querySelectorAll("#board .piece.fly, #board .fly-shadow").length;
+    return o;
+  });
+  console.log("  doble:", JSON.stringify(dbl));
+  ok(dbl.copiaAun === 1 && dbl.realOculta, "a mitad de vuelo la copia sigue en el aire y la pieza real está oculta");
+  ok(dbl.tras.every(m => m.anims === 0 && !m.slide && m.vis === ""), "tras aterrizar la pieza real no tiene animaciones ni .slide (no se repite el deslizamiento)");
+  ok(dbl.tras.every(m => Math.abs(m.x - dbl.tras[0].x) < .6 && Math.abs(m.y - dbl.tras[0].y) < .6), "tras aterrizar la pieza real NO se mueve: queda quieta en su casilla");
+  ok(dbl.copias === 0, "no queda ninguna copia ni sombra flotando");
+
   // ---- la copia aterriza y se limpia: no quedan copias ni sombras ni piezas ocultas
   await page.waitForTimeout(900);
   const limpio = await page.evaluate(() => ({ fly: document.querySelectorAll("#board .piece.fly, #board .fly-shadow").length, ocultas: document.querySelectorAll("#board .fly-on").length }));
@@ -167,7 +192,7 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   // ---- «reducir movimiento»: sin animaciones
   const red = await abrir(true);
   const rr = await red.page.evaluate(JUGAR, { fen: START, from: [7, 6], to: [5, 5] });
-  ok(rr.piezas.length === 1 && rr.fly === 0 && rr.piezas[0].svgAnim === "none" && rr.piezas[0].shAnim === "none", "con «reducir movimiento» la pieza no se anima (" + rr.piezas[0].svgAnim + ")");
+  ok(rr.fly === 0 && rr.sombras === 0 && rr.slideReal === 0, "con «reducir movimiento» no hay vuelo ni deslizamiento: la pieza simplemente aparece")
   await red.page.close();
 
   ok(errores.length === 0, "sin errores de la página" + (errores.length ? ": " + errores.join(" | ") : ""));
