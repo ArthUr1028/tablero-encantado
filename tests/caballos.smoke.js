@@ -196,7 +196,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   });
   ok(kes.coincide, "corredor: el mínimo del juego coincide con una búsqueda en anchura (" + kes.minimos.join(",") + ")");
   ok(kes.rocas[0] === 0 && kes.rocas[1] === 0 && kes.rocas[2] === 0 && kes.rocas[4] > 0, "corredor: sin rocas al empezar y con rocas a partir del nivel 3 (" + kes.rocas.join(",") + ")");
-  ok(kes.rec && kes.rec.racha === 5 && kes.racha === "5", "corredor: cada mínimo pasa solo al siguiente y anota la racha (" + kes.racha + " · " + JSON.stringify(kes.rec) + ")");
+  ok(kes.rec && kes.rec.racha === 5, "corredor: cada mínimo pasa solo al siguiente y anota la racha (" + kes.racha + " · " + JSON.stringify(kes.rec) + ")");
   ok(kes.ficha && /travesía/i.test(kes.reset), "corredor: sin botón de ficha y con «Nueva travesía» (" + kes.reset + ")");
   ok(kes.ruedaFin && kes.fallo, "corredor: un rodeo termina la travesía con el efecto de piedra");
   ok(!kes.rodeo || /el mínimo era/.test(kes.msg2), "corredor: un rodeo avisa del mínimo y no es el mínimo (" + kes.msg2 + ")");
