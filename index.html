@@ -3129,6 +3129,20 @@
   .kn-fallo .kn-sq.cur::before{ animation:knSeFue 3s ease-in-out 1.2s both; }
   .kn-fallo .kn-sq.vis::before{ animation:knSeFue 1.5s ease-in-out calc(1s + var(--k,0) * 55ms) both; }
   @keyframes knSeFue{ to{ background:rgba(18,13,10,.6); } }
+  /* 2.285 · El corredor de los asteroides: A (salida), B (meta) y rocas que no se pisan; al llegar, un hilo de luz con tu ruta (y, si no fue la mínima, la ruta mínima en azul) */
+  .kn-sq.rock{ cursor:default; }
+  .kn-rock{ width:70%; height:64%; border-radius:46% 54% 50% 50% / 55% 45% 55% 45%; pointer-events:none;
+    background:radial-gradient(circle at 35% 30%, #9a9082, #4d473f 55%, #272320); box-shadow:inset -3px -4px 6px rgba(0,0,0,.5), 0 2px 5px rgba(0,0,0,.55); }
+  .kn-mark{ position:relative; z-index:1; font-family:"Cinzel", serif; font-weight:700; font-size:clamp(1rem,5.4vw,1.9rem); line-height:1; color:#fff4de; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.6); pointer-events:none; }
+  .kn-sq.kn-b{ box-shadow:inset 0 0 0 3px rgba(122,200,255,.92); }
+  .kn-sq.kn-b .kn-mark{ color:#d8f0ff; text-shadow:0 0 10px rgba(122,200,255,.95), 0 1px 3px rgba(0,0,0,.9); }
+  .kn-corr path{ stroke-width:.06; animation:knHilo var(--kd,1.4s) linear .2s forwards, knHiloVela 1.2s ease-out calc(var(--kd,1.4s) + .8s) forwards; }
+  .kn-optima path{ stroke:#9fd6ff; stroke-width:.06; animation:knHilo var(--kd,1.4s) linear .1s forwards; }
+  .kn-optima .cab{ fill:#e8f6ff; }
+  .kn-optima{ filter:drop-shadow(0 0 5px rgba(122,200,255,.95)); }
+  .kn-gana-k .kn-sq.vis::before, .kn-gana-k .kn-sq.cur::before{ animation:knIlumina .9s ease-out calc(.2s + var(--k,0) * var(--kp,.2s)) backwards; }
+  .kn-gana-k .kn-sq.cur .kn-pc svg{ animation:knBrilla 1.6s ease-out 1.2s; }
+  .kn-board.kn-par{ animation:knHaloTab 2.4s ease-out 1.3s; }
   .kn-polvo{ position:absolute; left:50%; top:66%; width:16%; height:16%; margin:-8% 0 0 -8%; border-radius:50%; pointer-events:none; z-index:2; opacity:0;
     background:radial-gradient(circle, rgba(222,208,184,.6) 0, rgba(222,208,184,0) 70%); animation:knPolvo 2.6s ease-out calc(1.2s + var(--d,0s)) both; }
   @keyframes knPolvo{ 0%{ opacity:0; transform:translate(0,0) scale(.5); } 22%{ opacity:.85; } 100%{ opacity:0; transform:translate(var(--dx,0), var(--dy,0)) scale(3); } }
@@ -3137,7 +3151,9 @@
     .kn-polvo, .kn-chispa{ display:none; }
     .kn-fallo .kn-sq.vis::before, .kn-fallo .kn-sq.cur::before{ background:rgba(18,13,10,.6); }
     .kn-fallo .kn-sq.cur .kn-pc svg{ filter:grayscale(1) brightness(.55); opacity:.82; }
-    .kn-ariadna path{ animation:none; stroke-dashoffset:0; opacity:.3; }
+    .kn-ariadna path, .kn-corr path{ animation:none; stroke-dashoffset:0; opacity:.3; }
+    .kn-gana-k, .kn-gana-k .kn-sq::before, .kn-gana-k .kn-pc svg, .kn-board.kn-par{ animation:none; }
+    .kn-optima path{ animation:none; stroke-dashoffset:0; }
     .kn-gana-g .kn-pc{ transform:translateY(-7%) scale(1.07); }
     .kn-gana-g .kn-pc svg{ filter:brightness(1.12) drop-shadow(0 0 7px rgba(255,222,150,.95)); }
   }
@@ -6111,6 +6127,7 @@ m-934 -100 c3 -9 6 -171 6 -360 l0 -344 -342 1 c-189 0 -336 3 -328 6 8 4 35
     <div class="kn-menu" id="kn-menu">
       <button type="button" class="kn-card" data-reto="guarini"><b>El problema de Guarini</b><span>Cuatro caballos en un tablero de 3×3: intercambia los blancos con los negros.</span><em id="kn-rec-guarini"></em></button>
       <button type="button" class="kn-card" data-reto="tour"><b>El recorrido del caballo</b><span>Pasa por las 64 casillas sin repetir ninguna.</span><em id="kn-rec-tour"></em></button>
+      <button type="button" class="kn-card" data-reto="kessel"><b>El corredor de los asteroides</b><span>De la casilla A a la B en el menor número de saltos. Cada corredor es distinto.</span><em id="kn-rec-kessel"></em></button>
     </div>
     <div class="kn-game" id="kn-game" hidden>
       <button type="button" class="btn kn-back" id="kn-back">‹ Retos</button>
@@ -14999,7 +15016,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "2.284 · 12-nov-2026 · El caballo se vuelve piedra con más calma y suena la campana del jaque mate (prueba)";
+const BUILD_ID = "2.285 · 12-nov-2026 · Nuevo reto del caballo: el corredor de los asteroides, de A a B en el mínimo de saltos (prueba)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 /* 2.87 · El rostro de claudIA (ilustración de Arthur): recorte chico para el avatar y mayor para su tarjeta del Reto. */
 window.CLAUDIA_AV = "data:image/webp;base64,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";
@@ -20484,7 +20501,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
   function knSvg(clase, n, d, cabeza, dur, ini){
     const motion = reduced() ? "" : '<circle class="cab" r="' + cabeza + '" cx="0" cy="0" opacity="0"><animateMotion dur="' + dur + 's" begin="' + ini + 's" fill="freeze" path="' + d + '"/>' +
       '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.05;.95;1" dur="' + dur + 's" begin="' + ini + 's" fill="freeze"/></circle>';
-    board.insertAdjacentHTML("beforeend", '<svg class="kn-fx ' + clase + '" viewBox="0 0 ' + n + " " + n + '" aria-hidden="true"><path pathLength="1" d="' + d + '"/>' + motion + "</svg>");
+    board.insertAdjacentHTML("beforeend", '<svg class="kn-fx ' + clase + '" style="--kd:' + dur + 's" viewBox="0 0 ' + n + " " + n + '" aria-hidden="true"><path pathLength="1" d="' + d + '"/>' + motion + "</svg>");
   }
   /* el rayo de la coronación, sobre una casilla de este tablero (reutiliza boltPoints/boltD y el CSS .boltfx; el golpe cae delay + .42 s) */
   function knRayo(n, ci, ri, delay){
@@ -20527,6 +20544,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     const g = rec.guarini, t = rec.tour;
     $("kn-rec-guarini").textContent = g ? "Mejor: " + g.saltos + " saltos · " + g.jugadas + " jugadas" : "";
     $("kn-rec-tour").textContent = t ? "Mejor: " + t.max + " de 64" + (t.done ? " · ¡Completado!" : "") : "";
+    $("kn-rec-kessel").textContent = rec.kessel ? "Mejor racha: " + rec.kessel.racha : "";
   }
   function hud(a, b, c){ [a, b, c].forEach((v, k) => { if(v){ L[k].textContent = v[0]; N[k].textContent = v[1]; } }); }
 
@@ -20536,7 +20554,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     s = { n:3, pc:Array(9).fill(null), sel:-1, hist:[], hilo:false, usoHilo:false, fin:false };
     for(const k in G_START) s.pc[k] = G_START[k];
     introEl.textContent = "Cuatro caballos ocupan las esquinas de un tablero de 3×3. Los blancos deben quedar donde están los negros, y los negros donde están los blancos. Toca un caballo y luego su casilla de destino.";
-    hintB.textContent = "Ver el hilo"; fichaB.hidden = false; setMsg("");
+    hintB.textContent = "Ver el hilo"; fichaB.textContent = T("Conoce a Guarini"); fichaB.hidden = false; setMsg("");
     drawG();
   }
   const gWon = () => { for(const k in G_GOAL) if(s.pc[k] !== G_GOAL[k]) return false; return true; };
@@ -20597,6 +20615,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     drawT();
   }
   const tourVis = i => s.path.indexOf(i);
+  const tapDe = i => reto === "guarini" ? guariniTap(i) : reto === "kessel" ? kesTap(i) : tourTap(i);
   const tourMoves = () => { if(!s.path.length) return []; return nbrs(s.path[s.path.length - 1], 8).filter(i => tourVis(i) < 0); };
   function warnsdorff(){
     const m = tourMoves(); if(!m.length) return -1;
@@ -20658,22 +20677,112 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
         : "Te encerraste en el salto " + n + ". Antes de saltar, cuenta cuántas salidas deja cada destino y ve al que deje menos."), reduced() ? 600 : (completo ? 3600 : 5200));
   }
 
+  /* ---------- El corredor de los asteroides (de A a B en el mínimo de saltos) ---------- */
+  /* Cada corredor se sortea: A y B al azar, y desde el nivel 3 también rocas que bloquean casillas. El mínimo sale de una búsqueda en anchura (con las rocas).
+     Cuenta cada salto hecho, aunque se deshaga. Con el mínimo exacto sube la racha (cada 2 aciertos, el nivel); con ayuda o repitiendo es práctica. */
+  const NIV = [{ d:[2, 3], r:0 }, { d:[3, 4], r:0 }, { d:[4, 5], r:3 }, { d:[5, 6], r:5 }, { d:[5, 8], r:8 }];
+  let kRacha = 0;
+  const kNivel = () => Math.min(NIV.length, 1 + (kRacha >> 1));
+  function bfsK(a, roca){
+    const d = Array(64).fill(-1), pr = Array(64).fill(-1), q = [a]; d[a] = 0;
+    for(let h = 0; h < q.length; h++){ const i = q[h]; for(const j of nbrs(i, 8)) if(d[j] < 0 && !roca[j]){ d[j] = d[i] + 1; pr[j] = i; q.push(j); } }
+    return { d, pr };
+  }
+  const al64 = () => (Math.random() * 64) | 0;
+  function kesselNew(){
+    const nv = kNivel(), cfg = NIV[nv - 1]; let a = 0, b = 0, roca = null, r = null;
+    for(let n = 0; n < 800 && !r; n++){
+      a = al64(); b = al64(); if(a === b) continue;
+      roca = Array(64).fill(false);
+      for(let k = 0; k < cfg.r;){ const c = al64(); if(c !== a && c !== b && !roca[c]){ roca[c] = true; k++; } }
+      const q = bfsK(a, roca); if(q.d[b] >= cfg.d[0] && q.d[b] <= cfg.d[1]) r = q;
+    }
+    if(!r){ roca = Array(64).fill(false); do{ a = al64(); b = al64(); r = bfsK(a, roca); }while(r.d[b] < 2); }
+    const ruta = []; for(let i = b; i >= 0; i = r.pr[i]) ruta.unshift(i);
+    s = { n:8, a, b, roca, ruta, par:r.d[b], path:[a], gastados:0, fin:false, usoHilo:false, reint:false, nivel:nv, fx:null };
+    introEl.textContent = "Lleva el caballo de A a B en el menor número posible de saltos. Cada salto cuenta, aunque lo deshagas. Las rocas son asteroides: no se pueden pisar. Cada corredor es distinto.";
+    hintB.textContent = "Ver el mínimo"; fichaB.textContent = T("Siguiente corredor"); fichaB.hidden = false;
+    setMsg("Nivel " + nv + (cfg.r ? " · " + cfg.r + " asteroides." : "."));
+    drawK();
+  }
+  const kesMoves = () => nbrs(s.path[s.path.length - 1], 8).filter(i => !s.roca[i]);
+  const rutaD = ids => "M" + ids.map(i => ptoDe(i, 8)).join(" L");
+  function drawK(){
+    board.style.setProperty("--n", 8); board.textContent = ""; board.className = "kn-board" + (s.fx ? " kn-" + s.fx : "");
+    const cur = s.path[s.path.length - 1], len = s.path.length;
+    if(s.fx) board.style.setProperty("--kp", (Math.max(.9, len * .28) * .8 / len).toFixed(2) + "s");
+    for(let i = 0; i < 64; i++){
+      const x = i % 8, y = (i / 8) | 0, k = s.path.indexOf(i), b = document.createElement("button");
+      b.type = "button"; b.dataset.i = i;
+      b.className = "kn-sq " + ((x + y) % 2 ? "lgt" : "drk") + (k >= 0 && i !== cur ? " vis" : "") + (i === cur ? " cur" : "") + (s.roca[i] ? " rock" : "") + (i === s.b ? " kn-b" : "");
+      if(s.fx && k >= 0) b.style.setProperty("--k", k);
+      b.setAttribute("aria-label", "abcdefgh"[x] + (8 - y) + (i === s.a ? T(", salida A") : "") + (i === s.b ? T(", meta B") : "") + (s.roca[i] ? T(", asteroide") : ""));
+      const ph = (cls, txt) => { const e = document.createElement("span"); e.className = cls; if(txt) e.textContent = txt; b.appendChild(e); return e; };
+      if(i === cur){ const p = ph("kn-pc w"); p.innerHTML = GLIFO; }
+      else if(s.roca[i]) ph("kn-rock");
+      else if(i === s.b) ph("kn-mark", "B");
+      else if(i === s.a) ph("kn-mark", "A");
+      else if(k >= 0) ph("kn-num", String(k + 1));
+      board.appendChild(b);
+    }
+    if(s.fx) knSvg("kn-corr", 8, rutaD(s.path), .14, Math.max(.9, len * .28), .2);
+    hud(["Saltos", String(s.gastados)], ["Mínimo", s.usoHilo || s.fin ? String(s.par) : "?"], ["Racha · nivel " + kNivel(), String(kRacha)]);
+    undoB.disabled = s.fin || s.path.length < 2;
+    hintB.textContent = s.fin ? "Ver la ruta mínima" : "Ver el mínimo";
+    hintB.disabled = s.fin ? s.gastados === s.par : s.usoHilo;
+  }
+  function kesTap(i){
+    if(s.fin || !kesMoves().includes(i)) return;
+    s.path.push(i); s.gastados++; sonarPaso();
+    if(i === s.b){ s.fin = true; kesFin(); }
+    drawK();
+  }
+  function kesFin(){
+    const g = s.gastados, par = s.par, optimo = g === par, practica = s.usoHilo || s.reint, t = [];
+    t.push(optimo ? "¡Llegaste en " + g + " saltos: el mínimo!" : "Llegaste en " + g + " saltos; el mínimo era " + par + ".");
+    let voz;
+    if(practica){ t.push("Con ayuda o repetido esto fue práctica y no cuenta para tu racha."); voz = optimo ? "Mínimo exacto, pero con ayuda o repetido. Ahora uno limpio." : "Era posible en " + par + ". Toca «Ver la ruta mínima» y compárala con la tuya."; }
+    else if(optimo){
+      kRacha++; const r = rec.kessel || { racha:0 }; let nuevo = false;
+      if(kRacha > r.racha){ r.racha = kRacha; nuevo = true; } rec.kessel = r; save(); if(nuevo) t.push("¡Nueva mejor racha!");
+      const nv = kNivel();
+      voz = nv > s.nivel ? "Racha de " + kRacha + ": el corredor sube al nivel " + nv + (NIV[nv - 1].r > NIV[s.nivel - 1].r ? " y aparecen asteroides." : ".") : "Mínimo exacto. Racha de " + kRacha + ".";
+    } else { kRacha = 0; voz = "Llegaste, pero se podía en " + par + ". Se acabó la racha. Toca «Ver la ruta mínima» y mira por dónde."; }
+    setMsg(t);
+    s.fx = optimo ? "gana-k kn-par" : "gana-k";
+    hablaClaudia(s, voz, reduced() ? 600 : Math.max(900, s.path.length * 280) + 1200);
+  }
+  function kesRutaMinima(){
+    board.querySelectorAll(".kn-optima").forEach(e => e.remove());
+    knSvg("kn-optima", 8, rutaD(s.ruta), .14, Math.max(.9, s.ruta.length * .4), .1);
+    setMsg("En azul, la ruta mínima: " + s.par + " saltos.");
+  }
+
   /* ---------- común ---------- */
   function undo(){
+    if(reto === "kessel"){ if(!s || s.fin || s.path.length < 2) return; s.path.pop(); setMsg(""); drawK(); return; }   // el salto deshecho no se devuelve: cuenta igual
     if(!s || s.fin && reto === "guarini") return;
     if(reto === "guarini"){ const m = s.hist.pop(); if(m){ s.pc[m.from] = s.pc[m.to]; s.pc[m.to] = null; } s.sel = -1; setMsg(""); drawG(); }
     else { if(s.fin){ s.fin = false; s.fx = null; setMsg(""); } s.path.pop(); s.tip = -1; if(!s.path.length) setMsg("Toca una casilla para colocar el caballo."); drawT(); }
   }
   function hint(){
     if(!s) return;
+    if(reto === "kessel"){
+      if(!s.fin){ if(s.usoHilo) return; s.usoHilo = true; setMsg("El mínimo son " + s.par + " saltos. Con esta ayuda el corredor es práctica."); drawK(); }
+      else if(s.gastados !== s.par) kesRutaMinima();
+      return;
+    }
     if(reto === "guarini"){ s.hilo = !s.hilo; if(s.hilo) s.usoHilo = true; hintB.textContent = s.hilo ? "Ocultar el hilo" : "Ver el hilo"; setMsg(s.hilo ? "El hilo: las líneas punteadas son los saltos posibles. La casilla central nunca se usa." : ""); drawG(); }
     else { const t = warnsdorff(); if(t < 0) return; s.tip = t; s.usoHilo = true; setMsg("Regla de Warnsdorff: ve a la casilla que deje menos salidas."); drawT(); }
   }
   function entrar(r){
     reto = r; menu.hidden = true; game.hidden = false;
-    if(r === "guarini") guariniNew(); else tourNew();
+    if(r === "guarini") guariniNew(); else if(r === "kessel") kesselNew(); else tourNew();
   }
-  function reiniciar(){ if(reto === "guarini") guariniNew(); else if(reto === "tour") tourNew(); }
+  function reiniciar(){
+    if(reto === "guarini") guariniNew(); else if(reto === "tour") tourNew();
+    else if(reto === "kessel" && s){ s = Object.assign({}, s, { path:[s.a], gastados:0, fin:false, fx:null, reint:s.reint || s.gastados > 0 }); setMsg(s.reint ? "Mismo corredor, de nuevo: cuenta como práctica." : ""); drawK(); }   // el mismo corredor; repetirlo ya no suma racha
+  }
   function volver(){ reto = null; s = null; game.hidden = true; menu.hidden = false; menuRecords(); }
   /* Arrastrar y soltar (además de tocar origen y destino). Se arrastra el caballo propio: en Guarini cualquiera; en el recorrido, el caballo actual. */
   let arr = null, sinClic = false;
@@ -20709,19 +20818,19 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     const a = arr, ok = e.type === "pointerup"; arrLimpia();
     try{ board.releasePointerCapture(e.pointerId); }catch(_){}
     sinClic = true; setTimeout(() => { sinClic = false; }, 80);   // con la captura del puntero el clic ya no llega a la casilla: el toque simple se atiende aquí
-    if(!a.mov){ if(ok && s && !s.fin){ if(reto === "guarini") guariniTap(a.i); else tourTap(a.i); } return; }
+    if(!a.mov){ if(ok && s && !s.fin) tapDe(a.i); return; }
     if(!ok || !s || s.fin) return;
     const d = casillaEn(e.clientX, e.clientY);
     if(d < 0 || d === a.i) return;
     if(reto === "guarini"){ if(!s.pc[d] && nbrs(a.i, 3).includes(d)){ s.sel = a.i; guariniTap(d); } else drawG(); }
-    else if(tourMoves().includes(d)) tourTap(d);
-    else drawT();
+    else if((reto === "kessel" ? kesMoves() : tourMoves()).includes(d)) tapDe(d);
+    else if(reto === "kessel") drawK(); else drawT();
   }
   board.addEventListener("pointerup", arrSuelta); board.addEventListener("pointercancel", arrSuelta);
-  board.addEventListener("click", e => { if(sinClic){ sinClic = false; return; } const b = e.target.closest(".kn-sq"); if(!b || !s) return; const i = +b.dataset.i; if(reto === "guarini") guariniTap(i); else tourTap(i); });
+  board.addEventListener("click", e => { if(sinClic){ sinClic = false; return; } const b = e.target.closest(".kn-sq"); if(!b || !s) return; tapDe(+b.dataset.i); });
   menu.addEventListener("click", e => { const c = e.target.closest(".kn-card"); if(c) entrar(c.dataset.reto); });
   undoB.onclick = undo; resetB.onclick = reiniciar; hintB.onclick = hint; $("kn-back").onclick = volver;
-  fichaB.onclick = () => { close(); setTimeout(() => { try{ openHallOfFame(); hofRenderMaster("guarini"); }catch(e){} }, 120); };
+  fichaB.onclick = () => { if(reto === "kessel"){ if(s && !s.fin) kRacha = 0; kesselNew(); return; } close(); setTimeout(() => { try{ openHallOfFame(); hofRenderMaster("guarini"); }catch(e){} }, 120); };
   function open(){ clearTimeout(closeT); volver(); ov.hidden = false; void ov.offsetWidth; ov.classList.add("show"); }
   function close(){ ov.classList.remove("show"); clearTimeout(closeT); closeT = setTimeout(() => { if(!ov.classList.contains("show")) ov.hidden = true; }, 600); }
   $("kn-open").onclick = open; $("kn-close").onclick = close;

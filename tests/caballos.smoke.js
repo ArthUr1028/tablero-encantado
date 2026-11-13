@@ -27,7 +27,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
 
   // abrir la ventana y el menú
   const m0 = await page.evaluate(() => { document.getElementById("kn-open").click(); const ov = document.getElementById("kn-ov"); return { vis: !ov.hidden, cards: document.querySelectorAll(".kn-card").length }; });
-  ok(m0.vis && m0.cards === 2, "el botón abre Los Caballos con dos retos");
+  ok(m0.vis && m0.cards === 3, "el botón abre Los Caballos con tres retos");
 
   // ----- Guarini: búsqueda del camino mínimo (en saltos y en jugadas) y se juega con clics reales
   const g = await page.evaluate(async () => {
@@ -168,6 +168,37 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await clic(27); const dd = await page.evaluate(() => +window.__libres()[0].dataset.i); await clic(dd);
   const t2 = await page.evaluate(() => document.getElementById("kn-n1").textContent);
   ok(t2.startsWith("2"), "Recorrido: tocar el destino con ratón real mueve el caballo (" + t2 + ")");
+
+  // ----- El corredor de los asteroides: A → B en el mínimo de saltos
+  const kes = await page.evaluate(async () => {
+    document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="kessel"]').click();
+    const S = () => window.__knInfo().s, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
+    const K = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+    const nb = i => { const x = i % 8, y = (i / 8) | 0, o = []; for (const [dx, dy] of K) { const a = x + dx, b = y + dy; if (a >= 0 && a < 8 && b >= 0 && b < 8) o.push(b * 8 + a); } return o; };
+    const dist = (a, roca) => { const d = Array(64).fill(-1); d[a] = 0; const q = [a]; for (let h = 0; h < q.length; h++) for (const j of nb(q[h])) if (d[j] < 0 && !roca[j]) { d[j] = d[q[h]] + 1; q.push(j); } return d; };
+    const o = { minimos: [], rocas: [], coincide: true };
+    for (let r = 0; r < 5; r++) {   // cinco corredores seguidos con el mínimo: la racha sube y, desde el nivel 3, aparecen rocas
+      const s = S(), d = dist(s.a, s.roca);
+      if (d[s.b] !== s.par) o.coincide = false;
+      o.rocas.push(s.roca.filter(Boolean).length); o.minimos.push(s.par);
+      for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
+      o.msg = document.getElementById("kn-msg").textContent;
+      if (r < 4) document.getElementById("kn-ficha").click();
+    }
+    o.rec = JSON.parse(localStorage.getItem("tablero.knBest") || "{}").kessel;
+    // un corredor con un rodeo: llega, pero no es el mínimo, y la racha se pierde
+    document.getElementById("kn-ficha").click();
+    const s = S(), n1 = nb(s.a).find(i => !s.roca[i] && i !== s.b);   // un rodeo seguro: ir a un vecino, volver a A y seguir la ruta mínima
+    o.rodeo = true; sq(n1).click(); sq(s.a).click();
+    for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
+    o.msg2 = document.getElementById("kn-msg").textContent; o.racha2 = document.querySelector("#kn-l3").textContent; o.par = s.par;
+    o.optima = !document.getElementById("kn-hint").disabled;
+    return o;
+  });
+  ok(kes.coincide, "corredor: el mínimo del juego coincide con una búsqueda en anchura (" + kes.minimos.join(",") + ")");
+  ok(kes.rocas[0] === 0 && kes.rocas[1] === 0 && kes.rocas[2] === 0 && kes.rocas[4] > 0, "corredor: sin rocas al empezar y con rocas a partir del nivel 3 (" + kes.rocas.join(",") + ")");
+  ok(/el mínimo/.test(kes.msg) && kes.rec && kes.rec.racha === 5, "corredor: llegar con el mínimo anota la racha (" + kes.msg + " · " + JSON.stringify(kes.rec) + ")");
+  ok(!kes.rodeo || /el mínimo era/.test(kes.msg2), "corredor: un rodeo avisa del mínimo y no es el mínimo (" + kes.msg2 + ")");
 
   // ----- inglés
   const en = await page.evaluate(() => {
