@@ -201,6 +201,44 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(kes.ruedaFin && kes.fallo, "corredor: un rodeo termina la travesía con el efecto de piedra");
   ok(!kes.rodeo || /el mínimo era/.test(kes.msg2), "corredor: un rodeo avisa del mínimo y no es el mínimo (" + kes.msg2 + ")");
 
+  // ----- La Senda del Caballero con guardias: piezas negras que defienden casillas sin avisar
+  const gua = await page.evaluate(() => {
+    const S = () => window.__knInfo().s, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
+    const K = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+    const nb = i => { const x = i % 8, y = (i / 8) | 0, o = []; for (const [dx, dy] of K) { const a = x + dx, b = y + dy; if (a >= 0 && a < 8 && b >= 0 && b < 8) o.push(b * 8 + a); } return o; };
+    // búsqueda independiente: (casilla, guardias capturadas); torre y alfil se detienen en la primera pieza
+    const ataca = (g, occ) => { const x = g.i % 8, y = (g.i / 8) | 0, o = []; const pon = (a, b) => { if (a >= 0 && a < 8 && b >= 0 && b < 8) o.push(b * 8 + a); };
+      if (g.t === "p") { pon(x - 1, y + 1); pon(x + 1, y + 1); } else if (g.t === "n") { for (const [dx, dy] of K) pon(x + dx, y + dy); }
+      else { const D = [[1,1],[1,-1],[-1,1],[-1,-1]], O = [[1,0],[-1,0],[0,1],[0,-1]]; for (const [dx, dy] of (g.t === "b" ? D : g.t === "r" ? O : D.concat(O))) { let a = x + dx, b = y + dy; while (a >= 0 && a < 8 && b >= 0 && b < 8) { o.push(b * 8 + a); if (occ[b * 8 + a]) break; a += dx; b += dy; } } }
+      return o; };
+    const minimo = s => { const gd = s.guardias, full = 1 << gd.length, tab = {};
+      const T = m => tab[m] || (tab[m] = (() => { const occ = s.roca.slice(), t = Array(64).fill(false); gd.forEach((g, k) => { if (!(m >> k & 1)) occ[g.i] = true; }); gd.forEach((g, k) => { if (!(m >> k & 1)) for (const q of ataca(g, occ)) t[q] = true; }); return t; })());
+      const d = new Map([[s.a, 0]]), q = [s.a];
+      for (let h = 0; h < q.length; h++) { const id = q[h], pos = id % 64, m = (id / 64) | 0;
+        for (const j of nb(pos)) { if (s.roca[j]) continue; const k = gd.findIndex(g => g.i === j), nm = (k >= 0 && !(m >> k & 1)) ? m | (1 << k) : m; if (T(nm)[j]) continue; const nid = nm * 64 + j; if (d.has(nid)) continue; d.set(nid, d.get(id) + 1); if (j === s.b) return d.get(nid); q.push(nid); } }
+      return -1; };
+    document.getElementById("kn-reset").click();   // nueva travesía desde cero
+    const o = { niveles: [], guardias: [], coincide: true, conAmigas: false };
+    for (let r = 0; r < 12; r++) {   // doce desfiladeros con el mínimo: se llega al nivel 6
+      const s = S(); o.niveles.push(s.nivel); o.guardias.push(s.guardias.length);
+      if (minimo(s) !== s.par) o.coincide = false;
+      if (Object.keys(s.amiga).length) o.conAmigas = true;
+      for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
+    }
+    o.racha = document.getElementById("kn-n3").textContent; o.rec = JSON.parse(localStorage.getItem("tablero.knBest") || "{}").kessel;
+    // caer en una casilla defendida: una torre negra cubre la fila del vecino de A
+    const s = S(); s.roca = Array(64).fill(false); s.amiga = {};
+    const j = nb(s.a).find(i => i !== s.b), fila = (j / 8) | 0, col = [0, 7, 3, 4].find(c => fila * 8 + c !== s.a && fila * 8 + c !== s.b && fila * 8 + c !== j && Math.abs(c - j % 8) > 1);
+    s.guardias = [{ i: fila * 8 + col, t: "r" }]; sq(j).click();
+    o.tomado = s.fin && !!s.tomado; o.msg = document.getElementById("kn-msg").textContent;
+    o.sinPieza = !document.querySelector('#kn-board .kn-sq.cur .kn-pc.w');
+    return o;
+  });
+  ok(gua.coincide, "senda: el mínimo con guardias coincide con una búsqueda independiente (" + gua.niveles.join(",") + ")");
+  ok(Math.max(...gua.niveles) >= 6 && gua.guardias.some(n => n > 0) && gua.guardias[0] === 0, "senda: sin guardias al empezar y con guardias en los niveles altos (" + gua.guardias.join(",") + ")");
+  ok(gua.conAmigas, "senda: aparecen piezas amigas que bloquean");
+  ok(gua.tomado && /defendida/.test(gua.msg) && gua.sinPieza, "senda: caer en una casilla defendida termina la travesía y se rompe el caballo (" + gua.msg + ")");
+
   // ----- inglés
   const en = await page.evaluate(() => {
     document.getElementById("kn-back").click(); setLang("en");
