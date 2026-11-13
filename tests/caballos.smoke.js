@@ -169,7 +169,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const t2 = await page.evaluate(() => document.getElementById("kn-n1").textContent);
   ok(t2.startsWith("2"), "Recorrido: tocar el destino con ratón real mueve el caballo (" + t2 + ")");
 
-  // ----- El Desfiladero: A → B en el mínimo de saltos, travesía automática hasta fallar
+  // ----- La Senda del Caballero: A → B en el mínimo de saltos, travesía automática hasta fallar
   const kes = await page.evaluate(async () => {
     document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="kessel"]').click();
     const S = () => window.__knInfo().s, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
