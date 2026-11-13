@@ -25,7 +25,7 @@ const JUGAR = async (cfg) => {
     return { cls: e.className, fdur: e.style.getPropertyValue("--fdur"), tilt: e.style.getPropertyValue("--tilt"), alt: e.style.getPropertyValue("--alt"),
       fdx: e.style.getPropertyValue("--fdx"), svgAnim: cs ? cs.animationName : "", shAnim: bs.animationName };
   });
-  return { piezas: out };
+  return { piezas: out, fly: document.querySelectorAll('#board .piece.fly').length, sombras: document.querySelectorAll('#board .fly-shadow').length, ocultas: document.querySelectorAll('#board .piece.fly-on').length, anims: document.getAnimations().length };
 };
 const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"])[0]);
 
@@ -53,14 +53,14 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   // ---- clásico: salto, paso, deslizamiento
   let r = await J({ fen: START, from: [7, 6], to: [5, 5] });
   ok(clase(r)[0] === "mv-leap" && r.piezas.length === 1, "clásico · Cf3 salta en arco (" + clase(r) + ")");
-  ok(r.piezas[0] && r.piezas[0].svgAnim === "mvLeap" && r.piezas[0].shAnim === "mvShadowL", "  el arco anima la pieza y su sombra (" + (r.piezas[0] || {}).svgAnim + " / " + (r.piezas[0] || {}).shAnim + ")");
+  ok(r.fly === 1 && r.sombras === 1 && r.ocultas === 1 && r.anims >= 4, "  vuela una copia con su sombra aparte y la pieza real queda oculta (copias " + r.fly + ", sombras " + r.sombras + ", ocultas " + r.ocultas + ")");
   ok(r.piezas[0] && parseFloat(r.piezas[0].alt) < -40 && parseFloat(r.piezas[0].alt) > -60 && parseFloat(r.piezas[0].fdur) > .44 && parseFloat(r.piezas[0].fdur) < .5, "  arco más alto que antes (" + (r.piezas[0] || {}).alt + ") y ≈.47 s (" + (r.piezas[0] || {}).fdur + ")");
   r = await J({ fen: START, from: [6, 4], to: [5, 4] });
-  ok(clase(r)[0] === "mv-step" && r.piezas[0].svgAnim === "mvStep", "clásico · e3 es un pasito");
+  ok(clase(r)[0] === "mv-step" && r.fly === 1, "clásico · e3 es un pasito");
   r = await J({ fen: START, from: [6, 4], to: [4, 4] });
   ok(clase(r)[0] === "mv-step" && parseFloat(r.piezas[0].fdur) > .3, "clásico · e4 (dos casillas) es un paso un poco más largo (" + r.piezas[0].fdur + ")");
   r = await J({ fen: "4k3/8/8/8/8/8/8/R3K3 w Q - 0 1", from: [7, 0], to: [1, 0] });
-  ok(clase(r)[0] === "mv-glide" && r.piezas[0].svgAnim === "mvGlide" && r.piezas[0].shAnim === "mvShadowG", "clásico · torre larga rueda (" + clase(r) + ")");
+  ok(clase(r)[0] === "mv-glide" && r.fly === 1 && r.sombras === 1, "clásico · torre larga rueda (" + clase(r) + ")");
   ok(parseFloat(r.piezas[0].fdur) >= .6 && parseFloat(r.piezas[0].fdur) <= .68, "  la travesía larga se ve entera y no pasa de 0,68 s (" + r.piezas[0].fdur + ")");
   r = await J({ fen: "4k3/8/8/8/8/8/8/R3K3 w Q - 0 1", from: [7, 0], to: [6, 0] });
   ok(clase(r)[0] === "mv-glide" && parseFloat(r.piezas[0].fdur) < .4, "clásico · torre de una casilla: deslizamiento corto (" + r.piezas[0].fdur + ")");
@@ -80,7 +80,7 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   // ---- enroque: el rey da su paso y la torre recorre su camino
   r = await J({ fen: "4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", from: [7, 4], to: [7, 6] });
   const cl = clase(r).sort().join(",");
-  ok(r.piezas.length === 2 && cl === "mv-glide,mv-step", "enroque corto: rey (paso) y torre (rueda) se animan (" + cl + ")");
+  ok(r.piezas.length === 2 && r.fly === 2 && cl === "mv-glide,mv-step", "enroque corto: rey (paso) y torre (rueda) se animan (" + cl + ")");
   const torre = (r.piezas || []).find(p => /mv-glide/.test(p.cls));
   ok(torre && torre.fdx === "2", "  la torre viene de h1 a f1 (desfase " + (torre || {}).fdx + " casillas)");
   r = await J({ fen: "4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", from: [7, 4], to: [7, 2] });
@@ -126,7 +126,7 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   ok(clase(r)[0] === "mv-leap", "Shatranj · el faras salta");
   // en el shatranj todas miran al centro: el giro se combina con el movimiento sin perder el arco
   r = await J({ fen: "rnlsflnr/pppppppp/8/8/8/8/PPPPPPPP/RNLSFLNR w - - 0 1", from: [7, 1], to: [5, 3] }).catch(() => ({}));
-  if (r.piezas) ok(r.piezas[0].svgAnim.includes("mvLeap"), "  con el giro hacia el centro el arco se conserva (" + r.piezas[0].svgAnim + ")");
+  if (r.piezas) ok(r.fly === 1, "  con el giro hacia el centro también vuela la copia");
 
   // ---- Seirawan: el caballo salta y el enroque mueve la torre
   r = await J({ fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[HEhe] w KQBCDFGkqbcdfg - 0 1", from: [7, 1], to: [5, 2] });
@@ -140,6 +140,7 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
     if (!m) return { sinJugada: true };
     commitMove(m);
     return {
+      fly: document.querySelectorAll("#board .piece.fly").length,
       enNiebla: document.querySelectorAll("#board .cell.fog .piece:not(.ghost-out)").length,
       animadasEnNiebla: document.querySelectorAll("#board .cell.fog .piece.slide").length,
       animadas: [...document.querySelectorAll("#board .piece.slide")].map(e => (e.className.match(/mv-\w+/) || ["—"])[0]),
@@ -152,16 +153,21 @@ const clase = (r) => (r.piezas || []).map(p => (p.cls.match(/mv-\w+/) || ["—"]
   // origen y destino visibles para el rival (alfil negro ve a1; dama negra ve la columna a hasta a3): la torre rueda como en cualquier partida
   dk = await DK("q3k2b/8/8/8/8/8/8/R3K3 w - - 0 1 dark", [7, 0], [5, 0]);
   console.log("  dark(visible):", JSON.stringify(dk));
-  ok(!dk.sinJugada && dk.animadas.join() === "mv-glide" && dk.animadasEnNiebla === 0 && dk.enNiebla === 0, "Dark Chess · con origen y destino iluminados la pieza rueda (" + dk.animadas + "), sin nada en la niebla");
+  ok(!dk.sinJugada && dk.animadas.join() === "mv-glide" && dk.fly === 0 && dk.animadasEnNiebla === 0 && dk.enNiebla === 0, "Dark Chess · con origen y destino iluminados la pieza rueda (" + dk.animadas + "), sin nada en la niebla");
   // destino oculto: el rival no ve a dónde fue (la torre pasa de a1 a a2: el destino queda tras la dama, sin visión)
   dk = await DK("4k3/8/8/8/8/8/8/R3K3 w - - 0 1 dark", [7, 0], [6, 0]);
   console.log("  dark(destino oculto):", JSON.stringify(dk));
   ok(!dk.sinJugada && dk.animadas.length === 0 && dk.enNiebla === 0, "Dark Chess · si el destino está en la niebla tampoco se anima ni se delata el rumbo");
 
+  // ---- la copia aterriza y se limpia: no quedan copias ni sombras ni piezas ocultas
+  await page.waitForTimeout(900);
+  const limpio = await page.evaluate(() => ({ fly: document.querySelectorAll("#board .piece.fly, #board .fly-shadow").length, ocultas: document.querySelectorAll("#board .fly-on").length }));
+  ok(limpio.fly === 0 && limpio.ocultas === 0, "al aterrizar se limpian la copia, la sombra y la pieza vuelve a verse");
+
   // ---- «reducir movimiento»: sin animaciones
   const red = await abrir(true);
   const rr = await red.page.evaluate(JUGAR, { fen: START, from: [7, 6], to: [5, 5] });
-  ok(rr.piezas.length === 1 && rr.piezas[0].svgAnim === "none" && rr.piezas[0].shAnim === "none", "con «reducir movimiento» la pieza no se anima (" + rr.piezas[0].svgAnim + ")");
+  ok(rr.piezas.length === 1 && rr.fly === 0 && rr.piezas[0].svgAnim === "none" && rr.piezas[0].shAnim === "none", "con «reducir movimiento» la pieza no se anima (" + rr.piezas[0].svgAnim + ")");
   await red.page.close();
 
   ok(errores.length === 0, "sin errores de la página" + (errores.length ? ": " + errores.join(" | ") : ""));
