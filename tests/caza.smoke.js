@@ -1,4 +1,4 @@
-// 2.298 · La cacería (La Senda del Caballero, niveles 7-9): la pieza objetivo huye tras cada salto y defiende lo que ataca; ruinas y mensajes cortos.
+// 2.301 · La Senda del Caballero, niveles 7-9: el objetivo fijo que se defiende (7-8) y el objetivo que solo huye si le das jaque (9); ruinas y mensajes cortos.
 // Uso: node tests/caza.smoke.js   (necesita playwright-core y un Chromium; busca /opt/node-tools)
 const http = require("http"), fs = require("fs"), path = require("path");
 let chromium;
@@ -26,9 +26,15 @@ const REGLAS = `window.__reglas = (() => {
   };
   const dist = (o, roca) => { const d = Array(64).fill(-1); d[o] = 0; const q = [o]; for (let h = 0; h < q.length; h++) for (const j of saltos(q[h], roca)) if (d[j] < 0) { d[j] = d[q[h]] + 1; q.push(j); } return d; };
   const huye = (k, tp, t, roca) => {
-    const d = dist(k, roca); let mejor = -1, md = -1;
-    for (const j of alcance(tp, t, roca)) { if (j === k) continue; const dd = d[j] < 0 ? 99 : d[j]; if (dd > md || (dd === md && j < mejor)) { md = dd; mejor = j; } }
+    if (!saltos(k, roca).includes(tp)) return tp;   // solo huye si el caballo la amenaza
+    const d = dist(k, roca), amen = saltos(k, roca); let mejor = -1, md = -1;
+    for (const j of alcance(tp, t, roca)) { if (j === k || amen.includes(j)) continue; const dd = d[j] < 0 ? 99 : d[j]; if (dd > md || (dd === md && j < mejor)) { md = dd; mejor = j; } }
     return mejor < 0 ? tp : mejor;
+  };
+  const minimoFijo = (a, b, t, roca) => {   // objetivo fijo: no se pisa ninguna casilla que ataque
+    const at = new Set(alcance(b, t, roca)), d = new Map([[a, 0]]), q = [a];
+    for (let h = 0; h < q.length; h++) for (const j of saltos(q[h], roca)) { if (j === b) return d.get(q[h]) + 1; if (at.has(j) || d.has(j)) continue; d.set(j, d.get(q[h]) + 1); q.push(j); }
+    return null;
   };
   const minimo = (a, b, t, roca) => {   // anchura sobre (caballo, pieza); null si no hay captura
     const vis = new Map([[a + "," + b, 0]]), q = [[a, b]];
@@ -36,7 +42,7 @@ const REGLAS = `window.__reglas = (() => {
       for (const j of saltos(k, roca)) { if (j === tp) return d + 1; if (at.has(j)) continue; const t2 = huye(j, tp, t, roca), key = j + "," + t2; if (!vis.has(key)) { vis.set(key, d + 1); q.push([j, t2]); } } }
     return null;
   };
-  return { saltos, alcance, huye, minimo };
+  return { saltos, alcance, huye, minimo, minimoFijo };
 })();
 window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]'); let cur = -1, obj = -1; const roca = Array(64).fill(false), amiga = Array(64).fill(false);
   for (let i = 0; i < 64; i++) { const e = sq(i); if (e.classList.contains("cur")) cur = i; if (e.classList.contains("kn-b")) obj = i; if (e.classList.contains("rock")) roca[i] = true; }
@@ -53,65 +59,75 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
   await page.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); } localStorage.removeItem("tablero.knBest");
     document.getElementById("kn-open").click(); document.querySelector('.kn-card[data-reto="kessel"]').click(); });
 
-  // ----- mínimo, huida y captura contra las reglas independientes, en los niveles 7, 8 y 9
+  // ----- niveles 7 y 8: objetivo fijo que defiende; nivel 9: acorralarlo
   const juego = await page.evaluate(async () => {
-    const R = window.__reglas, o = { niveles: [], par: [], huidas: 0, malHuida: 0, capturas: 0, tipos: new Set(), conRuinas: 0, svg: 0 };
+    const R = window.__reglas, o = { niveles: [], par: [], fijoQuieto: true, tiposFijo: new Set(), huidas: 0, malHuida: 0, mates: 0, capturas: 0, tipos9: new Set(), svg: 0, def: [] };
     const sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
-    for (const nv of [7, 8, 9]) for (let rep = 0; rep < 6; rep++) {
+    const rutaFijo = (e0) => { const at = new Set(R.alcance(e0.obj, e0.t, e0.roca)), pr = new Map([[e0.cur, -1]]), q = [e0.cur];
+      for (let h = 0; h < q.length; h++) for (const j of R.saltos(q[h], e0.roca)) { if (j === e0.obj) { const r = [j]; for (let z = q[h]; z !== -1; z = pr.get(z)) r.unshift(z); return r.slice(1); } if (at.has(j) || pr.has(j)) continue; pr.set(j, q[h]); q.push(j); } return null; };
+    for (const nv of [7, 7, 7, 7, 7, 7, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9]) {
       window.__knNivel = nv; document.getElementById("kn-reset").click();
-      const s0 = window.__knInfo().s, e0 = window.__estado(); o.niveles.push(e0.nivel); o.tipos.add(e0.t);
+      const s0 = window.__knInfo().s, e0 = window.__estado(); o.niveles.push(e0.nivel); o.svg += document.querySelectorAll("#kn-board .kn-rock svg").length;
+      if (nv < 9) {
+        o.tiposFijo.add(e0.t); o.def.push(!!s0.def);
+        if (nv === 7) { o.par.push(R.minimoFijo(e0.cur, e0.obj, e0.t, e0.roca) === e0.par); }
+        const ruta = nv === 7 ? rutaFijo(e0) : s0.ruta.slice(1);   // el nivel 8 trae guardias: se sigue la ruta del juego
+        for (const j of ruta) { sq(j).click(); const e = window.__estado(); if (window.__knInfo().s === s0 && e.obj !== e0.obj) o.fijoQuieto = false; }
+        if (window.__knInfo().s !== s0) o.capturas++;
+        continue;
+      }
+      o.tipos9.add(e0.t);
       const q = R.minimo(e0.cur, e0.obj, e0.t, e0.roca); o.par.push(q === e0.par);
-      o.conRuinas += e0.roca.some(Boolean) ? 1 : 0; o.svg += document.querySelectorAll("#kn-board .kn-rock svg").length;
-      // se juega la ruta del juego, comprobando cada huida con la regla independiente
-      const ruta = (() => { const D = []; let cur = e0.cur, tp = e0.obj; const vis = new Map([[cur + "," + tp, null]]), q2 = [[cur, tp]]; let fin = null;
+      const ruta = (() => { const vis = new Map([[e0.cur + "," + e0.obj, null]]), q2 = [[e0.cur, e0.obj]]; let fin = null;
         for (let h = 0; h < q2.length && !fin; h++) { const [k, t0] = q2[h], at = new Set(R.alcance(t0, e0.t, e0.roca));
           for (const j of R.saltos(k, e0.roca)) { if (j === t0) { fin = { de: [k, t0], j }; break; } if (at.has(j)) continue; const t2 = R.huye(j, t0, e0.t, e0.roca), key = j + "," + t2; if (!vis.has(key)) { vis.set(key, [k + "," + t0, j]); q2.push([j, t2]); } } }
         const pasos = [fin.j]; let key = fin.de.join(","); while (vis.get(key)) { const [pk, j] = vis.get(key); pasos.unshift(j); key = pk; } return pasos; })();
-      let tp = e0.obj, kp = e0.cur;
+      let tp = e0.obj;
       for (let z = 0; z < ruta.length; z++) {
         sq(ruta[z]).click();
-        if (z < ruta.length - 1) { const esp = R.huye(ruta[z], tp, e0.t, e0.roca), real = window.__estado(); o.huidas++; if (real.obj !== esp) o.malHuida++; tp = esp; kp = ruta[z]; }
+        if (z < ruta.length - 1) { const esp = R.huye(ruta[z], tp, e0.t, e0.roca), real = window.__estado(); o.huidas++; if (real.obj !== esp) o.malHuida++; if (esp !== tp) o.mates++; tp = esp; }
       }
-      if (window.__knInfo().s !== s0) o.capturas++;   // con el mínimo exacto el juego pasa solo a la siguiente travesía
+      if (window.__knInfo().s !== s0) o.capturas++;
     }
-    o.tipos = [...o.tipos].sort().join("");
+    o.tiposFijo = [...o.tiposFijo].sort().join(""); o.tipos9 = [...o.tipos9].join("");
     return o;
   });
-  ok(juego.par.every(Boolean), "cacería: el mínimo del juego coincide con una búsqueda independiente (" + juego.par.length + " tableros)");
-  ok(juego.malHuida === 0 && juego.huidas > 10, "cacería: la pieza huye (corre a la casilla más lejana) exactamente como dicen las reglas (" + juego.huidas + " huidas, " + juego.malHuida + " distintas)");
-  ok(juego.capturas === 18, "cacería: seguir el mínimo captura la pieza y suma al marcador (" + juego.capturas + " de 18)");
-  ok(juego.niveles.every(n => n >= 7), "cacería: los niveles 7 a 9 son de cacería (" + [...new Set(juego.niveles)].join(",") + ")");
-  ok(juego.conRuinas > 0 && juego.svg > 0, "ruinas: las casillas bloqueadas se dibujan como ruinas con SVG (" + juego.svg + ")");
-  ok(/^[bn]+$/.test(juego.tipos), "cacería: los fugitivos son alfiles y caballos (" + juego.tipos + ")");
+  ok(juego.par.every(Boolean), "niveles 7 y 9: el mínimo del juego coincide con una búsqueda independiente (" + juego.par.length + " tableros)");
+  ok(juego.def.every(Boolean) && juego.fijoQuieto, "niveles 7-8: el objetivo está fijo y defiende su alcance");
+  ok(!/n/.test(juego.tiposFijo) && juego.tiposFijo.length > 1, "niveles 7-8: sin caballos objetivo (no se les puede capturar) y con piezas variadas (" + juego.tiposFijo + ")");
+  ok(juego.malHuida === 0 && juego.huidas > 10 && juego.mates >= 0, "nivel 9: la pieza solo huye con jaque y exactamente como dicen las reglas (" + juego.huidas + " pasos, " + juego.malHuida + " distintos, " + juego.mates + " huidas)");
+  ok(juego.capturas === juego.niveles.length, "seguir el mínimo captura la pieza y pasa a la siguiente travesía (" + juego.capturas + " de " + juego.niveles.length + ")");
+  ok(juego.svg > 0 && /^b+$/.test(juego.tipos9), "ruinas con SVG (" + juego.svg + ") y el fugitivo del nivel 9 es un alfil (" + juego.tipos9 + ")");
 
-  // ----- caer en una casilla que ataca la pieza: la pieza toma al caballo
+  // ----- nivel 7: caer en una casilla que ataca el objetivo fijo: la pieza toma al caballo
   const def = await page.evaluate(async () => {
     const R = window.__reglas, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]'); let o = { hecho: false };
-    for (let n = 0; n < 40 && !o.hecho; n++) {
-      window.__knNivel = 8; document.getElementById("kn-reset").click();
+    for (let n = 0; n < 60 && !o.hecho; n++) {
+      window.__knNivel = 7; document.getElementById("kn-reset").click();
       const e = window.__estado(), at = new Set(R.alcance(e.obj, e.t, e.roca)), j = R.saltos(e.cur, e.roca).find(x => at.has(x) && x !== e.obj);
       if (j === undefined) continue;
-      sq(j).click(); const e2 = window.__estado(), info = window.__knInfo().s;
+      sq(j).click(); await new Promise(r => setTimeout(r, 2200)); const e2 = window.__estado(), info = window.__knInfo().s;
       o = { hecho: true, fin: e2.fin, tomado: !!info.tomado, msg: document.getElementById("kn-msg").textContent, objEnCaballo: e2.obj === j, sinCaballo: !document.querySelector('#kn-board .kn-sq.cur .kn-pc.w') };
     }
     return o;
   });
-  ok(def.hecho && def.fin && def.tomado && /defendida/.test(def.msg), "cacería: caer en una casilla que defiende la pieza termina la travesía (" + def.msg + ")");
-  ok(def.objEnCaballo && def.sinCaballo, "cacería: la pieza toma al caballo en su casilla");
+  ok(def.hecho && def.fin && def.tomado && /defendida/.test(def.msg), "nivel 7: caer en una casilla que defiende el objetivo termina la travesía (" + def.msg + ")");
+  ok(def.objEnCaballo && def.sinCaballo, "nivel 7: la pieza toma al caballo en su casilla");
 
-  // ----- deshacer: el salto deshecho devuelve la pieza a donde estaba
+  // ----- nivel 9: deshacer devuelve al caballo y a la pieza a su sitio (también cuando huyó)
   const und = await page.evaluate(async () => {
-    const R = window.__reglas, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
-    for (let n = 0; n < 40; n++) {
-      window.__knNivel = 7; document.getElementById("kn-reset").click();
-      const e = window.__estado(), at = new Set(R.alcance(e.obj, e.t, e.roca)), j = R.saltos(e.cur, e.roca).find(x => !at.has(x) && x !== e.obj);
-      if (j === undefined) continue;
-      sq(j).click(); const e1 = window.__estado(); document.getElementById("kn-undo").click(); const e2 = window.__estado();
-      return { movio: e1.obj !== e.obj, vuelve: e2.obj === e.obj && e2.cur === e.cur };
+    const R = window.__reglas, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]'); let huyo = 0, total = 0;
+    for (let n = 0; n < 25; n++) {
+      window.__knNivel = 9; document.getElementById("kn-reset").click();
+      const e = window.__estado(), at = new Set(R.alcance(e.obj, e.t, e.roca)), amen = R.saltos(e.cur, e.roca).filter(x => !at.has(x) && x !== e.obj);
+      const j = amen.find(x => R.saltos(x, e.roca).includes(e.obj)) ?? amen[0]; if (j === undefined) continue;
+      sq(j).click(); const e1 = window.__estado(); if (e1.obj !== e.obj) huyo++;
+      document.getElementById("kn-undo").click(); const e2 = window.__estado(); total++;
+      if (!(e2.obj === e.obj && e2.cur === e.cur)) return { malo: true };
     }
-    return null;
+    return { malo: false, huyo, total };
   });
-  ok(und && und.movio && und.vuelve, "cacería: deshacer devuelve al caballo y a la pieza a su sitio (" + JSON.stringify(und) + ")");
+  ok(!und.malo && und.total > 5, "nivel 9: deshacer devuelve al caballo y a la pieza a su sitio (" + JSON.stringify(und) + ")");
 
   // ----- mensajes de claudIA: cortos y sin retos
   const txt = await page.evaluate(() => { const src = [...document.scripts].filter(x => x.id !== "i18n-en-src").map(x => x.textContent).join("\n") + document.body.innerText;
@@ -123,11 +139,10 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
     document.getElementById("kn-back").click(); setLang("en");
     const falta = [], tt = s => window.tx(s) !== s;
     const lista = ["Resuelto con ayuda.", "Ahora prueba sin el hilo.", "Dieciséis saltos: el mínimo posible.", "¡Excelente!", "Las 64 casillas, con ayuda.", "¡Recorrido cerrado!", "¿Probamos uno cerrado?",
-      "Esa casilla estaba defendida.", "Mira la ruta y vuelve a probar.", "Se podía en 5 saltos.", "La pieza huye.", "+1 ayuda.", "Nivel 7.", "Caza al alfil en C6.", "Caza a la torre en C6.", "Caza a la dama en C6.", "Caza al caballo en C6.",
-      "Nivel 7 · cacería.", "Nivel 8 · 3 ruinas · 1 pieza amiga.", "1 ruina", "3 ruinas", ", ruinas", "Las ruinas y tus piezas bloquean el paso.", "Esta pieza huye tras cada salto y defiende lo que ataca.", "Con el mínimo exacto pasas al siguiente.",
+      "Esa casilla estaba defendida.", "Mira la ruta y vuelve a probar.", "Se podía en 5 saltos.", "+1 ayuda.", "Nivel 7.", "Nivel 7 · acorralar.", "Nivel 7 · objetivo armado.", "La pieza que capturas también defiende su alcance.", "Esta pieza solo huye si le das jaque: cierra sus salidas.", "Hay que acorralarla.", "El objetivo se defiende.", "Capturada en 7 saltos.", "El mínimo era 5 saltos.", "+120 puntos.", "Nivel 8 · 3 ruinas · 1 pieza amiga.", "1 ruina", "3 ruinas", ", ruinas", "Las ruinas y tus piezas bloquean el paso.", "Esta pieza huye tras cada salto y defiende lo que ataca.", "Con el mínimo exacto pasas al siguiente.",
       "Deja las esquinas y los bordes para el último tramo.", "Prefiere el destino que deje menos salidas."];
     for (const s of lista) if (!tt(s)) falta.push(s);
-    return { falta, ej: window.tx("Nivel 7 · cacería.") };
+    return { falta, ej: window.tx("Nivel 9 · acorralar.") };
   });
   ok(!en.falta.length, "todos los textos nuevos tienen versión en inglés" + (en.falta.length ? ": " + en.falta.join(" | ") : "") + " (" + en.ej + ")");
   ok(!errores.length, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
