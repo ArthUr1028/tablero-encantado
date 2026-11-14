@@ -189,18 +189,18 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     o.rec = JSON.parse(localStorage.getItem("tablero.knBest") || "{}").kessel;
     // un corredor con un rodeo: llega, pero no es el mínimo, y la racha se pierde
     const s = S(), n1 = nb(s.a).find(i => !s.roca[i] && i !== s.b);   // un rodeo seguro: ir a un vecino, volver a A y seguir la ruta mínima
-    o.rodeo = true; sq(n1).click(); sq(s.a).click();
+    o.rodeo = true; sq(n1).click(); sq(s.a).click(); sq(n1).click(); sq(s.a).click();   // dos rodeos: 4 saltos de más
     for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
     o.msg2 = document.getElementById("kn-msg").textContent; o.racha2 = document.querySelector("#kn-l3").textContent; o.par = s.par;
-    o.optima = !!document.querySelector(".kn-optima") || true; o.ruedaFin = S().fin; o.fallo = document.getElementById("kn-board").classList.contains("kn-fallo");
+    o.optima = !!document.querySelector(".kn-optima") || true; o.ruedaFin = S().fin; o.fallo = /2\/3/.test(document.getElementById("kn-cor").getAttribute("aria-label"));
     return o;
   });
   ok(kes.coincide, "corredor: el mínimo del juego coincide con una búsqueda en anchura (" + kes.minimos.join(",") + ")");
   ok(kes.rocas.every(n => n > 0), "corredor: hay ruinas desde el primer nivel (" + kes.rocas.join(",") + ")");
   ok(kes.rec && kes.rec.racha === 5, "corredor: cada mínimo pasa solo al siguiente y anota la racha (" + kes.racha + " · " + JSON.stringify(kes.rec) + ")");
   ok(kes.ficha && /travesía/i.test(kes.reset), "corredor: sin botón de ficha y con «Nueva travesía» (" + kes.reset + ")");
-  ok(kes.ruedaFin && kes.fallo, "corredor: un rodeo termina la travesía con el efecto de piedra");
-  ok(!kes.rodeo || /el mínimo era/.test(kes.msg2), "corredor: un rodeo avisa del mínimo y no es el mínimo (" + kes.msg2 + ")");
+  ok(kes.ruedaFin && kes.fallo, "corredor: llegar con 3 o más saltos de más termina la travesía y cuesta un corazón");
+  ok(!kes.rodeo || (/Demasiados saltos/.test(kes.msg2) && /corazón/.test(kes.msg2)), "corredor: avisa que fueron demasiados saltos y que pierdes un corazón (" + kes.msg2 + ")");
 
   // ----- La Senda del Caballero con guardias: piezas negras que defienden casillas sin avisar
   const gua = await page.evaluate(() => {

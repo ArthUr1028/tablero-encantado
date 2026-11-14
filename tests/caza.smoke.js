@@ -103,7 +103,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
       window.__knNivel = 3; document.getElementById("kn-reset").click();
       const e = window.__estado(), at = new Set(R.alcance(e.obj, e.t, e.roca)), j = R.saltos(e.cur, e.roca).find(x => at.has(x) && x !== e.obj);
       if (j === undefined) continue;
-      sq(j).click(); await new Promise(r => setTimeout(r, 2200)); const e2 = window.__estado(), info = window.__knInfo().s; if (e2.obj !== j) continue;   // lo tomó una guardia, no el objetivo
+      sq(j).click(); const e2 = window.__estado(), info = window.__knInfo().s; if (e2.obj !== j) continue;   // lo tomó una guardia, no el objetivo
       o = { hecho: true, fin: e2.fin, tomado: !!info.tomado, msg: document.getElementById("kn-msg").textContent, objEnCaballo: e2.obj === j, sinCaballo: !document.querySelector('#kn-board .kn-sq.cur .kn-pc.w') };
     }
     return o;
