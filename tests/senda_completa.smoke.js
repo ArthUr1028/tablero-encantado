@@ -27,6 +27,17 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const nueva = async () => { await page.waitForFunction(() => { const s = window.__knInfo().s; return !s.fin && s.path.length === 1 && !s.espera; }, null, { timeout: 25000 }); };
 
   // ----- vuelta completa en tiempo real: la primera subida de nivel con su niebla
+  // ----- la introducción de claudIA: ojos tras el texto, sus líneas, y un toque la salta
+  await page.waitForSelector(".kn-mist .oj", { timeout: 8000 }); await page.waitForTimeout(800);
+  const intro = await page.evaluate(() => ({ tt: document.querySelector(".kn-mist .tt").textContent, ln: document.querySelector(".kn-mist .ln").textContent, ojos: !!document.querySelector(".kn-mist .oj img"), esp: window.__knInfo().s.espera }));
+  ok(/La Senda del Caballero/i.test(intro.tt) && /sendero que no figura/.test(intro.ln) && intro.ojos && intro.esp, "introducción: título, primera línea de claudIA, ojos detrás del texto y tablero en espera");
+  await page.waitForTimeout(3800);
+  const ln2 = await page.evaluate(() => document.querySelector(".kn-mist .ln").textContent);
+  ok(/Ruinas que callan/.test(ln2), "la segunda línea sustituye a la primera");
+  await page.evaluate(() => document.querySelector(".kn-mist").click()); await page.waitForTimeout(1200);
+  const tras = await page.evaluate(() => ({ mist: !!document.querySelector(".kn-mist"), esp: window.__knInfo().s.espera, toast: (document.getElementById("global-toast") || {}).textContent || "" }));
+  ok(!tras.mist && !tras.esp, "un toque salta la introducción y se puede jugar");
+  ok(/Captura/.test(tras.toast), "al terminar sale el aviso de la pieza a capturar normal: «" + tras.toast.trim() + "»");
   let s = await S();
   ok(s.nivel === 1 && s.g === 0 && !s.def && s.ro === 2, "empieza en el nivel 1: sin guardias, sin presa armada y con 2 ruinas (" + JSON.stringify({ n: s.nivel, g: s.g, ro: s.ro }) + ")");
   await jugar(s.ruta); await nueva();
