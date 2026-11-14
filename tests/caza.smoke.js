@@ -81,8 +81,8 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
       const s0 = window.__knInfo().s, e0 = window.__estado(); o.niveles.push(e0.nivel); o.svg += document.querySelectorAll("#kn-board .kn-rock svg").length;
       {
         o.tiposFijo.add(e0.t); o.def.push(!!s0.def);
-        if (nv === 7) { o.par.push(R.minimoFijo(e0.cur, e0.obj, e0.t, e0.roca) === e0.par); }
-        const ruta = nv === 7 ? rutaFijo(e0) : s0.ruta.slice(1);   // el nivel 8 trae guardias: se sigue la ruta del juego
+        o.guardias = (o.guardias || []).concat(s0.guardias.length);
+        const ruta = s0.ruta.slice(1);   // hay guardias: se sigue la ruta del juego
         for (const j of ruta) { sq(j).click(); const e = window.__estado(); if (window.__knInfo().s === s0 && e.obj !== e0.obj) o.fijoQuieto = false; }
         if (window.__knInfo().s !== s0) o.capturas++;
       }
@@ -90,7 +90,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
     o.tiposFijo = [...o.tiposFijo].sort().join("");
     return o;
   });
-  ok(juego.par.every(Boolean), "niveles 7: el mínimo del juego coincide con una búsqueda independiente (" + juego.par.length + " tableros)");
+  ok(juego.guardias.every(g => g >= 2), "niveles 7-8: siempre hay guardias además del objetivo (" + juego.guardias.join(",") + ")");
   ok(juego.def.every(Boolean) && juego.fijoQuieto, "niveles 7-8: el objetivo está fijo y defiende su alcance");
   ok(!/n/.test(juego.tiposFijo) && juego.tiposFijo.length > 1, "niveles 7-8: sin caballos objetivo (no se les puede capturar) y con piezas variadas (" + juego.tiposFijo + ")");
   ok(juego.capturas === juego.niveles.length, "seguir el mínimo captura la pieza y pasa a la siguiente travesía (" + juego.capturas + " de " + juego.niveles.length + ")");
@@ -103,7 +103,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
       window.__knNivel = 7; document.getElementById("kn-reset").click();
       const e = window.__estado(), at = new Set(R.alcance(e.obj, e.t, e.roca)), j = R.saltos(e.cur, e.roca).find(x => at.has(x) && x !== e.obj);
       if (j === undefined) continue;
-      sq(j).click(); await new Promise(r => setTimeout(r, 2200)); const e2 = window.__estado(), info = window.__knInfo().s;
+      sq(j).click(); await new Promise(r => setTimeout(r, 2200)); const e2 = window.__estado(), info = window.__knInfo().s; if (e2.obj !== j) continue;   // lo tomó una guardia, no el objetivo
       o = { hecho: true, fin: e2.fin, tomado: !!info.tomado, msg: document.getElementById("kn-msg").textContent, objEnCaballo: e2.obj === j, sinCaballo: !document.querySelector('#kn-board .kn-sq.cur .kn-pc.w') };
     }
     return o;
