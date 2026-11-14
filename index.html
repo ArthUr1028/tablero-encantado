@@ -3160,7 +3160,7 @@
   /* 2.285 · El corredor de los asteroides: A (salida), B (meta) y rocas que no se pisan; al llegar, un hilo de luz con tu ruta (y, si no fue la mínima, la ruta mínima en azul) */
   .kn-sq.rock{ cursor:default; }
   /* 2.298 · Ruinas de la batalla: tres dibujos (columna rota, muro derruido, escombros) que se reparten por casilla */
-  .kn-rock{ width:92%; height:92%; pointer-events:none; filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+  .kn-rock{ width:100%; height:100%; pointer-events:none; filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
   .kn-rock svg{ width:100%; height:100%; display:block; overflow:visible; }
   .kn-mark{ position:relative; z-index:1; font-family:"Cinzel", serif; font-weight:700; font-size:clamp(1rem,5.4vw,1.9rem); line-height:1; color:#fff4de; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.6); pointer-events:none; }
   .kn-sq.kn-b{ box-shadow:inset 0 0 0 3px rgba(255,138,112,.92); }
@@ -3197,6 +3197,22 @@
   .crumb .kn-pc.frag{ position:absolute; width:88%; height:88%; }
   .crumb .kn-pc svg{ width:100%; height:100%; display:block; }
   @keyframes knEntra{ from{ opacity:0; transform:scale(.985); } }
+  /* 2.305 · el cambio de nivel: niebla violeta, un círculo de runas que gira y el nombre del nivel; claudIA lo anuncia */
+  .kn-mist{ position:absolute; inset:0; z-index:9; pointer-events:none; display:grid; place-items:center; overflow:hidden; border-radius:inherit;
+    background:radial-gradient(circle at 50% 46%, rgba(78,46,132,.9), rgba(14,10,34,.97) 72%); animation:knMist 3.8s ease-in-out both; }
+  .kn-mist .nb{ position:absolute; inset:-25%; background:radial-gradient(closest-side, rgba(196,168,255,.38), rgba(196,168,255,0) 72%); filter:blur(16px); animation:knNiebla 7s ease-in-out infinite alternate; }
+  .kn-mist .nb:nth-child(2){ background:radial-gradient(closest-side, rgba(120,170,255,.26), rgba(120,170,255,0) 70%); animation-duration:9s; animation-direction:alternate-reverse; }
+  .kn-mist .nb:nth-child(3){ background:radial-gradient(closest-side, rgba(255,214,150,.2), rgba(255,214,150,0) 68%); animation-duration:11s; }
+  .kn-mist .rn{ position:absolute; width:86%; height:86%; animation:knRuna 3.8s ease-out both; filter:drop-shadow(0 0 6px rgba(206,184,255,.85)); }
+  .kn-mist .rn2{ animation-name:knRuna2; width:62%; height:62%; }
+  .kn-mist .tt{ position:relative; text-align:center; font-family:"Cinzel", serif; font-weight:700; color:#f4e9c9; text-transform:uppercase; letter-spacing:.28em; font-size:clamp(1.1rem, 6.4vw, 2rem);
+    text-shadow:0 0 16px rgba(196,168,255,.95), 0 0 34px rgba(120,90,220,.8); animation:knTitulo 3.8s ease-out both; }
+  .kn-mist .tt small{ display:block; margin-top:.7em; font-size:.42em; letter-spacing:.16em; color:#d4c8ee; font-weight:600; }
+  @keyframes knMist{ 0%{ opacity:0; } 16%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
+  @keyframes knNiebla{ from{ transform:translate(-14%,6%) rotate(0deg) scale(.9); } to{ transform:translate(14%,-6%) rotate(50deg) scale(1.15); } }
+  @keyframes knRuna{ 0%{ opacity:0; transform:rotate(-70deg) scale(.55); } 28%{ opacity:1; } 100%{ opacity:.9; transform:rotate(25deg) scale(1.04); } }
+  @keyframes knRuna2{ 0%{ opacity:0; transform:rotate(80deg) scale(.5); } 30%{ opacity:1; } 100%{ opacity:.85; transform:rotate(-35deg) scale(1.02); } }
+  @keyframes knTitulo{ 0%, 14%{ opacity:0; filter:blur(10px); transform:scale(1.18); } 34%{ opacity:1; filter:blur(0); transform:scale(1); } 100%{ opacity:1; filter:blur(0); transform:scale(1); } }
   .kn-optima{ filter:drop-shadow(0 0 5px rgba(122,200,255,.95)); }
   .kn-gana-k .kn-sq.vis::before, .kn-gana-k .kn-sq.cur::before{ animation:knIluminaK 1.4s ease-out var(--kt,.2s) backwards; }
   @keyframes knIluminaK{ 0%{ background:rgba(255,236,170,0); } 30%{ background:rgba(255,236,170,.7); } }
@@ -3214,6 +3230,7 @@
     .kn-rel .main path, .kn-rel.kn-ruta .main path{ animation:none; stroke-dashoffset:0; opacity:.55; }
     .kn-rel .forks, .kn-vuelo, .kn-sombra, .kn-pc.kn-obj{ display:none; animation:none; }
     .kn-board.kn-entra{ animation:none; }
+    .kn-mist{ display:none; }
     .kn-gana-k, .kn-gana-k .kn-sq::before, .kn-gana-k .kn-pc svg, .kn-board.kn-par{ animation:none; }
     .kn-gana-g .kn-pc{ transform:translateY(-7%) scale(1.07); }
     .kn-gana-g .kn-pc svg{ filter:brightness(1.12) drop-shadow(0 0 7px rgba(255,222,150,.95)); }
@@ -15173,7 +15190,7 @@ function updateLiveBanner(){
 // en el banner de la partida en vivo, para poder confirmar de un vistazo que
 // AMBAS laptops corren el mismo código (GitHub Pages cachea 10 minutos y una
 // pestaña ya abierta sigue con el JS viejo hasta recargar).
-const BUILD_ID = "2.302 · 13-nov-2026 · La Senda, nivel 9: tus piezas de apoyo capturan a la presa acorralada (prueba)";
+const BUILD_ID = "2.305 · 13-nov-2026 · La Senda: sin nivel de persecución; ruinas de piedra; textos cortos; transición mística de nivel con claudIA (prueba)";
 (function(){ const el = document.getElementById("build-stamp"); if(el) el.textContent = "Versión del Tablero: " + BUILD_ID; })();
 /* 2.87 · El rostro de claudIA (ilustración de Arthur): recorte chico para el avatar y mayor para su tarjeta del Reto. */
 window.CLAUDIA_AV = "data:image/webp;base64,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";
@@ -20889,31 +20906,59 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
   /* niveles: d = mínimo de saltos; r = peñascos; a = piezas amigas (bloquean como peñascos); g = guardias enemigas (defienden casillas sin avisar); t = tipos de guardia */
   const NIV = [{ d:[2, 3], r:0 }, { d:[3, 4], r:0 }, { d:[4, 5], r:3 },
     { d:[4, 6], r:2, a:1, g:1, t:"pnbr" }, { d:[4, 7], r:2, a:2, g:2, t:"pnbr" }, { d:[5, 8], r:1, a:2, g:3, t:"pnbrq" },
-    { df:1, ot:"pbr", d:[2, 4], r:3 }, { df:1, ot:"pbrq", d:[3, 5], r:3, a:1, g:1, t:"pnbr" }, { cz:1, d:[3, 6], r:4, a:3, t:"bqr" }];   // 2.301 · 7-8: el objetivo fijo defiende su alcance (df); 9: acorralarlo, solo huye si le das jaque (cz)
+    { df:1, ot:"pbr", d:[2, 4], r:3 }, { df:1, ot:"pbrq", d:[3, 5], r:3, a:1, g:1, t:"pnbr" }];   // 2.301 · 7-8: el objetivo fijo defiende su alcance (df); 9: acorralarlo, solo huye si le das jaque (cz)
   let kRacha = 0, kAyuda = 1, kPuntos = 0;
   const nivelUrl = (() => { try{ const n = +new URLSearchParams(location.search).get("nivel"); return n >= 1 && n <= NIV.length ? n : 0; }catch(e){ return 0; } })();   // TEMPORAL (2.300): «?nivel=7» fija el nivel de La Senda para probarlo
   const kNivel = () => window.__knNivel || nivelUrl || Math.min(NIV.length, 1 + (kRacha >> 1));
-  /* 2.298 · ruinas de la batalla (en lugar de bolitas): columna rota, muro derruido o montón de escombros, según la casilla */
-  const RUI = { c:"#b9ad98", m:"#807565", o:"#4b4238", k:"#1d1814" };
+  /* 2.304 · ruinas de la batalla: piedra con luz desde arriba a la izquierda, grietas, musgo y textura; columna, muro o escombros según la casilla */
+  const RUI_PAL = [["#e2d8c3", "#b0a48c", "#6f6554", "#3b342b"], ["#d6d8d6", "#a2a7a8", "#646a6e", "#33373a"], ["#e6d5b4", "#b79f77", "#76634a", "#3d3226"]];
   function ruinaSvg(i){
-    const v = (i * 7 + (i >> 3)) % 3, st = ' stroke="' + RUI.k + '" stroke-width="1.5" stroke-linejoin="round"', P = (pts, f) => '<polygon points="' + pts + '" fill="' + f + '"' + st + "/>";
-    let g = '<ellipse cx="50" cy="88" rx="41" ry="7" fill="rgba(0,0,0,.38)"/>';
-    if(v === 0){   // columna partida sobre su base, con un tambor caído
-      g += P("16,86 20,78 80,78 86,86", RUI.o) + P("20,78 80,78 78,73 22,73", RUI.m)
-        + P("29,73 29,42 37,35 44,43 52,30 60,39 71,33 71,73", RUI.m) + P("29,73 29,42 37,35 40,73", RUI.c) + P("61,73 61,40 71,33 71,73", RUI.o)
-        + '<path d="M29 62 H71 M29 51 H44" stroke="' + RUI.k + '" stroke-width="1.2" fill="none"/><path d="M52 31 L48 48 L55 58 L50 73" stroke="' + RUI.k + '" stroke-width="1.3" fill="none"/>'
-        + P("72,87 78,80 90,83 88,90", RUI.c) + P("8,89 14,83 24,85 22,91", RUI.m) + P("84,76 89,72 92,77 88,80", RUI.o);
-    } else if(v === 1){   // muro derruido con hiladas de sillares
-      g += P("12,86 12,56 23,50 30,58 42,41 53,52 62,46 71,60 86,54 88,86", RUI.m) + P("12,86 12,56 23,50 26,86", RUI.c) + P("71,60 86,54 88,86 74,86", RUI.o)
-        + '<path d="M12 66 H88 M12 76 H88 M24 66 V76 M44 76 V86 M60 66 V76 M76 76 V86 M36 52 V66 M52 54 V66" stroke="' + RUI.k + '" stroke-width="1.1" fill="none" opacity=".85"/>'
-        + P("30,58 42,41 38,64", RUI.c) + P("5,88 12,83 19,86 15,91", RUI.o) + P("80,90 86,84 94,87 90,92", RUI.c);
+    let sd = (i * 2654435761 + 12345) | 0;
+    const rnd = () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const v = (i * 7 + (i >> 3)) % 3, pal = RUI_PAL[(i * 5 + (i >> 2)) % 3], [L, M, D, K] = pal, f1 = n => n.toFixed(1), id = "ru" + i;
+    const poly = (pts, fill, extra) => '<polygon points="' + pts.map(q => f1(q[0]) + "," + f1(q[1])).join(" ") + '" fill="' + fill + '"' + (extra || "") + "/>";
+    const edge = ' stroke="' + K + '" stroke-opacity=".75" stroke-width=".9" stroke-linejoin="round"';
+    /* un sillar: cara, borde de luz arriba y sombra a la derecha */
+    const bloque = (x, y, w, h, ch) => { const c = ch || 0, j = () => (rnd() - .5) * 2.2;
+      const p = [[x + j(), y + j() + c], [x + w + j(), y + j()], [x + w + j(), y + h + j()], [x + j(), y + h + j()]];
+      return poly(p, "url(#" + id + "m)", edge) + poly([p[0], p[1], [p[1][0] - 1.5, p[1][1] + 3.2], [p[0][0] + 1.5, p[0][1] + 3.2]], L, ' opacity=".8"') + poly([p[1], p[2], [p[2][0] - 3.2, p[2][1] - 1], [p[1][0] - 3.2, p[1][1] + 2]], D, ' opacity=".55"'); };
+    /* una piedra suelta con caras de luz y sombra */
+    const piedra = (cx, cy, r) => { const n = 6, a0 = rnd() * 6.28, q = [];
+      for(let k = 0; k < n; k++){ const ang = a0 + k * 6.2832 / n + (rnd() - .5) * .5, rr = r * (.72 + rnd() * .4); q.push([cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr * .72]); }
+      const lado = q.map((pt, k) => ({ pt, s:(pt[0] - cx) * .6 + (pt[1] - cy) * .8 }));
+      const luz = q.filter((pt, k) => lado[k].s < 0), sombra = q.filter((pt, k) => lado[k].s >= 0);
+      return poly(q, M, edge) + (luz.length > 1 ? poly([[cx, cy]].concat(luz), L, ' opacity=".85"') : "") + (sombra.length > 1 ? poly([[cx, cy]].concat(sombra), D, ' opacity=".7"') : ""); };
+    const grieta = (x, y, n) => { let d = "M" + f1(x) + " " + f1(y); for(let k = 0; k < n; k++){ x += (rnd() - .5) * 9; y += 4 + rnd() * 5; d += " L" + f1(x) + " " + f1(y); } return '<path d="' + d + '" stroke="' + K + '" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".8"/>'; };
+    const musgo = (x, y, rx) => '<ellipse cx="' + f1(x) + '" cy="' + f1(y) + '" rx="' + f1(rx) + '" ry="' + f1(rx * .36) + '" fill="#5f7138" opacity=".62"/><ellipse cx="' + f1(x - rx * .25) + '" cy="' + f1(y - 1) + '" rx="' + f1(rx * .5) + '" ry="' + f1(rx * .18) + '" fill="#8fa24f" opacity=".5"/>';
+    let g = "";
+    if(v === 0){   // columna partida sobre su basa, con un tambor caído
+      g += poly([[11, 90], [11, 81], [89, 81], [89, 90]], D, edge) + poly([[11, 81], [23, 73], [77, 73], [89, 81]], "url(#" + id + "l)", edge)
+        + poly([[30, 74], [30, 46], [36, 40], [42, 47], [49, 32], [56, 43], [63, 37], [70, 45], [70, 74]], "url(#" + id + "c)", edge)
+        + poly([[30, 46], [36, 40], [42, 47], [49, 32], [56, 43], [63, 37], [70, 45], [62, 50], [50, 47], [38, 51]], L, ' opacity=".9"' + edge)
+        + [38, 46, 54, 62].map(x => '<path d="M' + x + " 52 V73" + '" stroke="' + K + '" stroke-width=".9" opacity=".35"/>').join("")
+        + grieta(51, 49, 3) + musgo(30, 74, 9) + musgo(74, 74.5, 6)
+        + '<rect x="6" y="85" width="30" height="11" rx="2.5" fill="url(#' + id + 'c)"' + edge + '/><ellipse cx="7" cy="90.5" rx="3.6" ry="5.5" fill="' + L + '"' + edge + "/>"
+        + '<path d="M16 86 V95 M24 86 V95 M31 86 V95" stroke="' + K + '" stroke-width=".8" opacity=".3"/>'
+        + piedra(80, 92, 5) + piedra(90, 86, 3.4);
+    } else if(v === 1){   // muro derruido con hiladas de sillares y un hueco
+      const filas = [[88, 72], [72, 56], [56, 40]];
+      filas.forEach(([y1, y0], r) => { let x = r === 2 ? 12 : 9; const fin = r === 0 ? 91 : r === 1 ? 86 : 44;
+        while(x < fin - 4){ const w = Math.min(fin - x, 15 + rnd() * 12); if(!(r === 1 && x > 40 && x < 58)) g += bloque(x, y0, w, y1 - y0, r === 2 ? rnd() * 5 : 0); x += w; } });
+      g += poly([[41, 56], [58, 56], [58, 72], [41, 72]], K, ' opacity=".85"') + bloque(60, 40, 20, 16, 5) + bloque(66, 30, 12, 10, 4)
+        + grieta(30, 56, 3) + grieta(70, 72, 3) + musgo(24, 40.5, 10) + musgo(73, 40, 8) + piedra(14, 93, 4.6) + piedra(88, 92, 5.4) + piedra(50, 94, 3.4);
     } else {   // montón de escombros con una viga quebrada
-      g += P("14,87 24,66 38,60 50,50 64,58 78,64 88,87", RUI.o) + P("24,66 38,60 36,76 22,80", RUI.m) + P("38,60 50,50 54,66 42,72", RUI.c) + P("50,50 64,58 62,72 54,66", RUI.m)
-        + P("64,58 78,64 84,80 66,78", RUI.c) + P("20,88 30,76 46,80 52,88", RUI.m) + P("52,88 60,78 78,82 84,88", RUI.m)
-        + P("22,60 60,38 64,44 26,66", "#6a4e30") + '<path d="M40 50 L44 53 M52 43 L55 47" stroke="' + RUI.k + '" stroke-width="1.1"/>'
-        + P("8,90 14,86 22,89 18,93", RUI.c) + P("82,88 90,84 95,89 88,93", RUI.o);
+      g += poly([[8, 92], [20, 74], [38, 62], [50, 54], [64, 61], [80, 72], [92, 92]], D, edge);
+      const mont = [[50, 60, 9], [36, 68, 9], [64, 67, 9], [24, 78, 9], [76, 78, 9], [50, 73, 11], [14, 88, 7], [88, 88, 7], [36, 84, 9], [64, 84, 9], [50, 88, 8]];
+      mont.forEach(([cx, cy, r]) => { g += piedra(cx + (rnd() - .5) * 4, cy + (rnd() - .5) * 3, r); });
+      g += poly([[20, 66], [62, 40], [67, 47], [26, 74]], "url(#" + id + "w)", edge) + poly([[62, 40], [67, 47], [72, 42], [68, 37]], "#4a3320", edge)
+        + '<path d="M30 66 L58 49 M34 71 L50 62" stroke="#2a1c10" stroke-width=".9" opacity=".6"/>' + grieta(48, 64, 2) + musgo(52, 58, 8) + piedra(6, 95, 3.6) + piedra(95, 95, 3.2);
     }
-    return '<svg viewBox="0 0 100 100" aria-hidden="true">' + g + "</svg>";
+    const defs = '<defs><linearGradient id="' + id + 'm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + L + '"/><stop offset=".55" stop-color="' + M + '"/><stop offset="1" stop-color="' + D + '"/></linearGradient>'
+      + '<linearGradient id="' + id + 'c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="' + L + '"/><stop offset=".4" stop-color="' + M + '"/><stop offset="1" stop-color="' + D + '"/></linearGradient>'
+      + '<linearGradient id="' + id + 'l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + L + '"/><stop offset="1" stop-color="' + M + '"/></linearGradient>'
+      + '<linearGradient id="' + id + 'w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a6a45"/><stop offset="1" stop-color="#4f3822"/></linearGradient>'
+      + '<filter id="' + id + 'f" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" seed="' + (i % 97) + '" result="t"/><feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.7 0 0 0 -.62" result="d"/><feComposite in="d" in2="SourceAlpha" operator="in" result="e"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="e"/></feMerge></filter></defs>';
+    return '<svg viewBox="0 0 100 100" aria-hidden="true">' + defs + '<ellipse cx="50" cy="91" rx="45" ry="7" fill="rgba(0,0,0,.42)"/><g filter="url(#' + id + 'f)">' + g + "</g></svg>";
   }
   const KN = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]], DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]], ORT = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const SYM = { p:"pawn", n:"knight", b:"bishop", r:"rook", q:"queen" };
@@ -20925,7 +20970,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
   /* casillas que ataca una guardia (las negras avanzan hacia abajo); las que se deslizan paran en la primera pieza que encuentran (occ) */
   function sqAtaca(g, occ){
     const x = g.i % 8, y = (g.i / 8) | 0, o = [], pon = (a, b) => { if(a >= 0 && a < 8 && b >= 0 && b < 8) o.push(b * 8 + a); };
-    if(g.t === "p"){ const dy = g.w ? -1 : 1; pon(x - 1, y + dy); pon(x + 1, y + dy); }
+    if(g.t === "p"){ pon(x - 1, y + 1); pon(x + 1, y + 1); }
     else if(g.t === "n") for(const d of KN) pon(x + d[0], y + d[1]);
     else for(const d of (g.t === "b" ? DIAG : g.t === "r" ? ORT : DIAG.concat(ORT))){
       let a = x + d[0], b = y + d[1];
@@ -20959,63 +21004,8 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     }
     return null;
   }
-  /* ---- 2.298 · La cacería (niveles 7-9): la pieza objetivo huye tras cada salto y defiende las casillas que ataca ----
-     Acorralar: la pieza se queda quieta hasta que el caballo la amenaza (cae a un salto de ella); entonces huye, como se mueve su pieza, a la
-     casilla segura más lejana (empate: la de menor número). Si no le queda ninguna, está acorralada y el siguiente salto la captura (el «mate»).
-     Si el caballo cae en una casilla que ella ataca, la pieza lo toma. */
-  const distCab = roca => { const D = new Int8Array(4096).fill(-1);
-    for(let o = 0; o < 64; o++){ if(roca[o]) continue; const q = [o]; D[o * 64 + o] = 0;
-      for(let h = 0; h < q.length; h++){ const c = q[h]; for(const j of nbrs(c, 8)){ if(roca[j] || D[o * 64 + j] >= 0) continue; D[o * 64 + j] = D[o * 64 + c] + 1; q.push(j); } } }
-    return D; };
+  /* casillas que ataca la pieza objetivo (fija) desde su casilla */
   const atkObj = (tp, t, roca) => { const tab = new Uint8Array(64); for(const q of sqAtaca({ i:tp, t }, roca)) if(!roca[q]) tab[q] = 1; return tab; };
-  /* casillas que defienden tus piezas de apoyo (fijas, blancas) */
-  const sdefDe = (roca, amiga) => { const tab = new Uint8Array(64); for(const c in amiga) for(const q of sqAtaca({ i:+c, t:amiga[c], w:true }, roca)) tab[q] = 1; return tab; };
-  /* devuelve [casilla, forzada]: forzada = acorralada, debe moverse a una casilla defendida por tus piezas y la capturan */
-  function huyeF(kp, tp, t, roca, D, sdef){
-    const kn = nbrs(kp, 8); if(!kn.includes(tp)) return [tp, false];   // solo se mueve si el caballo la amenaza (jaque)
-    let best = -1, bd = -1, forz = -1; const sd = sdef || new Uint8Array(64);
-    for(const j of sqAtaca({ i:tp, t }, roca)){
-      if(roca[j] || j === kp) continue;
-      if(sd[j]){ if(forz < 0 || j < forz) forz = j; continue; }   // nunca elige por gusto una casilla defendida
-      if(kn.includes(j)) continue;   // ni una que el caballo ataque
-      const d = D[kp * 64 + j] < 0 ? 99 : D[kp * 64 + j];
-      if(d > bd || (d === bd && j < best)){ bd = d; best = j; }
-    }
-    return best >= 0 ? [best, false] : forz >= 0 ? [forz, true] : [tp, false];
-  }
-  const huye = (kp, tp, t, roca, D, sdef) => huyeF(kp, tp, t, roca, D, sdef)[0];
-  /* búsqueda en anchura sobre (casilla del caballo, casilla de la pieza): el mínimo de saltos para capturarla */
-  function solveCaza(a, b, t, roca, sdef){
-    const D = distCab(roca), cache = {}, ab = p => cache[p] || (cache[p] = atkObj(p, t, roca));
-    const dist = new Int16Array(4096).fill(-1), prev = new Int16Array(4096).fill(-1), q = [a * 64 + b]; dist[a * 64 + b] = 0;
-    const fin = (id, j) => { const ruta = [j]; for(let z = id; z >= 0; z = prev[z]) ruta.unshift(z >> 6); return { par:dist[id] + 1, ruta, D }; };
-    for(let h = 0; h < q.length; h++){
-      const id = q[h], k = id >> 6, tp = id & 63, at = ab(tp);
-      for(const j of nbrs(k, 8)){
-        if(roca[j]) continue;
-        if(j === tp) return fin(id, j);
-        if(at[j]) continue;
-        const [t2, forz] = huyeF(j, tp, t, roca, D, sdef);
-        if(forz) return fin(id, j);   // acorralada: tus piezas la capturan
-        const nid = j * 64 + t2; if(dist[nid] >= 0) continue;
-        dist[nid] = dist[id] + 1; prev[nid] = id; q.push(nid);
-      }
-    }
-    return null;
-  }
-  function kesselCaza(cfg){
-    for(let n = 0; n < 500; n++){
-      const a = al64(), b = al64(); if(a === b) continue;
-      const roca = Array(64).fill(false), amiga = {}, t = pick(cfg.t);
-      const libre = () => { for(let z = 0; z < 80; z++){ const c = al64(); if(c !== a && c !== b && !roca[c]) return c; } return -1; };
-      for(let k = 0; k < (cfg.r || 0); k++){ const c = libre(); if(c >= 0) roca[c] = true; }
-      for(let k = 0; k < (cfg.a || 0); k++){ const c = libre(); if(c >= 0){ roca[c] = true; amiga[c] = pick("pnbr"); } }
-      if(atkObj(b, t, roca)[a]) continue;   // el caballo no sale amenazado
-      const sdef = sdefDe(roca, amiga); if(sdef[b]) continue;   // y la pieza no empieza ya capturada
-      const q = solveCaza(a, b, t, roca, sdef); if(q && q.par >= cfg.d[0] && q.par <= cfg.d[1]) return { a, b, roca, amiga, t, q, sdef };
-    }
-    return null;
-  }
   const kVivo = it => s === it && !ov.hidden && ov.classList.contains("show") && reto === "kessel";
   /* guardias que el caballo ya capturó en su camino (visitar su casilla = capturarla) */
   const capSet = it => { const c = new Set(); it.guardias.forEach((g, k) => { if(it.path.indexOf(g.i) > 0) c.add(k); }); return c; };
@@ -21027,8 +21017,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     return r;
   }
   function kesselNew(entra, aviso){
-    const nv = kNivel(), cfg = NIV[nv - 1]; let a = 0, b = 0, roca = null, amiga = {}, gd = [], sol = null, caza = null, df = null, ot = cfg.df ? pick(cfg.ot) : null, defOk = false;
-    if(cfg.cz){ caza = kesselCaza(cfg); if(caza){ a = caza.a; b = caza.b; roca = caza.roca; amiga = caza.amiga; sol = caza.q; } }
+    const nv = kNivel(), cfg = NIV[nv - 1]; let a = 0, b = 0, roca = null, amiga = {}, gd = [], sol = null, df = null, ot = cfg.df ? pick(cfg.ot) : null, defOk = false;
     for(let n = 0; n < 1500 && !sol; n++){
       a = al64(); b = al64(); if(a === b) continue;
       roca = Array(64).fill(false); amiga = {}; gd = [];
@@ -21046,14 +21035,44 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
       sol = q; defOk = !!df;
     }
     if(!sol){ roca = Array(64).fill(false); amiga = {}; gd = []; df = null; do{ a = al64(); b = al64(); sol = solveK(a, b, roca, gd); }while(!sol || sol.par < 2); }
-    s = { n:8, a, b, roca, amiga, guardias:gd, ruta:sol.ruta, par:sol.par, objetivo:caza ? caza.t : defOk ? ot : pick("pnbrq"), caza:!!caza, def:defOk, D:caza ? sol.D : null, sdef:caza ? caza.sdef : null, atkO:caza ? atkObj(b, caza.t, roca) : defOk ? df : null, tPrev:[], espera:false, path:[a], gastados:0, fin:false, vio:false, nivel:nv, fx:null, entra:!!entra, vuelo:-1, tomado:null };
-    introEl.textContent = "Captura la pieza enemiga que señala claudIA con el menor número de saltos. Las ruinas y tus piezas bloquean el paso." + (gd.length ? " Algunas piezas negras defienden casillas sin avisar." : "") + (defOk ? " La pieza que capturas también defiende su alcance." : "") + (caza ? " La pieza huye si le das jaque. Si no le dejas salida, tus piezas la capturan." : "") + " Con el mínimo exacto pasas al siguiente.";
+    s = { n:8, a, b, roca, amiga, guardias:gd, ruta:sol.ruta, par:sol.par, objetivo:defOk ? ot : pick("pnbrq"), def:defOk, atkO:defOk ? df : null, path:[a], gastados:0, fin:false, vio:false, nivel:nv, fx:null, entra:!!entra, vuelo:-1, tomado:null };
+    introEl.textContent = "Captura la pieza señalada en el mínimo de saltos.";
     resetB.textContent = T("Nueva travesía"); fichaB.hidden = true;
     const nr = roca.filter(Boolean).length - Object.keys(amiga).length, na = Object.keys(amiga).length;
-    const orden = (caza ? "Caza " : "Captura ") + INSTR[s.objetivo] + " en " + coord(b).toUpperCase() + ".";
-    setMsg(["Nivel " + nv + (caza ? " · acorralar" : defOk ? " · objetivo armado" : "") + [nr ? " · " + nr + (nr > 1 ? " ruinas" : " ruina") : "", na ? " · " + na + (na > 1 ? " piezas amigas" : " pieza amiga") : "", gd.length ? " · " + gd.length + (gd.length > 1 ? " guardias" : " guardia") : ""].join("") + ".", orden]);
+    const orden = "Captura " + INSTR[s.objetivo] + " en " + coord(b).toUpperCase() + ".";
+    setMsg(["Nivel " + nv + ".", orden]);
     drawK();
-    const it0 = s; if(!window.__knRapido) setTimeout(() => { if(kVivo(it0) && !it0.fin) showGlobalToast(T((aviso ? aviso + " " : "") + orden), { voice:true, ms:5200 }); }, reduced() ? 300 : 700);
+    const it0 = s;
+    if(aviso && entra && !window.__knRapido && !reduced()) kesMist(it0, nv, aviso, orden);
+    else if(!window.__knRapido) setTimeout(() => { if(kVivo(it0) && !it0.fin) showGlobalToast(T((aviso ? aviso + " " : "") + orden), { voice:true, ms:5200 }); }, reduced() ? 300 : 700);
+  }
+  /* 2.305 · transición de nivel: claudIA lo anuncia entre la niebla; el tablero ya espera debajo */
+  function runasSvg(n, r0, r1, sem){
+    let g = '<circle cx="100" cy="100" r="' + r1 + '" fill="none" stroke="#cdbdf5" stroke-width="1.2"/><circle cx="100" cy="100" r="' + (r1 - 7) + '" fill="none" stroke="#cdbdf5" stroke-width=".6" stroke-dasharray="2 4"/>';
+    for(let k = 0; k < n; k++){
+      const a = k * 2 * Math.PI / n, c = Math.cos(a), sn = Math.sin(a), rm = (r0 + r1) / 2 - 3, x = 100 + c * rm, y = 100 + sn * rm, h = (r1 - r0) * .5 - 2, px = -sn, py = c, v = (k * 7 + sem) % 5;
+      const P = (u, w) => (x + c * u + px * w).toFixed(1) + " " + (y + sn * u + py * w).toFixed(1);
+      let d = "M" + P(-h, 0) + " L" + P(h, 0);
+      if(v === 0) d += " M" + P(-h, 0) + " L" + P(h * .2, 3.5) + " M" + P(h * .2, 3.5) + " L" + P(h, 0);
+      else if(v === 1) d += " M" + P(-h * .6, -3.4) + " L" + P(h * .5, 3.4);
+      else if(v === 2) d += " M" + P(-h, -3) + " L" + P(0, 0) + " L" + P(-h, 3);
+      else if(v === 3) d += " M" + P(h, -3) + " L" + P(-h * .3, 0) + " L" + P(h, 3);
+      else d += " M" + P(-h * .5, -3.4) + " L" + P(-h * .5, 3.4) + " M" + P(h * .5, -3.4) + " L" + P(h * .5, 3.4);
+      g += '<path d="' + d + '" stroke="#f0e4c4" stroke-width="1.4" stroke-linecap="round" fill="none"/>';
+    }
+    return '<svg viewBox="0 0 200 200" aria-hidden="true">' + g + "</svg>";
+  }
+  function kesMist(it, nv, aviso, orden){
+    const m = document.createElement("div"), sub = aviso.replace(/^Nivel \d+\.\s*/, "").replace(/\s*\+1 ayuda\.$/, "").replace(/\.$/, "");
+    m.className = "kn-mist"; m.setAttribute("aria-hidden", "true");
+    m.innerHTML = '<i class="nb"></i><i class="nb"></i><i class="nb"></i><div class="rn">' + runasSvg(16, 78, 96, nv) + '</div><div class="tt">' + T("Nivel " + nv + ".").replace(/\.$/, "") + (sub ? "<small>" + T(sub + ".").replace(/\.$/, "") + "</small>" : "") + "</div>";
+    board.appendChild(m); it.espera = true;
+    try{ SFX.santuario(true); }catch(e){}
+    setTimeout(() => { if(kVivo(it) && typeof showGlobalToast === "function") showGlobalToast(T(aviso), { voice:true, ms:4200 }); }, 500);
+    setTimeout(() => {
+      m.remove(); try{ SFX.santuario(false); }catch(e){}
+      if(s === it){ it.espera = false; if(kVivo(it) && !it.fin && typeof showGlobalToast === "function") showGlobalToast(T(orden), { voice:true, ms:4200 }); }
+    }, 3800);
   }
   const kdDe = len => Math.max(.7, (len - 1) * .22);   // lo que tarda el relámpago en recorrer la senda
   const kesMoves = () => nbrs(s.path[s.path.length - 1], 8).filter(i => !s.roca[i]);
@@ -21071,10 +21090,10 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     g.innerHTML = html; board.appendChild(g); setTimeout(() => { try{ g.remove(); }catch(e){} }, 1600);
   }
   /* la guardia se lanza sobre la casilla donde cayó el caballo (acelera hasta el golpe) */
-  function desliza(from, to, tipo, huida, col){
+  function desliza(from, to, tipo, huida){
     const dt = dur(huida ? 520 : 380); if(!dt) return 0;
     const bw = board.clientWidth / 8, lado = bw * .88, f = document.createElement("span");
-    f.className = "kn-pc kn-vuelo " + (col || "b"); f.innerHTML = glifoDe(tipo);
+    f.className = "kn-pc kn-vuelo b"; f.innerHTML = glifoDe(tipo);
     f.style.width = f.style.height = lado + "px"; f.style.left = ((to % 8 + .5) * bw - lado / 2) + "px"; f.style.top = ((((to / 8) | 0) + .5) * bw - lado / 2) + "px";
     board.appendChild(f);
     const fin = () => f.remove();
@@ -21100,7 +21119,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
   }
   function drawK(){
     board.style.setProperty("--n", 8);
-    Array.from(board.children).forEach(e => { if(!e.classList.contains("crumb")) e.remove(); });   // 2.297: el rompimiento de la pieza capturada sobrevive al redibujo (antes se borraba al nacer)
+    Array.from(board.children).forEach(e => { if(!e.classList.contains("crumb") && !e.classList.contains("kn-mist")) e.remove(); });   // 2.297: el rompimiento de la pieza capturada sobrevive al redibujo (antes se borraba al nacer)
     board.className = "kn-board" + (s.fx ? " kn-" + s.fx : "") + (s.entra ? " kn-entra" : "");
     const cur = s.path[s.path.length - 1], len = s.path.length, kd = kdDe(len), cap = capSet(s), gpos = {};
     s.guardias.forEach((g, k) => { if(!cap.has(k) || s.vuelo === g.i) gpos[(s.tomado && s.tomado.g === k) ? s.tomado.i : g.i] = { g, k }; });
@@ -21137,10 +21156,8 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
     const it = s, from = it.path[it.path.length - 1], c0 = capSet(it);
     const k = it.guardias.findIndex((g, n) => g.i === i && !c0.has(n)), m = maskDe(c0) | (k >= 0 ? 1 << k : 0), atk = quienAtaca(it, m, i);
     const atkT = !!(it.atkO && i !== it.b && it.atkO[i]);   // la pieza que cazas defiende esa casilla
-    if(it.caza) it.tPrev.push(it.b);
     it.path.push(i); it.gastados++; sonarPaso();
     if(atk.length || atkT || i === it.b) it.fin = true;
-    if(it.caza && !it.fin) it.espera = true;   // la pieza huye: no se juega hasta que termine
     if(k >= 0) it.vuelo = i;   // la guardia sigue en su casilla mientras el caballo está en el aire
     drawK(); const dt = volar(from, i, 8, "w");
     despues(dt, () => {
@@ -21154,28 +21171,6 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
       if(atk.length) despues((k >= 0 || i === it.b) ? dur(520) : 0, () => { if(s === it && it.fin) kesTomado(it, atk[0], i); });
       else if(atkT) despues(0, () => { if(s === it && it.fin) kesTomado(it, -1, i); });
       else if(i === it.b) kesFin();
-      else if(it.caza) kesHuye(it, i);
-    });
-  }
-  /* la pieza objetivo huye (se desliza a su casilla nueva) */
-  function kesHuye(it, ki){
-    const t0 = it.b, [t1, forz] = huyeF(ki, t0, it.objetivo, it.roca, it.D, it.sdef);
-    if(t1 === t0){ it.espera = false; return; }
-    const dt = desliza(t0, t1, it.objetivo, true), hide = board.querySelector('.kn-sq[data-i="' + t0 + '"] .kn-pc'); if(hide && dt) hide.style.visibility = "hidden";
-    const marco = board.querySelector(".kn-sq.kn-b"); if(marco && dt) marco.classList.remove("kn-b");   // el marco del objetivo viaja con él
-    despues(dt, () => { if(s !== it) return; it.b = t1; it.atkO = atkObj(t1, it.objetivo, it.roca); if(forz){ kesApoyo(it, t1); return; } it.espera = false; drawK(); });
-  }
-  /* acorralada: no le queda salida, se mueve a una casilla defendida y una de tus piezas de apoyo la captura */
-  function kesApoyo(it, sq){
-    const c = Object.keys(it.amiga).map(Number).sort((x, y) => x - y).find(x => sqAtaca({ i:x, t:it.amiga[x], w:true }, it.roca).includes(sq));
-    if(c === undefined){ it.espera = false; drawK(); return; }
-    it.fin = true; drawK();
-    const tipo = it.amiga[c], dt = desliza(c, sq, tipo, false, "w"), hide = board.querySelector('.kn-sq[data-i="' + c + '"] .kn-pc'); if(hide && dt) hide.style.visibility = "hidden";
-    despues(dt, () => {
-      if(s !== it) return;
-      knCrumb(sq, it.objetivo, "b"); try{ SFX.move({ capture:true }); }catch(e){}
-      delete it.amiga[c]; it.roca[c] = false; it.amiga[sq] = tipo; it.roca[sq] = true; it.b = -1; drawK();
-      despues(dur(520), () => { if(s === it) kesFin(); });
     });
   }
   /* cayó en una casilla defendida: la guardia se lanza, el caballo se rompe, claudIA habla y se muestra la ruta mínima */
@@ -21195,7 +21190,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
   }
   function kesFin(){
     const it = s, g = it.gastados, par = it.par;
-    if(g === par || (it.caza && g <= par + 2)){   // acorralarla es difícil: vale con hasta 2 saltos más que el mínimo
+    if(g === par){
       kRacha++; const r = rec.kessel || { racha:0, puntos:0 }; let nuevo = false;
       const caps = it.guardias.filter(q => it.path.indexOf(q.i) > 0).length;
       /* puntos: 10 por salto del mínimo, 5 por peñasco o pieza amiga, 25 por guardia capturada; por el nivel; +20 si no pediste ayuda */
@@ -21205,7 +21200,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
       const nv = kNivel(), sube = nv > it.nivel; if(sube) kAyuda++;
       setMsg([g === par ? "¡Mínimo! " + g + " saltos: +" + pts + " puntos" + (it.vio ? "." : " (con bono sin ayuda).") : "Capturada en " + g + " saltos. El mínimo era " + par + " saltos. +" + pts + " puntos.", "Racha de " + kRacha + " · " + kPuntos + " puntos" + (nuevo ? " (¡mejor travesía!)." : ".")]);
       it.fx = "gana-k kn-par"; drawK(); try{ SFX.trueno(0); }catch(e){}   // el trueno de la coronación, a mitad del recorrido del relámpago
-      const aviso = sube ? "Nivel " + nv + "." + (NIV[nv - 1].cz && !NIV[it.nivel - 1].cz ? " Hay que acorralarla." : NIV[nv - 1].df && !NIV[it.nivel - 1].df ? " El objetivo se defiende." : (NIV[nv - 1].g > (NIV[it.nivel - 1].g || 0) ? " Aparecen las guardias." : "")) + " +1 ayuda." : "";
+      const aviso = sube ? "Nivel " + nv + "." + (NIV[nv - 1].df && !NIV[it.nivel - 1].df ? " El objetivo se defiende." : (NIV[nv - 1].g > (NIV[it.nivel - 1].g || 0) ? " Aparecen las guardias." : "")) + " +1 ayuda." : "";
       const espera = window.__knRapido ? 0 : reduced() ? 900 : (kdDe(it.path.length) + 3.3) * 1000;
       despues(espera, () => { if(kVivo(it)) kesselNew(true, aviso); });   // pasa solo al siguiente tramo
     } else {
@@ -21223,7 +21218,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
 
   /* ---------- común ---------- */
   function undo(){
-    if(reto === "kessel"){ if(!s || s.fin || s.espera || s.path.length < 2) return; s.path.pop(); if(s.caza){ s.b = s.tPrev.pop(); s.atkO = atkObj(s.b, s.objetivo, s.roca); } setMsg(""); drawK(); return; }   // el salto deshecho no se devuelve: cuenta igual
+    if(reto === "kessel"){ if(!s || s.fin || s.espera || s.path.length < 2) return; s.path.pop(); setMsg(""); drawK(); return; }   // el salto deshecho no se devuelve: cuenta igual
     if(!s || s.fin && reto === "guarini") return;
     if(reto === "guarini"){ const m = s.hist.pop(); if(m){ s.pc[m.from] = s.pc[m.to]; s.pc[m.to] = null; } s.sel = -1; setMsg(""); drawG(); }
     else { if(s.fin){ s.fin = false; s.fx = null; setMsg(""); } s.path.pop(); s.tip = -1; if(!s.path.length) setMsg("Toca una casilla para colocar el caballo."); drawT(); }
@@ -21302,8 +21297,7 @@ hofOv.addEventListener("pointerdown", e => { if(e.target.closest && e.target.clo
   ov.addEventListener("click", e => { if(e.target === ov) close(); });
   document.addEventListener("keydown", e => { if(!ov.hidden && e.key === "Escape"){ e.stopPropagation(); close(); } });
   window.__knInfo = () => ({ reto, s, rec });
-  window.__knCaza = { huye, huyeF, solveCaza, atkObj, distCab, sdefDe, sqAtaca };   // solo para las pruebas
-  menuRecords();
+    menuRecords();
 })();
 document.getElementById("hof-open").onclick = openHallOfFame;
 document.getElementById("hof-close").onclick = closeHallOfFame;
