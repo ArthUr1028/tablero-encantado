@@ -31,7 +31,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await page.waitForSelector(".kn-mist .oj", { timeout: 8000 }); await page.waitForTimeout(800);
   const intro = await page.evaluate(() => ({ tt: document.querySelector(".kn-mist .tt").textContent, ln: document.querySelector(".kn-mist .ln").textContent, ojos: !!document.querySelector(".kn-mist .oj img"), esp: window.__knInfo().s.espera }));
   ok(/La Senda del Caballero/i.test(intro.tt) && /sendero que no figura/.test(intro.ln) && intro.ojos && intro.esp, "introducción: título, primera línea de claudIA, ojos detrás del texto y tablero en espera");
-  await page.waitForTimeout(3800);
+  await page.waitForTimeout(6600);
   const ln2 = await page.evaluate(() => document.querySelector(".kn-mist .ln").textContent);
   ok(/Ruinas que callan/.test(ln2), "la segunda línea sustituye a la primera");
   await page.evaluate(() => document.querySelector(".kn-mist").click()); await page.waitForTimeout(1200);
@@ -43,14 +43,14 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await jugar(s.ruta); await nueva();
   s = await S(); ok(s.nivel === 1, "una travesía ganada no basta para subir: sigue el nivel 1");
   await jugar(s.ruta);
-  await page.waitForSelector(".kn-mist", { timeout: 20000 }); await page.waitForTimeout(5200);
+  await page.waitForSelector(".kn-mist", { timeout: 20000 }); await page.waitForTimeout(6500);
   const m = await page.evaluate(() => ({ tt: document.querySelector(".kn-mist .tt").textContent, vz: (document.querySelector(".kn-mist .vz") || {}).textContent || "", toast: (document.getElementById("global-toast") || {}).textContent || "", runas: document.querySelectorAll(".kn-mist .rn path").length }));
   ok(/Nivel 2/i.test(m.tt) && /Los Centinelas/.test(m.tt) && m.runas > 10, "la niebla anuncia «Nivel 2 · Los Centinelas» con su círculo de runas (" + m.tt + ")");
   ok(/claudIA/.test(m.vz) && /centinelas callan/.test(m.vz) && /ayuda/.test(m.vz), "claudIA habla dentro del círculo: «" + m.vz.trim() + "»");
   ok(!/centinelas callan/.test(m.toast), "su voz no sale además como aviso aparte");
   const bloq = await page.evaluate(() => { const s = window.__knInfo().s; const j = [...document.querySelectorAll("#kn-board .kn-sq")].find(e => e.classList.contains("cur")); return { esp: s.espera, g: s.guardias.length, path: s.path.length }; });
   ok(bloq.esp && bloq.path === 1, "mientras dura la niebla no se puede jugar");
-  await page.waitForTimeout(4200);
+  await page.waitForTimeout(8000);
   const fin = await page.evaluate(() => ({ mist: !!document.querySelector(".kn-mist"), esp: window.__knInfo().s.espera }));
   ok(!fin.mist && !fin.esp, "la niebla se disipa y el tablero queda libre");
   await page.screenshot({ path: "/tmp/senda_nivel2.png" });
