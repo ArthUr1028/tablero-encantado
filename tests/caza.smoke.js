@@ -25,24 +25,35 @@ const REGLAS = `window.__reglas = (() => {
     return o;
   };
   const dist = (o, roca) => { const d = Array(64).fill(-1); d[o] = 0; const q = [o]; for (let h = 0; h < q.length; h++) for (const j of saltos(q[h], roca)) if (d[j] < 0) { d[j] = d[q[h]] + 1; q.push(j); } return d; };
-  const huye = (k, tp, t, roca) => {
-    if (!saltos(k, roca).includes(tp)) return tp;   // solo huye si el caballo la amenaza
-    const d = dist(k, roca), amen = saltos(k, roca); let mejor = -1, md = -1;
-    for (const j of alcance(tp, t, roca)) { if (j === k || amen.includes(j)) continue; const dd = d[j] < 0 ? 99 : d[j]; if (dd > md || (dd === md && j < mejor)) { md = dd; mejor = j; } }
-    return mejor < 0 ? tp : mejor;
+  const defendidas = (roca, amiga) => {   // casillas defendidas por las piezas de apoyo blancas (el peón blanco ataca hacia arriba)
+    const o = new Set();
+    for (const c in amiga) { const x0 = c % 8, y0 = (c / 8) | 0, t = amiga[c];
+      if (t === "p") { for (const dx of [-1, 1]) if (en(x0 + dx, y0 - 1)) o.add((y0 - 1) * 8 + x0 + dx); }
+      else if (t === "n") { for (const [dx, dy] of KN) if (en(x0 + dx, y0 + dy)) o.add((y0 + dy) * 8 + x0 + dx); }
+      else { const dirs = t === "b" ? [[1,1],[1,-1],[-1,1],[-1,-1]] : t === "r" ? [[1,0],[-1,0],[0,1],[0,-1]] : [[1,1],[1,-1],[-1,1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+        for (const [dx, dy] of dirs) { let x = x0 + dx, y = y0 + dy; while (en(x, y)) { o.add(y * 8 + x); if (roca[y * 8 + x]) break; x += dx; y += dy; } } } }
+    return o;
   };
+  const huyeF = (k, tp, t, roca, sd) => {   // [casilla, forzada]
+    if (!saltos(k, roca).includes(tp)) return [tp, false];   // solo huye si el caballo la amenaza
+    const d = dist(k, roca), amen = saltos(k, roca); let mejor = -1, md = -1, forz = -1;
+    for (const j of alcance(tp, t, roca)) { if (j === k) continue; if (sd && sd.has(j)) { if (forz < 0 || j < forz) forz = j; continue; } if (amen.includes(j)) continue;
+      const dd = d[j] < 0 ? 99 : d[j]; if (dd > md || (dd === md && j < mejor)) { md = dd; mejor = j; } }
+    return mejor >= 0 ? [mejor, false] : forz >= 0 ? [forz, true] : [tp, false];
+  };
+  const huye = (k, tp, t, roca, sd) => huyeF(k, tp, t, roca, sd)[0];
   const minimoFijo = (a, b, t, roca) => {   // objetivo fijo: no se pisa ninguna casilla que ataque
     const at = new Set(alcance(b, t, roca)), d = new Map([[a, 0]]), q = [a];
     for (let h = 0; h < q.length; h++) for (const j of saltos(q[h], roca)) { if (j === b) return d.get(q[h]) + 1; if (at.has(j) || d.has(j)) continue; d.set(j, d.get(q[h]) + 1); q.push(j); }
     return null;
   };
-  const minimo = (a, b, t, roca) => {   // anchura sobre (caballo, pieza); null si no hay captura
+  const minimo = (a, b, t, roca, sd) => {   // anchura sobre (caballo, pieza); null si no hay captura; acorralada = la capturan tus piezas
     const vis = new Map([[a + "," + b, 0]]), q = [[a, b]];
     for (let h = 0; h < q.length; h++) { const [k, tp] = q[h], d = vis.get(k + "," + tp), at = new Set(alcance(tp, t, roca));
-      for (const j of saltos(k, roca)) { if (j === tp) return d + 1; if (at.has(j)) continue; const t2 = huye(j, tp, t, roca), key = j + "," + t2; if (!vis.has(key)) { vis.set(key, d + 1); q.push([j, t2]); } } }
+      for (const j of saltos(k, roca)) { if (j === tp) return d + 1; if (at.has(j)) continue; const [t2, fz] = huyeF(j, tp, t, roca, sd); if (fz) return d + 1; const key = j + "," + t2; if (!vis.has(key)) { vis.set(key, d + 1); q.push([j, t2]); } } }
     return null;
   };
-  return { saltos, alcance, huye, minimo, minimoFijo };
+  return { saltos, alcance, huye, huyeF, defendidas, minimo, minimoFijo };
 })();
 window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]'); let cur = -1, obj = -1; const roca = Array(64).fill(false), amiga = Array(64).fill(false);
   for (let i = 0; i < 64; i++) { const e = sq(i); if (e.classList.contains("cur")) cur = i; if (e.classList.contains("kn-b")) obj = i; if (e.classList.contains("rock")) roca[i] = true; }
@@ -61,7 +72,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
 
   // ----- niveles 7 y 8: objetivo fijo que defiende; nivel 9: acorralarlo
   const juego = await page.evaluate(async () => {
-    const R = window.__reglas, o = { niveles: [], par: [], fijoQuieto: true, tiposFijo: new Set(), huidas: 0, malHuida: 0, mates: 0, capturas: 0, tipos9: new Set(), svg: 0, def: [] };
+    const R = window.__reglas, o = { niveles: [], par: [], fijoQuieto: true, tiposFijo: new Set(), huidas: 0, malHuida: 0, mates: 0, capturas: 0, tipos9: new Set(), svg: 0, apoyos: 0, def: [] };
     const sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
     const rutaFijo = (e0) => { const at = new Set(R.alcance(e0.obj, e0.t, e0.roca)), pr = new Map([[e0.cur, -1]]), q = [e0.cur];
       for (let h = 0; h < q.length; h++) for (const j of R.saltos(q[h], e0.roca)) { if (j === e0.obj) { const r = [j]; for (let z = q[h]; z !== -1; z = pr.get(z)) r.unshift(z); return r.slice(1); } if (at.has(j) || pr.has(j)) continue; pr.set(j, q[h]); q.push(j); } return null; };
@@ -76,17 +87,18 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
         if (window.__knInfo().s !== s0) o.capturas++;
         continue;
       }
-      o.tipos9.add(e0.t);
-      const q = R.minimo(e0.cur, e0.obj, e0.t, e0.roca); o.par.push(q === e0.par);
+      o.tipos9.add(e0.t); const amiga = window.__knInfo().s.amiga, sd = R.defendidas(e0.roca, amiga); o.apoyos += Object.keys(amiga).length;
+      const q = R.minimo(e0.cur, e0.obj, e0.t, e0.roca, sd); o.par.push(q === e0.par);
       const ruta = (() => { const vis = new Map([[e0.cur + "," + e0.obj, null]]), q2 = [[e0.cur, e0.obj]]; let fin = null;
         for (let h = 0; h < q2.length && !fin; h++) { const [k, t0] = q2[h], at = new Set(R.alcance(t0, e0.t, e0.roca));
-          for (const j of R.saltos(k, e0.roca)) { if (j === t0) { fin = { de: [k, t0], j }; break; } if (at.has(j)) continue; const t2 = R.huye(j, t0, e0.t, e0.roca), key = j + "," + t2; if (!vis.has(key)) { vis.set(key, [k + "," + t0, j]); q2.push([j, t2]); } } }
+          for (const j of R.saltos(k, e0.roca)) { if (j === t0) { fin = { de: [k, t0], j }; break; } if (at.has(j)) continue; const [t2, fz] = R.huyeF(j, t0, e0.t, e0.roca, sd); if (fz) { fin = { de: [k, t0], j }; break; } const key = j + "," + t2; if (!vis.has(key)) { vis.set(key, [k + "," + t0, j]); q2.push([j, t2]); } } }
         const pasos = [fin.j]; let key = fin.de.join(","); while (vis.get(key)) { const [pk, j] = vis.get(key); pasos.unshift(j); key = pk; } return pasos; })();
       let tp = e0.obj;
       for (let z = 0; z < ruta.length; z++) {
         sq(ruta[z]).click();
-        if (z < ruta.length - 1) { const esp = R.huye(ruta[z], tp, e0.t, e0.roca), real = window.__estado(); o.huidas++; if (real.obj !== esp) o.malHuida++; if (esp !== tp) o.mates++; tp = esp; }
+        if (z < ruta.length - 1) { const esp = R.huye(ruta[z], tp, e0.t, e0.roca, sd), real = window.__estado(); o.huidas++; if (real.obj !== esp) o.malHuida++; if (esp !== tp) o.mates++; tp = esp; }
       }
+      await new Promise(r => setTimeout(r, 2500));   // las piezas de apoyo se deslizan a capturar
       if (window.__knInfo().s !== s0) o.capturas++;
     }
     o.tiposFijo = [...o.tiposFijo].sort().join(""); o.tipos9 = [...o.tipos9].join("");
@@ -97,7 +109,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
   ok(!/n/.test(juego.tiposFijo) && juego.tiposFijo.length > 1, "niveles 7-8: sin caballos objetivo (no se les puede capturar) y con piezas variadas (" + juego.tiposFijo + ")");
   ok(juego.malHuida === 0 && juego.huidas > 10 && juego.mates >= 0, "nivel 9: la pieza solo huye con jaque y exactamente como dicen las reglas (" + juego.huidas + " pasos, " + juego.malHuida + " distintos, " + juego.mates + " huidas)");
   ok(juego.capturas === juego.niveles.length, "seguir el mínimo captura la pieza y pasa a la siguiente travesía (" + juego.capturas + " de " + juego.niveles.length + ")");
-  ok(juego.svg > 0 && /^b+$/.test(juego.tipos9), "ruinas con SVG (" + juego.svg + ") y el fugitivo del nivel 9 es un alfil (" + juego.tipos9 + ")");
+  ok(juego.svg > 0 && juego.apoyos >= 24, "ruinas con SVG (" + juego.svg + ") y el nivel 9 trae piezas de apoyo (" + juego.apoyos + " en 8 tableros)");
 
   // ----- nivel 7: caer en una casilla que ataca el objetivo fijo: la pieza toma al caballo
   const def = await page.evaluate(async () => {
