@@ -179,8 +179,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     const o = { minimos: [], rocas: [], coincide: true };
     for (let r = 0; r < 5; r++) {   // cinco corredores seguidos con el mínimo: la racha sube y, desde el nivel 3, aparecen rocas
       const s = S(), d = dist(s.a, s.roca);
-      if (d[s.b] !== s.par) o.coincide = false;
+      if (!s.guardias.length && !s.def && d[s.b] !== s.par) o.coincide = false;   // sin guardias ni presa armada el mínimo es una búsqueda simple
       o.rocas.push(s.roca.filter(Boolean).length); o.minimos.push(s.par);
+      if (r === 4) window.__knNivel = 1;   // el rodeo de abajo se prueba en un tablero sin guardias
       for (let i = 1; i < s.ruta.length; i++) sq(s.ruta[i]).click();
       o.racha = document.getElementById("kn-n3").textContent;   // pasa solo al siguiente: no hay botón intermedio
     }
@@ -195,7 +196,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     return o;
   });
   ok(kes.coincide, "corredor: el mínimo del juego coincide con una búsqueda en anchura (" + kes.minimos.join(",") + ")");
-  ok(kes.rocas[0] === 0 && kes.rocas[1] === 0 && kes.rocas[2] === 0 && kes.rocas[4] > 0, "corredor: sin rocas al empezar y con rocas a partir del nivel 3 (" + kes.rocas.join(",") + ")");
+  ok(kes.rocas.every(n => n > 0), "corredor: hay ruinas desde el primer nivel (" + kes.rocas.join(",") + ")");
   ok(kes.rec && kes.rec.racha === 5, "corredor: cada mínimo pasa solo al siguiente y anota la racha (" + kes.racha + " · " + JSON.stringify(kes.rec) + ")");
   ok(kes.ficha && /travesía/i.test(kes.reset), "corredor: sin botón de ficha y con «Nueva travesía» (" + kes.reset + ")");
   ok(kes.ruedaFin && kes.fallo, "corredor: un rodeo termina la travesía con el efecto de piedra");
@@ -211,15 +212,15 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       if (g.t === "p") { pon(x - 1, y + 1); pon(x + 1, y + 1); } else if (g.t === "n") { for (const [dx, dy] of K) pon(x + dx, y + dy); }
       else { const D = [[1,1],[1,-1],[-1,1],[-1,-1]], O = [[1,0],[-1,0],[0,1],[0,-1]]; for (const [dx, dy] of (g.t === "b" ? D : g.t === "r" ? O : D.concat(O))) { let a = x + dx, b = y + dy; while (a >= 0 && a < 8 && b >= 0 && b < 8) { o.push(b * 8 + a); if (occ[b * 8 + a]) break; a += dx; b += dy; } } }
       return o; };
-    const minimo = s => { const gd = s.guardias, full = 1 << gd.length, tab = {};
+    const minimo = s => { const gd = s.guardias, tg = s.def ? ataca({ i: s.b, t: s.objetivo }, s.roca) : [], full = 1 << gd.length, tab = {};
       const T = m => tab[m] || (tab[m] = (() => { const occ = s.roca.slice(), t = Array(64).fill(false); occ[s.b] = true; gd.forEach((g, k) => { if (!(m >> k & 1)) occ[g.i] = true; }); gd.forEach((g, k) => { if (!(m >> k & 1)) for (const q of ataca(g, occ)) t[q] = true; }); return t; })());
       const d = new Map([[s.a, 0]]), q = [s.a];
       for (let h = 0; h < q.length; h++) { const id = q[h], pos = id % 64, m = (id / 64) | 0;
-        for (const j of nb(pos)) { if (s.roca[j]) continue; const k = gd.findIndex(g => g.i === j), nm = (k >= 0 && !(m >> k & 1)) ? m | (1 << k) : m; if (T(nm)[j]) continue; const nid = nm * 64 + j; if (d.has(nid)) continue; d.set(nid, d.get(id) + 1); if (j === s.b) return d.get(nid); q.push(nid); } }
+        for (const j of nb(pos)) { if (s.roca[j]) continue; const k = gd.findIndex(g => g.i === j), nm = (k >= 0 && !(m >> k & 1)) ? m | (1 << k) : m; if (T(nm)[j] || tg.includes(j)) continue; const nid = nm * 64 + j; if (d.has(nid)) continue; d.set(nid, d.get(id) + 1); if (j === s.b) return d.get(nid); q.push(nid); } }
       return -1; };
-    document.getElementById("kn-reset").click();   // nueva travesía desde cero
+    window.__knNivel = 0; document.getElementById("kn-reset").click();   // nueva travesía desde cero, con los niveles de verdad
     const o = { niveles: [], guardias: [], coincide: true, conAmigas: false };
-    for (let r = 0; r < 12; r++) {   // doce desfiladeros con el mínimo: se llega al nivel 6
+    for (let r = 0; r < 12; r++) {   // doce desfiladeros con el mínimo: se llega al nivel 4
       const s = S(); o.niveles.push(s.nivel); o.guardias.push(s.guardias.length);
       if (minimo(s) !== s.par) o.coincide = false;
       if (Object.keys(s.amiga).length) o.conAmigas = true;
@@ -235,7 +236,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     return o;
   });
   ok(gua.coincide, "senda: el mínimo con guardias coincide con una búsqueda independiente (" + gua.niveles.join(",") + ")");
-  ok(Math.max(...gua.niveles) >= 6 && gua.guardias.some(n => n > 0) && gua.guardias[0] === 0, "senda: sin guardias al empezar y con guardias en los niveles altos (" + gua.guardias.join(",") + ")");
+  ok(Math.max(...gua.niveles) >= 4 && gua.guardias.some(n => n > 0) && gua.guardias[0] === 0, "senda: sin guardias al empezar y con guardias en los niveles altos (" + gua.guardias.join(",") + ")");
   ok(gua.conAmigas, "senda: aparecen piezas amigas que bloquean");
   ok(gua.tomado && /defendida/.test(gua.msg) && gua.sinPieza, "senda: caer en una casilla defendida termina la travesía y se rompe el caballo (" + gua.msg + ")");
 

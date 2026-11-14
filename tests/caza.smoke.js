@@ -65,7 +65,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
   const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
   const errores = []; page.on("pageerror", e => errores.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
-  await page.addInitScript(REGLAS); await page.addInitScript(() => { window.__knRapido = true; window.__knNivel = 7; });
+  await page.addInitScript(REGLAS); await page.addInitScript(() => { window.__knRapido = true; window.__knNivel = 3; });
   await page.goto(url, { waitUntil: "load" }); await page.waitForTimeout(1000);
   await page.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); } localStorage.removeItem("tablero.knBest");
     document.getElementById("kn-open").click(); document.querySelector('.kn-card[data-reto="kessel"]').click(); });
@@ -76,7 +76,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
     const sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]');
     const rutaFijo = (e0) => { const at = new Set(R.alcance(e0.obj, e0.t, e0.roca)), pr = new Map([[e0.cur, -1]]), q = [e0.cur];
       for (let h = 0; h < q.length; h++) for (const j of R.saltos(q[h], e0.roca)) { if (j === e0.obj) { const r = [j]; for (let z = q[h]; z !== -1; z = pr.get(z)) r.unshift(z); return r.slice(1); } if (at.has(j) || pr.has(j)) continue; pr.set(j, q[h]); q.push(j); } return null; };
-    for (const nv of [7, 7, 7, 7, 7, 7, 8, 8, 8, 8]) {
+    for (const nv of [3, 3, 3, 3, 3, 3, 4, 4, 4, 4]) {
       window.__knNivel = nv; document.getElementById("kn-reset").click();
       const s0 = window.__knInfo().s, e0 = window.__estado(); o.niveles.push(e0.nivel); o.svg += document.querySelectorAll("#kn-board .kn-rock svg").length;
       {
@@ -100,7 +100,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
   const def = await page.evaluate(async () => {
     const R = window.__reglas, sq = i => document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]'); let o = { hecho: false };
     for (let n = 0; n < 60 && !o.hecho; n++) {
-      window.__knNivel = 7; document.getElementById("kn-reset").click();
+      window.__knNivel = 3; document.getElementById("kn-reset").click();
       const e = window.__estado(), at = new Set(R.alcance(e.obj, e.t, e.roca)), j = R.saltos(e.cur, e.roca).find(x => at.has(x) && x !== e.obj);
       if (j === undefined) continue;
       sq(j).click(); await new Promise(r => setTimeout(r, 2200)); const e2 = window.__estado(), info = window.__knInfo().s; if (e2.obj !== j) continue;   // lo tomó una guardia, no el objetivo
