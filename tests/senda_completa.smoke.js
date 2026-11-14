@@ -88,6 +88,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const caidas = [];
   for (let k = 0; k < 3; k++) { const hecho = await pisar(); caidas.push((await cor()).v); await page.waitForTimeout(150); }
   ok(caidas.join(",") === "2,1,0", "cada captura del caballo cuesta un corazón (" + caidas.join(",") + ")");
+  ok(await page.evaluate(() => document.querySelectorAll("#kn-board .kn-rel").length === 0), "al perder un corazón no se dibuja la ruta correcta");
   const go = await page.evaluate(() => { const s = window.__knInfo().s; return { fin: s.fin, go: !!s.gameOver, msg: document.getElementById("kn-msg").textContent }; });
   ok(go.fin && go.go && /Fin del juego/.test(go.msg) && /Nueva travesía/.test(go.msg), "sin corazones se acaba el juego y no hay otra travesía sola (" + go.msg.slice(0, 80) + ")");
   await page.waitForTimeout(3600);
@@ -100,7 +101,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
 
   // ----- inglés
   const en = await page.evaluate(() => { setLang("en"); const L = ["El Sendero", "Los Centinelas", "La Presa Armada", "El Último Umbral", "Nivel 2. Los centinelas callan hasta que pisas su terreno. +1 ayuda.", "Nivel 3. También ella defiende. Rodéala, no la apresures. +1 ayuda.",
-    "Nivel 4. Aquí se decide. Piensa antes de saltar. +1 ayuda.", "Pisaste terreno vigilado. Estudia la ruta y regresa.", "Pierdes un corazón.", "Te quedan 2 corazones.", "La barra se llena un cuarto.", "¡Barra completa! Recuperas un corazón.", "Fin del juego.", "Demasiados saltos: llegaste en 9 saltos y el mínimo era 5.", "Llegaste al nivel 3 con 640 puntos.", "La presa armada perdona poco. Estuviste cerca. Inténtalo de nuevo.", "Llegaste al último umbral. Pocos lo logran; menos lo cruzan. Vuelve cuando estés listo.", "Se podía en 5 saltos. Estudia la ruta: ahí está la lección.", "Nivel 2. Cruza las ruinas. Cada salto cuenta. +1 ayuda."];
+    "Nivel 4. Aquí se decide. Piensa antes de saltar. +1 ayuda.", "Pisaste terreno vigilado. Piensa qué casillas callaban y regresa.", "Los centinelas no perdonan un paso en falso. El camino correcto lo descubres tú.", "El sendero cobra su precio. Búscale otro rumbo: yo no lo revelo.", "Busca tú el camino: yo no lo revelo.", "Pierdes un corazón.", "Te quedan 2 corazones.", "La barra se llena un cuarto.", "¡Barra completa! Recuperas un corazón.", "Fin del juego.", "Demasiados saltos: llegaste en 9 saltos y el mínimo era 5.", "Llegaste al nivel 3 con 640 puntos.", "La presa armada perdona poco. Estuviste cerca. Inténtalo de nuevo.", "Llegaste al último umbral. Pocos lo logran; menos lo cruzan. Vuelve cuando estés listo.", "Se podía en 5 saltos. Estudia la ruta: ahí está la lección.", "Nivel 2. Cruza las ruinas. Cada salto cuenta. +1 ayuda."];
     return L.filter(x => !/[a-z]/.test(window.tx(x).replace(/\b(Level|The|Path|Sentinels|Armed|Prey|Last|Threshold)\b/g, "")) ? false : window.tx(x) === x || /[áéíóúñ¿¡]/.test(window.tx(x))).map(x => x + " → " + window.tx(x)); });
   ok(!en.length, "todas las frases de claudIA y los nombres de nivel están en inglés" + (en.length ? ": " + en.join(" | ") : ""));
   ok(!errores.length, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
