@@ -59,6 +59,7 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     const post = await page.evaluate(() => ({ drop: liveState().board[4][5], w: liveState().board.zh.w.p, last: (game.ucis || []).slice(-1)[0] }));
     ok(await page.evaluate(() => window.__fx.zap > 0 && window.__fx.quake > 0 && window.__fx.generic === 0), "la caída es el rayo de la coronación con sacudida, no la columna de luz (" + JSON.stringify(await page.evaluate(() => window.__fx)) + ")");
     ok(await page.evaluate(() => !!(window.SFX_AUDIO && window.SFX_AUDIO.cadena && window.SFX_AUDIO.trueno)), "las muestras de cadena y de trueno están incrustadas");
+    ok(await page.evaluate(() => document.querySelectorAll(".nameplate .zh-res").length) === 2, "los dos calabozos se ven siempre (también vacíos)");
     ok(await page.evaluate(() => [...document.querySelectorAll(".graveyard")].every(g => getComputedStyle(g).display === "none")), "los cementerios no se ven en Crazyhouse");
     const esc = await page.evaluate(() => ({ marca: !!liveState().board.zh.sl["4,5"], cls: (document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece') || {}).className, borde: getComputedStyle(document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece')).getPropertyValue("--piece-edge").trim() }));
     ok(esc.marca && /\bslave\b/.test(esc.cls), "la pieza soltada queda marcada como esclava y lleva la clase slave (" + esc.cls + ")");
@@ -72,6 +73,16 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     await page.keyboard.press("ArrowRight"); await page.waitForTimeout(500);
     const nv = await page.evaluate(() => ({ fx: window.__fx, sum: document.querySelectorAll("#board .piece.summon").length }));
     ok(nv.fx.zap >= 1 && nv.sum >= 1, "con la flecha derecha la caída vuelve a animarse con el rayo (" + JSON.stringify(nv) + ")");
+    // mover una esclava: suena el clip propio de la pieza Y el arrastre de cadenas (dos buffers: uno corto de pieza y otro largo de cadena)
+    await page.evaluate(() => { window.__bs = []; const o = AudioContext.prototype.createBufferSource;
+      AudioContext.prototype.createBufferSource = function () { const n = o.call(this); const st = n.start.bind(n); n.start = (...a) => { window.__bs.push(n.buffer ? +n.buffer.duration.toFixed(2) : 0); return st(...a); }; return n; }; });
+    await page.evaluate(() => { const m = legalMoves(liveState()).find(x => x.from && x.from[0] === 1 && x.from[1] === 7 && x.to[0] === 2 && x.to[1] === 7); commitMove(m); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { window.__bs.length = 0; });
+    await page.evaluate(() => { const m = legalMoves(liveState()).find(x => x.from && x.from[0] === 4 && x.from[1] === 5 && x.to[0] === 3 && x.to[1] === 5); commitMove(m); });
+    await page.waitForTimeout(600);
+    const bs = await page.evaluate(() => window.__bs);
+    ok(bs.some(d => d > 3) && bs.some(d => d > 0 && d < 1.5), "al mover la esclava suenan la cadena y el paso propio de la pieza (" + JSON.stringify(bs) + ")");
     // arrastre desde la reserva negra: negras capturó antes (dxe4?); forzamos una reserva y soltamos con el ratón
     await page.evaluate(() => { const s = liveState(); s.board.zh.b.n = 1; s.turn = "b"; render(); });
     await page.waitForTimeout(300);
