@@ -22,6 +22,8 @@ ruta = os.path.join(RAIZ, "sonidos", "entrada", "batalla.mp3")   # 2.136: pista 
 if os.path.exists(ruta): d["batalla"] = b64(ruta)
 ruta = os.path.join(RAIZ, "sonidos", "coronacion", "trueno.mp3")   # 2.262: trueno de la coronación (4,4 s)
 if os.path.exists(ruta): d["trueno"] = b64(ruta)
+ruta = os.path.join(RAIZ, "sonidos", "cautivos", "cadena.mp3")   # 2.322: arrastre de cadenas de las piezas esclavas (Crazyhouse), 3,3 s
+if os.path.exists(ruta): d["cadena"] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))
 d["cap"] = d["cap"][:ORIGINALES] + [b64(os.path.join(RAIZ, "sonidos", "capturas", f)) for f in nuevas]
 nuevo = "window.SFX_AUDIO=" + json.dumps(d, separators=(",", ":")) + resto

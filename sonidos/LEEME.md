@@ -40,3 +40,7 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 - Halcón: soplo de aire que se afina (picada), aleteo de 4 ráfagas agudas y un destello. Elefante (sin grietas ni caída desde la 2.264-2.265; polvo y guijarros con física en `spawnStompDebris`): retumbo grave que se acerca, pisotón (sub-grave + golpe medio para bocinas de celular), polvo, eco a los 0,28 s (coincide con la segunda sacudida, `quake-heavy`) y cinco guijarros.
 - En el enroque con convocatoria la llegada espera a los tambores (0,8 s corto / 1,3 s largo): visual y sonido comparten ese retraso. Prueba: `node tests/seirawan_entrada.smoke.js` (`FRAMES=/carpeta` guarda capturas congeladas).
 
+
+## Cadenas de las piezas esclavas (2.322)
+- `cautivos/cadena.mp3` (3,4 s, mono, 64 kbps): el segundo arrastre de cadenas de «The sound of chains on the legs of a prisoner (shackles)» (mp3 que aportó Arthur, 14-nov-2026), de 5,55 s a 8,9 s del original, con entrada de 30 ms, salida de 350 ms y nivelado a −18 LUFS.
+- Suena entero junto al trueno cuando se suelta una pieza de la reserva (Crazyhouse) y, en un tramo de ≈1,4 s que se apaga solo, cada vez que se mueve una pieza esclava; una cadena nueva corta la anterior. Clave `cadena` en `SFX_AUDIO` (`python3 tools/build-sfx.py`).
