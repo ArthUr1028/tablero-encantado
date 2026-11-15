@@ -62,6 +62,10 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     ok(await page.evaluate(() => document.querySelectorAll(".graveyard.zhd .zh-res").length) === 2, "los dos calabozos ocupan el sitio de los cementerios y se ven siempre (también vacíos)");
     ok(await page.evaluate(() => document.querySelectorAll(".graveyard .gy-lane, .graveyard .crumb").length) === 0, "no queda nada del cementerio normal en Crazyhouse");
     ok(await page.evaluate(() => document.querySelectorAll(".nameplate .zh-res").length) === 0, "la reserva ya no va junto al nombre");
+    await page.evaluate(() => { const z = liveState().board.zh; z.w.r = 1; z.b.r = 1; render(); });
+    const col = await page.evaluate(() => ({ w: [...document.querySelectorAll('.zh-res[data-color="w"] .piece')].map(e => e.classList.contains("b") ? "b" : e.classList.contains("w") ? "w" : "?"), b: [...document.querySelectorAll('.zh-res[data-color="b"] .piece')].map(e => e.classList.contains("b") ? "b" : e.classList.contains("w") ? "w" : "?") }));
+    ok(col.w.length > 0 && col.b.length > 0 && col.w.every(x => x === "b") && col.b.every(x => x === "w"), "el calabozo de las blancas guarda piezas negras y el de las negras, blancas (" + JSON.stringify(col) + ")");
+    await page.evaluate(() => { const z = liveState().board.zh; z.w.r = 0; z.b.r = 0; render(); });
     const esc = await page.evaluate(() => ({ marca: !!liveState().board.zh.sl["4,5"], cls: (document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece') || {}).className, borde: getComputedStyle(document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece')).getPropertyValue("--piece-edge").trim() }));
     ok(esc.marca && /\bslave\b/.test(esc.cls), "la pieza soltada queda marcada como esclava y lleva la clase slave (" + esc.cls + ")");
     ok(await page.evaluate(() => { const o = document.querySelector('#board .cell[data-r="7"][data-c="0"] .piece'); return !!o && !o.classList.contains("slave"); }), "las piezas originales no son esclavas");
