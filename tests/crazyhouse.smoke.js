@@ -49,15 +49,15 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     const sel = await page.evaluate(() => ({ s: selected && selected.drop, dest: document.querySelectorAll("#board .cell.tgt").length }));
     ok(sel.s === "p", "toque en la reserva: queda elegido el peón");
     ok(sel.dest > 20, "se iluminan las casillas donde puede caer (" + sel.dest + ")");
-    await page.evaluate(() => { window.__fx = { zap: 0, quake: 0, generic: 0, thunder: 0 };
-      new MutationObserver(ms => { for (const m of ms) { for (const n of m.addedNodes) if (n.classList && n.classList.contains("gatefx")) { if (n.classList.contains("zap")) window.__fx.zap++; else window.__fx.generic++; } if (m.type === "attributes" && m.target.id === "board" && m.target.classList.contains("quake")) window.__fx.quake++; } })
+    await page.evaluate(() => { window.__fx = { zap: 0, mist: 0, quake: 0, generic: 0, thunder: 0 };
+      new MutationObserver(ms => { for (const m of ms) { for (const n of m.addedNodes) if (n.classList && n.classList.contains("gatefx")) { if (n.classList.contains("zap")) window.__fx.zap++; else if (n.classList.contains("mist")) window.__fx.mist++; else window.__fx.generic++; } if (m.type === "attributes" && m.target.id === "board" && m.target.classList.contains("quake")) window.__fx.quake++; } })
         .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
       const o = window.thunderSfx; try { const sf = SFX.trueno; SFX.trueno = (...a) => { window.__fx.thunder++; return sf && sf(...a); }; } catch (e) {} });
     // tocar una casilla destino (e5: fila 3 col 4 está vacía)
     await page.evaluate(() => { const c = document.querySelector('#board .cell[data-r="4"][data-c="5"]'); const r = c.getBoundingClientRect(); const ev = (t, id) => c.dispatchEvent(new PointerEvent(t, { pointerType: "mouse", button: 0, pointerId: id, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true })); ev("pointerdown", 1); ev("pointerup", 1); });
     await page.waitForTimeout(700);
     const post = await page.evaluate(() => ({ drop: liveState().board[4][5], w: liveState().board.zh.w.p, last: (game.ucis || []).slice(-1)[0] }));
-    ok(await page.evaluate(() => window.__fx.zap > 0 && window.__fx.quake > 0 && window.__fx.generic === 0), "la caída es el rayo de la coronación con sacudida, no la columna de luz (" + JSON.stringify(await page.evaluate(() => window.__fx)) + ")");
+    ok(await page.evaluate(() => window.__fx.mist > 0 && window.__fx.zap === 0 && window.__fx.quake === 0 && window.__fx.thunder === 0 && window.__fx.generic === 0), "la caída es una niebla (sin rayo, sin trueno ni sacudida) (" + JSON.stringify(await page.evaluate(() => window.__fx)) + ")");
     ok(await page.evaluate(() => !!(window.SFX_AUDIO && window.SFX_AUDIO.cadena && window.SFX_AUDIO["cadena-paso"] && window.SFX_AUDIO.trueno)), "las muestras de cadena y de trueno están incrustadas");
     ok(await page.evaluate(() => document.querySelectorAll(".graveyard.zhd .zh-res").length) === 2, "los dos calabozos ocupan el sitio de los cementerios y se ven siempre (también vacíos)");
     ok(await page.evaluate(() => document.querySelectorAll(".graveyard .gy-lane, .graveyard .crumb").length) === 0, "no queda nada del cementerio normal en Crazyhouse");
@@ -72,12 +72,12 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     ok(await page.evaluate(() => document.querySelectorAll(".zh-res .piece.slave").length >= 0), "la reserva dibuja sus piezas con el borde de cautivo");
     ok(post.drop === "wp" && post.w === 0 && /^P@f4$/.test(post.last), "la caída por toque pone el peón en f4 y vacía la reserva (" + post.last + ")");
     // flechas: retroceder una jugada y avanzar con la flecha derecha vuelve a animar la caída (antes no: la caída no tiene casilla de origen)
-    await page.evaluate(() => { window.__fx = { zap: 0, quake: 0, generic: 0, thunder: 0 }; });
+    await page.evaluate(() => { window.__fx = { zap: 0, mist: 0, quake: 0, generic: 0, thunder: 0 }; });
     await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(250);
-    await page.evaluate(() => { window.__fx = { zap: 0, quake: 0, generic: 0, thunder: 0 }; });
+    await page.evaluate(() => { window.__fx = { zap: 0, mist: 0, quake: 0, generic: 0, thunder: 0 }; });
     await page.keyboard.press("ArrowRight"); await page.waitForTimeout(500);
     const nv = await page.evaluate(() => ({ fx: window.__fx, sum: document.querySelectorAll("#board .piece.summon").length }));
-    ok(nv.fx.zap >= 1 && nv.sum >= 1, "con la flecha derecha la caída vuelve a animarse con el rayo (" + JSON.stringify(nv) + ")");
+    ok(nv.fx.mist >= 1 && nv.sum >= 1, "con la flecha derecha la caída vuelve a animarse con la niebla (" + JSON.stringify(nv) + ")");
     // mover una esclava: suena el clip propio de la pieza Y el arrastre de cadenas (dos buffers: uno corto de pieza y otro largo de cadena)
     await page.evaluate(() => { window.__bs = []; const o = AudioContext.prototype.createBufferSource;
       AudioContext.prototype.createBufferSource = function () { const n = o.call(this); const st = n.start.bind(n); n.start = (...a) => { window.__bs.push(n.buffer ? +n.buffer.duration.toFixed(2) : 0); return st(...a); }; return n; }; });
