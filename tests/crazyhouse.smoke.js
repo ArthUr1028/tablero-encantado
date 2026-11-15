@@ -33,7 +33,7 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     ok(await page.evaluate(() => document.getElementById("variant-crazyhouse").getAttribute("aria-pressed") === "true"), "el botón Crazyhouse queda activo");
     await page.evaluate(() => { const m = legalMoves(liveState()).find(x => x.from && x.from[0] === 4 && x.from[1] === 4 && x.to[0] === 3 && x.to[1] === 3); commitMove(m); });
     await page.waitForTimeout(500);
-    ok(await page.evaluate(() => document.querySelectorAll('.nameplate .zh-res[data-color="w"] .zh-pc').length) === 1, "tras capturar, la reserva blanca muestra 1 pieza");
+    ok(await page.evaluate(() => document.querySelectorAll('.zh-res[data-color="w"] .zh-pc').length) === 1, "tras capturar, la reserva blanca muestra 1 pieza");
     ok(await page.evaluate(() => document.querySelectorAll("#grave-top .crumb, #grave-bottom .crumb").length) === 0, "sin cementerio visible en Crazyhouse");
     await page.evaluate(() => { const m = legalMoves(liveState()).find(x => x.from && x.from[0] === 0 && x.from[1] === 3 && x.to[0] === 3 && x.to[1] === 3); commitMove(m); });
     await page.waitForTimeout(500);
@@ -41,7 +41,7 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     // turno blanco: toque en la reserva y luego en una casilla vacía (e4 -> e5? casilla vacía f5)
     await page.evaluate(() => { const m = legalMoves(liveState()).find(x => x.from && x.from[0] === 7 && x.from[1] === 6 && x.to[0] === 5 && x.to[1] === 5); commitMove(m); commitMove(legalMoves(liveState()).find(x => x.from && x.from[0] === 1 && x.from[1] === 0 && x.to[0] === 2 && x.to[1] === 0)); });
     await page.waitForTimeout(600);
-    const pc = page.locator('.nameplate .zh-res[data-color="w"] .zh-pc.can').first();
+    const pc = page.locator('.zh-res[data-color="w"] .zh-pc.can').first();
     ok(await pc.count() === 1, "es turno blanco: la pieza de la reserva se puede tomar");
     await pc.dispatchEvent("pointerdown", { pointerType: "touch", button: 0, isPrimary: true, clientX: 10, clientY: 10, pointerId: 41 });
     await page.evaluate(() => document.dispatchEvent(new PointerEvent("pointerup", { pointerType: "touch", pointerId: 41, clientX: 10, clientY: 10, bubbles: true })));
@@ -59,12 +59,13 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     const post = await page.evaluate(() => ({ drop: liveState().board[4][5], w: liveState().board.zh.w.p, last: (game.ucis || []).slice(-1)[0] }));
     ok(await page.evaluate(() => window.__fx.zap > 0 && window.__fx.quake > 0 && window.__fx.generic === 0), "la caída es el rayo de la coronación con sacudida, no la columna de luz (" + JSON.stringify(await page.evaluate(() => window.__fx)) + ")");
     ok(await page.evaluate(() => !!(window.SFX_AUDIO && window.SFX_AUDIO.cadena && window.SFX_AUDIO.trueno)), "las muestras de cadena y de trueno están incrustadas");
-    ok(await page.evaluate(() => document.querySelectorAll(".nameplate .zh-res").length) === 2, "los dos calabozos se ven siempre (también vacíos)");
-    ok(await page.evaluate(() => [...document.querySelectorAll(".graveyard")].every(g => getComputedStyle(g).display === "none")), "los cementerios no se ven en Crazyhouse");
+    ok(await page.evaluate(() => document.querySelectorAll(".graveyard.zhd .zh-res").length) === 2, "los dos calabozos ocupan el sitio de los cementerios y se ven siempre (también vacíos)");
+    ok(await page.evaluate(() => document.querySelectorAll(".graveyard .gy-lane, .graveyard .crumb").length) === 0, "no queda nada del cementerio normal en Crazyhouse");
+    ok(await page.evaluate(() => document.querySelectorAll(".nameplate .zh-res").length) === 0, "la reserva ya no va junto al nombre");
     const esc = await page.evaluate(() => ({ marca: !!liveState().board.zh.sl["4,5"], cls: (document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece') || {}).className, borde: getComputedStyle(document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece')).getPropertyValue("--piece-edge").trim() }));
     ok(esc.marca && /\bslave\b/.test(esc.cls), "la pieza soltada queda marcada como esclava y lleva la clase slave (" + esc.cls + ")");
     ok(await page.evaluate(() => { const o = document.querySelector('#board .cell[data-r="7"][data-c="0"] .piece'); return !!o && !o.classList.contains("slave"); }), "las piezas originales no son esclavas");
-    ok(await page.evaluate(() => document.querySelectorAll(".nameplate .zh-res .piece.slave").length >= 0), "la reserva dibuja sus piezas con el borde de cautivo");
+    ok(await page.evaluate(() => document.querySelectorAll(".zh-res .piece.slave").length >= 0), "la reserva dibuja sus piezas con el borde de cautivo");
     ok(post.drop === "wp" && post.w === 0 && /^P@f4$/.test(post.last), "la caída por toque pone el peón en f4 y vacía la reserva (" + post.last + ")");
     // flechas: retroceder una jugada y avanzar con la flecha derecha vuelve a animar la caída (antes no: la caída no tiene casilla de origen)
     await page.evaluate(() => { window.__fx = { zap: 0, quake: 0, generic: 0, thunder: 0 }; });
@@ -86,7 +87,7 @@ const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh
     // arrastre desde la reserva negra: negras capturó antes (dxe4?); forzamos una reserva y soltamos con el ratón
     await page.evaluate(() => { const s = liveState(); s.board.zh.b.n = 1; s.turn = "b"; render(); });
     await page.waitForTimeout(300);
-    const nb = page.locator('.nameplate .zh-res[data-color="b"] .zh-pc[data-t="n"]');
+    const nb = page.locator('.zh-res[data-color="b"] .zh-pc[data-t="n"]');
     ok(await nb.count() === 1, "reserva negra: aparece el caballo");
     const bb = await nb.boundingBox();
     const dst = await page.evaluate(() => { const r = document.querySelector('#board .cell[data-r="3"][data-c="6"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
