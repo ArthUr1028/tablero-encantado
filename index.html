@@ -6535,6 +6535,14 @@ const CAPABLANCA_START = "rnabqkbcnr/pppppppppp/10/10/10/10/PPPPPPPPPP/RNABQKBCN
 // 2.103: Dark Chess = posición clásica con la marca «dark» en el 7.º campo del FEN (así se distingue del Clásico en partidas guardadas y en línea)
 const DARK_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 dark";
 const SEIRAWAN_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[HEhe] w KQBCDFGkqbcdfg - 0 1";
+/* 2.319 · Crazyhouse. Las piezas que capturas pasan a TU reserva y puedes soltarlas después en cualquier casilla vacía (en vez de mover).
+   Estado: `board.zh` = { w:{p,n,b,r,q}, b:{...}, pm:{"fila,col":1} } (cuántas piezas hay en la reserva de cada bando; pm = casillas con una
+   pieza PROMOVIDA, que al ser capturada vuelve como peón). FEN estándar de Fairy-Stockfish: reserva entre corchetes pegada al tablero y «~»
+   tras cada pieza promovida; el Tablero añade un 7.º campo «zh» para distinguirla de Seirawan aun con la reserva vacía. Una caída es una
+   jugada {from:null, to:[f,c], drop:"n"}; en UCI es «N@e4» y en SAN «N@e4». */
+const ZH_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[] w KQkq - 0 1 zh";
+const ZH_TYPES = ["p","n","b","r","q"];
+const zhEmpty = () => ({ w:{p:0,n:0,b:0,r:0,q:0}, b:{p:0,n:0,b:0,r:0,q:0}, pm:{} });
 const SEIR_FEN = { a:"h", c:"e" };   // letra interna -> letra del FEN estándar (Halcón = H, Elefante = E)
 const SEIR_GATE_UCI = { a:"h", c:"e" };   // letra del Tablero -> letra del motor (Halcón = h, Elefante = e)
 const SEIR_GATE_FROM_UCI = { h:"a", e:"c" };
@@ -6766,6 +6774,7 @@ function promoTypes(cols){ return cols >= 10 ? ["q","r","b","n","a","c"] : ["q",
 function variantOf(board){
   if(board.dark) return "dark";   // 2.103: Dark Chess (niebla de guerra): mismas piezas que el clásico, otra regla
   if(board.seir) return "seirawan";   // V257
+  if(board.zh) return "crazyhouse";   // 2.319
   if(board[0].length >= 10) return "capablanca";
   // El Maharajá y el Modo Amazonas comparten la letra interna "m" (misma
   // pieza/ícono, ver comentario junto a AMAZONAS_INI), así que una sola
@@ -6793,6 +6802,9 @@ function parseFEN(fen){
   let seirPk = null;
   const br = pos.indexOf("[");
   if(br >= 0){ seirPk = pos.slice(br + 1).replace("]", ""); pos = pos.slice(0, br); }
+  // 2.319: Crazyhouse = reserva con peones/caballos/alfiles/torres/damas, o el 7.º campo «zh» (la reserva puede venir vacía)
+  let zhHand = null; const zhMarks = [];
+  if(seirPk !== null && (gflags === "zh" || /^[pnbrqPNBRQ]+$/.test(seirPk))){ zhHand = seirPk; seirPk = null; if(gflags !== "zh") gflags = undefined; }
   if(seirPk !== null && gflags === undefined){   // 2.101: FEN estándar (6 campos): el campo de enroque trae K/Q y las columnas colocables
     const fl = cast.split("").filter(ch => /[a-h]/i.test(ch));
     for(const [K, Q, up] of [["K", "Q", x => x.toUpperCase()], ["k", "q", x => x]]){
@@ -6808,6 +6820,7 @@ function parseFEN(fen){
     let i = 0;
     while(i < row.length){
       const ch = row[i];
+      if(ch === "~"){ if(zhHand !== null && arr.length) zhMarks.push([rowsRaw.length, arr.length - 1]); i++; continue; }   // 2.319: pieza promovida
       if(/\d/.test(ch)){
         let numStr = ch; i++;
         while(i < row.length && /\d/.test(row[i])){ numStr += row[i]; i++; }
@@ -6828,6 +6841,12 @@ function parseFEN(fen){
   });
   while(board.length < 8) board.push(Array(cols).fill(""));
   if(seirPk === null && gflags === "dark") board.dark = true;   // 2.103: «… 0 1 dark»
+  if(zhHand !== null){   // 2.319
+    const zh = zhEmpty();
+    for(const ch of zhHand){ const col = ch === ch.toUpperCase() ? "w" : "b"; zh[col][ch.toLowerCase()]++; }
+    for(const [r, c] of zhMarks) zh.pm[r + "," + c] = 1;
+    board.zh = zh;
+  }
   if(seirPk !== null){
     const mk = (col, back) => {
       const pk = ["a","c"].filter(ch => { const alt = ch === "a" ? "h" : "e", up = x => col === "w" ? x.toUpperCase() : x; return seirPk.includes(up(ch)) || seirPk.includes(up(alt)); }).join("");
@@ -6847,13 +6866,15 @@ function parseFEN(fen){
   };
 }
 function toFEN(s){
-  const rows = s.board.map(row=>{
+  const rows = s.board.map((row, r)=>{
     let out = "", empty = 0;
-    for(const p of row){
+    for(let c = 0; c < row.length; c++){
+      const p = row[c];
       if(!p){ empty++; continue; }
       if(empty){ out += empty; empty = 0; }
       const lt = (s.board.seir && SEIR_FEN[p[1]]) || p[1];   // 2.101: en Seirawan el halcón y el elefante van como H y E
       out += p[0] === "w" ? lt.toUpperCase() : lt;
+      if(s.board.zh && s.board.zh.pm[r + "," + c]) out += "~";   // 2.319: pieza promovida
     }
     if(empty) out += empty;
     return out;
@@ -6878,12 +6899,18 @@ function toFEN(s){
     }
     if(!cast) cast = "-";
   }
-  return `${boardStr} ${s.turn} ${cast} ${s.ep ? sqName(s.ep) : "-"} ${s.half} ${s.full}` + (s.board.dark ? " dark" : "");
+  if(s.board.zh){   // 2.319: reserva «QRBNP» de las blancas y «qrbnp» de las negras
+    let h = "";
+    for(const col of ["w", "b"]) for(const t of ["q","r","b","n","p"]) h += (col === "w" ? t.toUpperCase() : t).repeat(s.board.zh[col][t]);
+    boardStr += "[" + h + "]";
+  }
+  return `${boardStr} ${s.turn} ${cast} ${s.ep ? sqName(s.ep) : "-"} ${s.half} ${s.full}` + (s.board.dark ? " dark" : "") + (s.board.zh ? " zh" : "");
 }
 const cloneBoard = b => {
   const n = b.map(r=>r.slice());
   if(b.dark) n.dark = true;   // 2.103
   if(b.seir) n.seir = { w: { ...b.seir.w }, b: { ...b.seir.b } };   // V257
+  if(b.zh) n.zh = { w: { ...b.zh.w }, b: { ...b.zh.b }, pm: { ...b.zh.pm } };   // 2.319
   return n;
 };
 const cloneState = s => ({
@@ -7053,11 +7080,27 @@ function pseudoMoves(s, R, C){
 function applyMove(s, mv){
   const n = cloneState(s);
   const b = n.board;
+  if(mv.drop){   // 2.319 · Crazyhouse: soltar una pieza de la reserva en una casilla vacía
+    const me = s.turn, [dr,dc] = mv.to;
+    b[dr][dc] = me + mv.drop; b.zh[me][mv.drop]--;
+    n.ep = null; n.half = 0;
+    n.turn = me === "w" ? "b" : "w";
+    if(me === "b") n.full++;
+    return n;
+  }
   const cols = b[0].length, g = castleGeom(cols);
   const [fr,fc] = mv.from, [tr,tc] = mv.to;
   const p = b[fr][fc], me = p[0];
 
   n.half = (p[1] === "p" || mv.capture) ? 0 : n.half + 1;
+  if(b.zh){   // 2.319 · Crazyhouse: lo capturado pasa a la reserva del que captura (una pieza promovida vuelve como peón)
+    const key = tr + "," + tc, fkey = fr + "," + fc, wasProm = !!b.zh.pm[fkey], tgtProm = !!b.zh.pm[key];
+    let capT = null;
+    if(mv.capture) capT = (mv.ep || tgtProm) ? "p" : mv.capture[1];
+    delete b.zh.pm[fkey]; delete b.zh.pm[key];
+    if(mv.promo || wasProm) b.zh.pm[key] = 1;
+    if(capT && b.zh[me][capT] !== undefined) b.zh[me][capT]++;
+  }
   b[tr][tc] = mv.promo ? me + mv.promo : p;
   b[fr][fc] = "";
   if(mv.ep) b[fr][tc] = "";
@@ -7111,6 +7154,7 @@ function gateVariants(s, mv){
 }
 // Notación UCI de Fairy-Stockfish (Halcón = h, Elefante = e al final; al enrocar colocando sobre la torre: torre→rey + letra).
 function uciOf(mv, seir){
+  if(mv.drop) return mv.drop.toUpperCase() + "@" + sqName(mv.to);   // 2.319: Crazyhouse, «N@e4»
   if(!seir) return sqName(mv.from) + sqName(mv.to) + (mv.promo || "");
   const sg = mv.gate ? SEIR_GATE_UCI[mv.gate] : "";
   if(mv.gate && mv.castle && mv.gsq[1] !== mv.from[1]) return sqName(mv.gsq) + sqName(mv.from) + sg;
@@ -7137,10 +7181,23 @@ function legalMoves(s){
       }
     }
   }
+  if(s.board.zh){   // 2.319 · Crazyhouse: caídas de la reserva en casillas vacías (el peón no cae en la 1.ª ni en la 8.ª fila); no pueden dejar al propio rey en jaque
+    const hand = s.board.zh[s.turn], opp = s.turn === "w" ? "b" : "w";
+    for(const t of ZH_TYPES){
+      if(!hand[t]) continue;
+      for(let r=0;r<8;r++) for(let c=0;c<cols;c++){
+        if(s.board[r][c] || (t === "p" && (r === 0 || r === 7))) continue;
+        const mv = { from:null, to:[r,c], capture:null, drop:t };
+        const n = applyMove(s, mv), k = kingPos(n.board, s.turn);
+        if(k && !attacked(n.board, k[0], k[1], opp)) out.push(mv);
+      }
+    }
+  }
   return out;
 }
 
 function insufficient(b){
+  if(b.zh) return false;   // 2.319: en Crazyhouse siempre puede entrar material desde la reserva
   if(isShat(b)){ const m = shatMaterial(b); return m.w === 0 && m.b === 0; }   // V233: shatranj, solo shah contra shah
   const ps = [];
   for(const row of b) for(const p of row) if(p) ps.push(p);
@@ -7172,7 +7229,8 @@ function posKey(s){
   const c = s.castle, sq = s.board.seir;
   return s.board.map(r => r.map(p => p || "-").join(",")).join("/") + " " + s.turn + " " +
     (c.K?"K":"") + (c.Q?"Q":"") + (c.k?"k":"") + (c.q?"q":"") + " " + ep +
-    (sq ? " [" + sq.w.pk + "|" + sq.b.pk + "] " + sq.w.g + "|" + sq.b.g : "");
+    (sq ? " [" + sq.w.pk + "|" + sq.b.pk + "] " + sq.w.g + "|" + sq.b.g : "") +
+    (s.board.zh ? " {" + ZH_TYPES.map(t => s.board.zh.w[t] + "" + s.board.zh.b[t]).join(",") + "|" + Object.keys(s.board.zh.pm).sort().join(";") + "}" : "");   // 2.319
 }
 // Estados desde el inicio de la línea que lo contiene hasta t (inclusive), o null.
 function lineThrough(t){
@@ -7243,6 +7301,7 @@ function shatReason(s){
   return "ahogado";
 }
 function toSAN(s, mv, legal){
+  if(mv.drop) return mv.drop.toUpperCase() + "@" + sqName(mv.to);   // 2.319: Crazyhouse
   if(mv.castle === "K") return "O-O" + gateSuffix(mv);
   if(mv.castle === "Q") return "O-O-O" + gateSuffix(mv);
   const p = s.board[mv.from[0]][mv.from[1]], type = p[1];
@@ -8397,6 +8456,10 @@ function restore(forceFree){
   }
 }
 function matchUci(pos, u){
+  if(u[1] === "@"){   // 2.319: Crazyhouse, «N@e4»
+    const to = [8 - (+u[3]), FILES.indexOf(u[2])];
+    return legalMoves(pos).find(m => m.drop === u[0].toLowerCase() && sameSq(m.to, to));
+  }
   if(pos.board.seir){   // V257: la notación UCI de Seirawan incluye la colocación (ver uciOf)
     const legal = legalMoves(pos);
     const want = String(u).toLowerCase();
