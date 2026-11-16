@@ -14,11 +14,13 @@ const srv = http.createServer((req, res) => {
 let fallos = 0;
 const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c) fallos++; };
 
-const KEYS = ["clasico", "capablanca", "maharaja", "amazonas", "seirawan", "shatranj", "dark"];
+const KEYS = ["clasico", "capablanca", "maharaja", "amazonas", "seirawan", "shatranj", "dark", "crazyhouse"];
 const CASOS = [
   { variante: "dark", color: "b", nivel: 15 },
   { variante: "dark", color: "w", nivel: 15 },
   { variante: "shatranj", color: "b", nivel: 15 },
+  { variante: "crazyhouse", color: "w", nivel: 10 },   // 2.339: Asara, nivel Amateur sin medir
+  { variante: "crazyhouse", color: "b", nivel: 10 },
   { variante: "maharaja", color: "w", nivel: 10 },   // el humano es el Maharajá: claudIA juega los Cipayas en Miles (2.253)
   { variante: "maharaja", color: "b", nivel: 15 },   // el humano lleva los Cipayas: claudIA (Maharajá) en Praeceptor (2.253)
 ];
@@ -39,7 +41,7 @@ const CASOS = [
     const nombre = c.variante + " con " + (c.color === "w" ? "blancas" : "negras");
     await page.evaluate(({ idx, color }) => {
       accountProfile = { id: "u1", username: "prueba" }; clubIsMember = true;
-      const seq = [(idx + 0.5) / 7, color === "w" ? 0.1 : 0.9], orig = Math.random;
+      const seq = [(idx + 0.5) / 8, color === "w" ? 0.1 : 0.9], orig = Math.random;
       Math.random = () => seq.length ? seq.shift() : orig();
       window.confirm = () => true;
       retoStart();
@@ -71,7 +73,7 @@ const CASOS = [
     await page.waitForTimeout(1200);
     const res = await page.evaluate(({ fen, jugada }) => {
       accountProfile = { id: "u1", username: "prueba" }; clubIsMember = true; window.confirm = () => true;
-      const seq = [(6 + 0.5) / 7, 0.1], orig = Math.random; Math.random = () => seq.length ? seq.shift() : orig();
+      const seq = [(6 + 0.5) / 8, 0.1], orig = Math.random; Math.random = () => seq.length ? seq.shift() : orig();
       retoStart();
       return new Promise(done => setTimeout(() => {
         newGame(fen, { white: "Yo", black: "claudIA", result: "", resultNote: "" });
