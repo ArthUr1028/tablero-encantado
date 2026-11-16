@@ -1,5 +1,7 @@
-// 2.319 · Crazyhouse: las reglas del Tablero (funciones REALES de index.html, cargadas en un vm) contra el motor Fairy-Stockfish real.
+// 2.319 · Crazyhouse (2.342: reglas de ASARA): las reglas del Tablero (funciones REALES de index.html, cargadas en un vm) contra el motor Fairy-Stockfish real.
 // Uso:  node tests/crazyhouse.reglas.test.js [partidas=40] [plies=140] [semilla=7]
+// 2.342: Asara ya no captura como Crazyhouse (solo las piezas mayores van a la reserva; peones, coronadas y asīr mueren), así que el motor sirve para
+// las jugadas LEGALES de cada posición (perft a 1 jugada y partidas al azar), no para la FEN tras capturar; eso lo cubren las reglas propias (sección 3).
 // Comprueba: (1) perft (conteo de jugadas) en posiciones con reserva, piezas promovidas, jaques, al paso y enroque; (2) partidas al azar
 // ply a ply: el CONJUNTO de jugadas legales y la FEN resultante (reserva, «~», reloj de medias jugadas) coinciden con las del motor.
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -76,8 +78,8 @@ const ok = (c, msg) => { total++; if(!c){ fallos++; console.log("  FALLA " + msg
     ["mate con caída de peón posible", "6k1/5ppp/8/8/8/8/8/R5K1[Rr] w - - 0 1 zh", 3],
   ];
   for(const [nombre, fen, d] of POS){
-    const f = await perft(fen, d), m = mine(fen, d);
-    ok(f.total === m, "perft " + d + " «" + nombre + "»: motor " + f.total + " · Tablero " + m);
+    const f = await perft(fen, 1), m = mine(fen, 1);
+    ok(f.total === m, "perft 1 «" + nombre + "»: motor " + f.total + " · Tablero " + m);
   }
 
   // ---- 2. partidas al azar: mismas jugadas legales y misma FEN ply a ply
@@ -102,16 +104,54 @@ const ok = (c, msg) => { total++; if(!c){ fallos++; console.log("  FALLA " + msg
       const pick = (pref.length && rnd() < 0.6) ? pref[Math.floor(rnd() * pref.length)] : L[Math.floor(rnd() * L.length)];
       if(pick.drop) caidas++; if(pick.promo) promos++;
       s = A.applyMove(s, pick); hist.push(A.uciOf(pick)); plies++;
-      const ff = await fenAfter(A.ZH_START, hist);
-      const mf = norm(A.toFEN(s));
-      if(norm(ff) !== mf){
+      // invariantes de Asara: nunca hay peones en la reserva y no se pierde ni se crea ninguna pieza (tablero + reservas + cementerio = 32)
+      const z = s.board.zh; let n = 0;
+      for(const row of s.board) for(const q of row) if(q) n++;
+      for(const col of ["w", "b"]){ for(const t of ["p","n","b","r","q"]) n += z[col][t]; n += z.d[col].length; }
+      if(z.w.p || z.b.p || n !== 32){
         mal++; fallos++; total++;
-        console.log("  FALLA FEN distinta en la partida " + g + ", ply " + p + " tras " + hist.slice(-3).join(" ") + "\n        motor   " + norm(ff) + "\n        Tablero " + mf); break;
+        console.log("  FALLA invariante en la partida " + g + ", ply " + p + " tras " + hist.slice(-3).join(" ") + ": piezas " + n + ", peones en reserva " + (z.w.p + z.b.p) + "\n        " + A.toFEN(s)); break;
       }
       const oc = A.outcome(s); if(oc !== "normal" && oc !== "check"){ fin.otros++; break; }
     }
   }
-  ok(mal === 0, NG + " partidas al azar (" + plies + " jugadas, " + caidas + " caídas, " + promos + " promociones): jugadas legales y FEN idénticas al motor · finales: " + fin.checkmate + " mates, " + fin.stalemate + " ahogados, " + fin.otros + " otros");
+  ok(mal === 0, NG + " partidas al azar (" + plies + " jugadas, " + caidas + " caídas, " + promos + " promociones): jugadas legales idénticas al motor y piezas conservadas · finales: " + fin.checkmate + " mates, " + fin.stalemate + " ahogados, " + fin.otros + " otros");
+
+
+  // ---- 3. reglas de Asara (2.342)
+  const jugar = (fen, uci) => { const s = A.parseFEN(fen); const m = A.legalMoves(s).find(x => A.uciOf(x) === uci); if(!m) throw new Error("jugada ilegal " + uci + " en " + fen); return A.applyMove(s, m); };
+  const dead = (s, col) => s.board.zh.d[col].join("");
+  let t = jugar("4k3/8/8/3p4/8/2N5/8/4K3[] w - - 0 1 zh", "c3d5");
+  ok(dead(t, "b") === "p" && t.board.zh.w.p === 0, "un peón capturado muere (cementerio) y no va a la reserva");
+  t = jugar("4k3/8/8/3b4/8/2N5/8/4K3[] w - - 0 1 zh", "c3d5");
+  ok(t.board.zh.w.b === 1 && dead(t, "b") === "", "un alfil capturado se vuelve asīr (reserva del captor)");
+  t = jugar("4k3/8/8/3p4/4P3/8/8/4K3[] w - - 0 1 zh", "e4d5");
+  ok(dead(t, "b") === "p" && t.board.zh.w.p === 0, "peón captura peón: muere");
+  t = jugar("4k3/8/8/3pP3/8/8/8/4K3[] w - - 0 1 zh", "e5e6");
+  ok(dead(t, "b") === "" && dead(t, "w") === "", "un avance no mata nada");
+  // un asīr capturado muere: el blanco suelta un caballo en e5 y el peón negro de d6 lo captura
+  let u = jugar("4k3/8/3p4/8/8/8/8/4K3[N] w - - 0 1 zh", "N@e5");
+  ok(u.board.zh.sl["3,4"] === 1 && u.board.zh.w.n === 0, "soltar un cautivo: queda esclavo en el tablero");
+  const cap = A.legalMoves(u).find(x => A.uciOf(x) === "d6e5");
+  const v = A.applyMove(u, cap);
+  ok(dead(v, "w") === "n" && v.board.zh.b.n === 0 && !v.board.zh.sl["3,4"], "un asīr capturado muere: no pasa al captor, va al cementerio");
+  // una pieza coronada capturada muere como la pieza en que coronó
+  const w0 = jugar("4k3/P7/8/8/8/7r/8/4K3[] w - - 0 1 zh", "a7a8q");
+  ok(w0.board.zh.pm["0,0"] === 1, "al coronar, la pieza queda marcada como promovida");
+  const w2 = jugar("r3k3/8/8/8/8/8/8/Q~3K3[] b - - 0 1 zh", "a8a1");
+  ok(dead(w2, "w") === "q" && w2.board.zh.b.q === 0 && w2.board.zh.b.p === 0, "una dama coronada capturada muere como dama (ni asīr ni peón)");
+  // al paso: el peón capturado muere
+  const ep = jugar("4k3/8/8/4Pp2/8/8/8/4K3[] w - f6 0 1 zh", "e5f6");
+  ok(dead(ep, "b") === "p" && ep.board.zh.w.p === 0, "captura al paso: el peón muere");
+
+  // material insuficiente (2.342): solo si entre el tablero y los calabozos no hay peones, torres ni damas y queda a lo sumo una pieza menor
+  const oc = f => A.outcome(A.parseFEN(f));
+  ok(oc("4k3/8/8/8/8/8/8/4K3[] w - - 0 1 zh") === "material", "rey contra rey: tablas por material insuficiente");
+  ok(oc("4k3/8/8/8/8/8/8/4KN2[] w - - 0 1 zh") === "material", "rey y caballo contra rey: tablas");
+  ok(oc("4k3/8/8/8/8/8/8/4K3[N] w - - 0 1 zh") === "material", "un caballo solo en el calabozo: tablas");
+  ok(oc("4k3/8/8/8/8/8/8/4KN2[n] w - - 0 1 zh") !== "material", "dos piezas menores (una en el calabozo): se sigue jugando");
+  ok(oc("4k3/8/8/8/8/8/4P3/4K3[] w - - 0 1 zh") !== "material", "con un peón en el tablero todavía hay partida");
+  ok(oc("4k3/8/8/8/8/8/8/4K3[R] w - - 0 1 zh") !== "material", "una torre cautiva basta para seguir");
 
   console.log(fallos ? "\nHAY FALLOS (" + fallos + " de " + total + ")" : "\nTodo bien");
   process.exit(fallos ? 1 : 0);
