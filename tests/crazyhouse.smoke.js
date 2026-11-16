@@ -69,6 +69,10 @@ const ZHFEN2 = "rnbqkb1r/ppp1pppp/8/3n4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 z
     const col = await page.evaluate(() => ({ w: [...document.querySelectorAll('.zh-res[data-color="w"] .piece')].map(e => e.classList.contains("b") ? "b" : e.classList.contains("w") ? "w" : "?"), b: [...document.querySelectorAll('.zh-res[data-color="b"] .piece')].map(e => e.classList.contains("b") ? "b" : e.classList.contains("w") ? "w" : "?") }));
     ok(col.w.length > 0 && col.b.length > 0 && col.w.every(x => x === "b") && col.b.every(x => x === "w"), "el calabozo de las blancas guarda piezas negras y el de las negras, blancas (" + JSON.stringify(col) + ")");
     await page.evaluate(() => { const z = liveState().board.zh; z.w.r = 0; z.b.r = 0; render(); });
+    // 2.343: los cautivos se ven uno por uno (dos caballos = dos caballos), sin agrupar con contador
+    await page.evaluate(() => { const z = liveState().board.zh; z.w.n = 2; z.w.q = 1; render(); });
+    ok(await page.evaluate(() => document.querySelectorAll('.zh-res[data-color="w"] .zh-pc[data-t="n"]').length) === 2 && await page.evaluate(() => document.querySelectorAll(".zh-res .zh-pc b").length) === 0, "dos caballos cautivos: se ven los dos, sin contador");
+    await page.evaluate(() => { const z = liveState().board.zh; z.w.n = 0; z.w.q = 0; render(); });
     const esc = await page.evaluate(() => ({ marca: !!liveState().board.zh.sl["4,5"], cls: (document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece') || {}).className, borde: getComputedStyle(document.querySelector('#board .cell[data-r="4"][data-c="5"] .piece')).getPropertyValue("--piece-edge").trim() }));
     ok(esc.marca && /\bslave\b/.test(esc.cls), "la pieza soltada queda marcada como esclava y lleva la clase slave (" + esc.cls + ")");
     ok(await page.evaluate(() => { const o = document.querySelector('#board .cell[data-r="7"][data-c="0"] .piece'); return !!o && !o.classList.contains("slave"); }), "las piezas originales no son esclavas");
