@@ -139,10 +139,10 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     ok(w >= 1000 ? r.b >= 560 : r.b >= 300, "el tablero del recorrido se ve grande a " + w + "×" + h + " (" + r.b + "px)");
   }
   await page.setViewportSize({ width: 900, height: 1200 });
-  await page.evaluate(() => { document.body.classList.add("relieve"); });
+  await page.evaluate(() => { document.body.classList.add("tablero3d"); });
   const c3 = await page.evaluate(() => { const q = document.querySelector("#kn-board .kn-sq.lgt"), cs = getComputedStyle(q); return { img: cs.backgroundImage.includes("url("), }; });
   ok(c3.img, "con el 3D encendido las casillas llevan la textura del elemento");
-  await page.evaluate(() => { document.body.classList.remove("relieve"); document.getElementById("kn-reset").click(); });
+  await page.evaluate(() => { document.body.classList.remove("tablero3d"); document.getElementById("kn-reset").click(); });
   const t00 = await centro(0); await page.mouse.click(t00.x, t00.y);
   const d00 = await page.evaluate(() => +window.__libres()[0].dataset.i);
   const q0 = await centro(d00); await page.mouse.click(q0.x, q0.y);
