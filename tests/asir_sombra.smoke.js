@@ -13,7 +13,7 @@ for(const rel of [false,true]){
  await p.evaluate(r=>{document.body.classList.toggle("relieve",r);const ps=[...document.querySelectorAll("#board .piece")];ps.forEach(e=>e.classList.remove("slave","dm0","dm1","dm2"));[1,3,26,28].forEach((i,k)=>ps[i].classList.add("slave","dm"+(k%3)))},rel);await p.waitForTimeout(400);
  const r=await p.evaluate(()=>[...document.querySelectorAll("#board .piece.slave")].map(e=>{const sv=e.querySelector("svg");return{cls:e.className,cont:getComputedStyle(e).filter,svg:getComputedStyle(sv).filter,ell:getComputedStyle(e,"::before").backgroundImage.indexOf("radial-gradient")>=0}}));
  const n=rel?"con relieve":"sin relieve";
- ok(r.length===4&&r.every(x=>/slave-dmg/.test(x.svg)&&/drop-shadow\(rgba\(0, 0, 0, 0\.65\)/.test(x.svg)),n+": el daño va en el dibujo y la sombra se añade después ("+r.length+" asīr)");
+ ok(r.length===4&&r.every(x=>/slave-dmg/.test(x.svg)&&/drop-shadow\(rgba\(0, 0, 0, 0\.9\)/.test(x.svg)),n+": el daño va en el dibujo y la sombra se añade después ("+r.length+" asīr)");
  ok(r.every(x=>!/slave-dmg/.test(x.cont)),n+": el contenedor no lleva el filtro de daño (no emborrona la elipse)");
  ok(r.every(x=>x.ell),n+": cada asīr conserva su elipse de sombra en el suelo");
  if(rel)ok(r.every(x=>/relieve-pieza/.test(x.cont)),"con relieve: el contenedor lleva el relieve, igual que las demás piezas");}
