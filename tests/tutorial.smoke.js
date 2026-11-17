@@ -30,7 +30,7 @@ for(const [nombre,vp] of [["escritorio",{width:1280,height:800}],["telefono",{wi
  await page.evaluate(()=>{}); await page.waitForTimeout(400);
  let e=await estado(page);ok(e.abierta&&/umbral/.test(e.t),nombre+": abre con la bienvenida → "+e.t);
  const vistos=[e.t];
- for(let k=0;k<6;k++){await page.click("#tuto-sigue");await page.waitForTimeout(1100);e=await estado(page);vistos.push(e.t);
+ for(let k=0;k<8;k++){await page.click("#tuto-sigue");await page.waitForTimeout(1100);e=await estado(page);vistos.push(e.t);
   if(SHOTS) await page.screenshot({path:`${SHOTS}/tuto_${nombre}_${k+1}.png`});
   if(k>=0&&k<=4){ ok(!/sin/.test(e.foco)&&e.r.w>20&&e.r.h>10,nombre+": paso «"+e.t+"» ilumina su elemento ("+e.r.w+"×"+e.r.h+")");
    ok(e.tarj.l>=0&&e.tarj.r<=e.vw&&e.tarj.t>=0&&e.tarj.b<=e.vh,nombre+": la tarjeta cabe en pantalla");
@@ -87,12 +87,12 @@ async function clan(estadoClub,vp){const r=await abrir(vp||{width:1280,height:80
  const e=await estado(page);const f=await page.evaluate(()=>localStorage.getItem("tablero-encantado.tutorial-clan.v1"));
  return {vistos,malos,cerrada:!e.abierta,flag:f,errs:r.errs,ctx:r.ctx};}
 {const r=await clan("miembro");
- ok(r.vistos.length===10&&/guante llega/.test(r.vistos.join()),"miembro: 10 pantallas → "+r.vistos.join(" | "));
+ ok(r.vistos.length===12&&/guante llega/.test(r.vistos.join()),"miembro: 12 pantallas → "+r.vistos.join(" | "));
  ok(r.malos.length===0,"miembro: cada paso ilumina su elemento, la tarjeta cabe y no lo tapa "+r.malos.join("; "));
  ok(r.cerrada&&r.flag==="1","miembro: al terminar queda marcada la guía del Clan (y no la de inicio)");
  ok(r.errs.length===0,"miembro: sin errores de JavaScript "+r.errs.slice(0,2));await r.ctx.close();}
 {const r=await clan("miembro",{width:412,height:915});
- ok(r.malos.length===0&&r.vistos.length===10,"miembro en teléfono: pasos correctos "+r.malos.join("; "));await r.ctx.close();}
+ ok(r.malos.length===0&&r.vistos.length===12,"miembro en teléfono: pasos correctos "+r.malos.join("; "));await r.ctx.close();}
 {const r=await clan("aspirante");ok(r.vistos.length===3&&/llave/.test(r.vistos.join()),"aún no miembro: explica el código de invitación → "+r.vistos.join(" | "));ok(r.malos.length===0,"aspirante: foco y tarjeta bien "+r.malos.join("; "));await r.ctx.close();}
 {const r=await clan("sin-sesion");ok(r.vistos.length===3&&/nombre/.test(r.vistos.join()),"sin sesión: explica la cuenta → "+r.vistos.join(" | "));ok(r.malos.length===0,"sin sesión: foco y tarjeta bien "+r.malos.join("; "));await r.ctx.close();}
 // 6) el botón dentro de El Clan la abre
