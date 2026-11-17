@@ -18,7 +18,7 @@ async function recorrer(vp,id){const ctx=await b.newContext({viewport:vp,hasTouc
   if(e.c.l<0||e.c.r>e.vw||e.c.t<0||e.c.b>e.vh)malos.push(e.t+" fuera de pantalla");
   await page.click("#tuto-sigue");await page.waitForTimeout(2000);}
  const marcada=await page.evaluate(i=>localStorage.getItem("tablero-encantado.tutorial-"+i+".v1"),id);
- const botones=await page.evaluate(i=>document.querySelectorAll('[data-tuto="'+i+'"]').length,id);
+ const botones=await page.evaluate(i=>document.querySelectorAll('[data-tuto="'+i+'"]').length+document.querySelectorAll('#tuto-select option[value="'+i+'"]').length,id);
  await ctx.close();return{vistos,malos,errs,marcada,botones};}
 const MIN={grimorio:6,scriptorium:5,mandatum:4,sanctuarium:4};
 for(const id of Object.keys(MIN)){for(const [n,vp] of [["escritorio",{width:1280,height:800}],["teléfono",{width:412,height:915}]]){

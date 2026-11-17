@@ -47,7 +47,7 @@ for(const [nombre,vp] of [["escritorio",{width:1280,height:800}],["telefono",{wi
  await page.waitForTimeout(300);await page.click("#tuto-saltar");await page.waitForTimeout(200);let e=await estado(page);
  ok(!e.abierta&&e.flag==="1","«Saltar» la cierra y la marca");
  await page.evaluate(()=>{const p=document.getElementById("panel-ajustes");if(typeof expandPanelExclusive==="function")expandPanelExclusive(p)});await page.waitForTimeout(600);
- await page.click("#tuto-repetir");await page.waitForTimeout(500);e=await estado(page);ok(e.abierta&&/umbral/.test(e.t),"el botón de La Armería la vuelve a abrir");
+ await page.selectOption("#tuto-select","inicio");await page.waitForTimeout(500);e=await estado(page);ok(e.abierta&&/umbral/.test(e.t),"el botón de La Armería la vuelve a abrir");
  await page.keyboard.press("ArrowRight");await page.waitForTimeout(900);e=await estado(page);ok(/1 ·/.test(e.t),"flecha derecha avanza → "+e.t);
  await page.keyboard.press("Escape");await page.waitForTimeout(200);e=await estado(page);ok(!e.abierta,"Esc la cierra");
  await ctx.close();}
