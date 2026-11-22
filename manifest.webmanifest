@@ -1,7 +1,7 @@
 {
   "name": "El Tablero Encantado",
   "short_name": "Tablero",
-  "description": "Ajedrez con variantes, el Clan y claudIA.",
+  "description": "Ajedrez con variantes, el Clan y CLAUDIA.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

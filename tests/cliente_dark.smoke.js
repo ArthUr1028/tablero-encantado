@@ -660,7 +660,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   console.log("  datos16:", JSON.stringify(r16));
   ok(r16.humo && !r16.empezo && r16.luego, "«Iniciar» pasa por la entrada y la batalla empieza al disiparse el humo");
 
-  // 17) El reto de claudIA también pasa por la entrada a la batalla (2.138): el reloj y claudIA esperan al humo
+  // 17) El reto de CLAUDIA también pasa por la entrada a la batalla (2.138): el reloj y CLAUDIA esperan al humo
   const r17 = await page.evaluate(async () => {
     const tick = ms => new Promise(r => setTimeout(r, ms || 150)); const o = {};
     const fromO = sb.from, c0 = window.confirm; window.confirm = () => true;
@@ -674,7 +674,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     sb.from = fromO; window.confirm = c0; window.__noBattleIntro = true; return o;
   });
   console.log("  datos17:", JSON.stringify(r17));
-  ok(r17.humo && r17.activo && !r17.empezoAntes && r17.empezoDespues, "al aceptar el reto de claudIA sale el humo y la batalla (reloj y claudIA) empieza al disiparse");
+  ok(r17.humo && r17.activo && !r17.empezoAntes && r17.empezoDespues, "al aceptar el reto de CLAUDIA sale el humo y la batalla (reloj y CLAUDIA) empieza al disiparse");
 
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores.slice(0, 3).join(" || ") : ""));
 

@@ -76,8 +76,8 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await ev(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); } });
   ok((await slot()) === null, "terminada y reabierta sin guardar: el cuaderno se limpia");
 
-  // 8) el Reto de claudIA no tiene cuaderno
-  ok(await ev(() => { retoActive = { color: "w", variant: "clasico" }; nbSync(true); const h = document.getElementById("nb-box").hidden; retoActive = null; return h; }), "en el Reto de claudIA no hay cuaderno");
+  // 8) el Reto de CLAUDIA no tiene cuaderno
+  ok(await ev(() => { retoActive = { color: "w", variant: "clasico" }; nbSync(true); const h = document.getElementById("nb-box").hidden; retoActive = null; return h; }), "en el Reto de CLAUDIA no hay cuaderno");
 
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   await browser.close(); srv.close();

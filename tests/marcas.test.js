@@ -24,14 +24,14 @@ prueba("el cuaderno se abre en las siete modalidades, solo con partida en línea
   A.set({ id: null, variant: "clasico" }, { id: "u1" }, false); assert.strictEqual(A.nbOn(), false, "partida sin identificador");
 });
 
-prueba("2.149: contra claudIA / Solitario el cuaderno es local, ligado a la partida; no hay en el Reto ni en Modo Libre", () => {
+prueba("2.149: contra CLAUDIA / Solitario el cuaderno es local, ligado a la partida; no hay en el Reto ni en Modo Libre", () => {
   A.set(null, null, false);
   A.setGame({ states: [{ board: { v: "dark" } }], nbId: null });
   assert.deepStrictEqual(JSON.parse(JSON.stringify(A.nbCtx())), { kind: "local", id: "local:nuevo" }, "partida nueva, sin cuenta");
   A.setGame({ states: [{ board: { v: "capablanca" } }], nbId: "n1" });
   assert.deepStrictEqual(JSON.parse(JSON.stringify(A.nbCtx())), { kind: "local", id: "n1" });
   A.setMode("free"); assert.strictEqual(A.nbCtx(), null, "Modo Libre");
-  A.setMode("play", { color: "w" }); assert.strictEqual(A.nbCtx(), null, "Reto de claudIA");
+  A.setMode("play", { color: "w" }); assert.strictEqual(A.nbCtx(), null, "Reto de CLAUDIA");
   A.setMode("play");
   A.setGame({ states: [{ board: { v: "otra" } }], nbId: null }); assert.strictEqual(A.nbCtx(), null, "modalidad sin cuaderno");
   A.set({ id: "g1", variant: "clasico" }, { id: "u1" }, false);

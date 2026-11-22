@@ -20,7 +20,7 @@ async function abrir(browser, reducir) {
   await page.waitForTimeout(300);
   return { page, errores };
 }
-// Crazyhouse (2.319): reserva visible, caída por toque y por arrastre, jugadas ilegales ignoradas, claudIA responde con el motor de variantes, sin errores.
+// Crazyhouse (2.319): reserva visible, caída por toque y por arrastre, jugadas ilegales ignoradas, CLAUDIA responde con el motor de variantes, sin errores.
 // Uso: node tests/crazyhouse.smoke.js
 const ZHFEN = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 zh";
 // 2.342: con las reglas de Asara solo las piezas mayores se vuelven asīr; el peón blanco captura un caballo y la dama negra recaptura (el peón muere)
@@ -111,7 +111,7 @@ const ZHFEN2 = "rnbqkb1r/ppp1pppp/8/3n4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 z
     ok(arr.p === "bn" && arr.n === 0 && arr.fl === 0 && arr.u === "N@g5", "la caída por arrastre pone el caballo en g5 (" + arr.u + ")");
     ok(errores.length === 0, "sin errores de página" + (errores.length ? " " + errores.join("|") : ""));
     await page.context().close(); }
-  // 2) contra claudIA: tras una captura de la máquina, la máquina también puede soltar; juega varias jugadas sin errores
+  // 2) contra CLAUDIA: tras una captura de la máquina, la máquina también puede soltar; juega varias jugadas sin errores
   { const { page, errores } = await abrir(browser, false);
     await page.evaluate(F => { document.getElementById("variant-crazyhouse").click(); }, ZHFEN);
     await page.waitForTimeout(800);
@@ -120,15 +120,15 @@ const ZHFEN2 = "rnbqkb1r/ppp1pppp/8/3n4/4P3/8/PPPP1PPP/RNBQKBNR[] w KQkq - 0 2 z
     ok(info.uci === "crazyhouse" && !/\bzh\b/.test(info.enviada) && /\[\]/.test(info.enviada), "al motor se envía la FEN sin la marca «zh» (" + info.enviada + ")");
     ok(errores.length === 0, "sin errores de página al abrir la variante" + (errores.length ? " " + errores.join("|") : ""));
     await page.context().close(); }
-  // 3) claudIA (motor de variantes): con una reserva fuerte (dos damas) y turno suyo, responde y su jugada es legal; la primera partida normal también arranca
+  // 3) CLAUDIA (motor de variantes): con una reserva fuerte (dos damas) y turno suyo, responde y su jugada es legal; la primera partida normal también arranca
   for (const [nombre, fen, color] of [
-    ["claudIA con reserva", "4k3/8/8/8/8/8/4PPPP/4K3[] b - - 0 1 zh".replace("[]", "[qq]"), "w"],
-    ["claudIA desde el inicio", ZHFEN, "b"]]) {
+    ["CLAUDIA con reserva", "4k3/8/8/8/8/8/4PPPP/4K3[] b - - 0 1 zh".replace("[]", "[qq]"), "w"],
+    ["CLAUDIA desde el inicio", ZHFEN, "b"]]) {
     const { page, errores } = await abrir(browser, false);
     await page.evaluate(({ fen, color }) => {
       document.getElementById("mode-play").click(); switchVariant("crazyhouse");
       vsMachine = true; machineHumanColor = color; machineLevel = 12;
-      newGame(fen, { white: "Yo", black: "claudIA", result: "", resultNote: "" });
+      newGame(fen, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" });
       matchStarted = true; matchPaused = false; render(); maybeMachineMove();
     }, { fen, color });
     let movio = true;

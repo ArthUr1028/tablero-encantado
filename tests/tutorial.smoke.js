@@ -111,14 +111,14 @@ async function realista(inicioVista){const ctx=await b.newContext({viewport:{wid
 {const e=await realista(true);ok(e.abierta&&/Las puertas del Clan/.test(e.t),"con la guía de inicio ya vista, al abrir El Clan sale su guía → "+e.t);}
 {const e=await realista(false);ok(!e.abierta||!/Las puertas del Clan/.test(e.t),"si aún no vio la de inicio, no apila la del Clan → "+(e.abierta?e.t:"cerrada"));}
 
-// 8) claudIA habla con su rostro y sus chispas azules en cada guía, y un aviso común no se las apaga
+// 8) CLAUDIA habla con su rostro y sus chispas azules en cada guía, y un aviso común no se las apaga
 {const r=await abrir({width:1280,height:800},"?tuto=1");const page=r.page;await page.waitForFunction(()=>window.tutorialActive&&window.tutorialActive(),null,{timeout:8000}).catch(()=>{});
  await page.waitForTimeout(2500);
  let a=await page.evaluate(()=>{const im=document.getElementById("tuto-av");return{av:!!im&&!im.hidden&&im.naturalWidth>0,w:im?im.getBoundingClientRect().width:0,arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}});
- ok(a.av&&a.w>=40,"la tarjeta muestra el rostro de claudIA ("+Math.round(a.w)+" px)");ok(a.arcos,"la tarjeta lleva su lienzo de arcos eléctricos");
+ ok(a.av&&a.w>=40,"la tarjeta muestra el rostro de CLAUDIA ("+Math.round(a.w)+" px)");ok(a.arcos,"la tarjeta lleva su lienzo de arcos eléctricos");
  await page.evaluate(()=>showGlobalToast("Aviso de prueba",{voice:true,ms:1500}));await page.waitForTimeout(3200);
  a={arcos:false,piezas:0};for(let i=0;i<8;i++){const x=await page.evaluate(()=>({arcos:!!document.querySelector("#tuto-tarjeta .cl-arcs"),piezas:document.querySelectorAll("#tuto-tarjeta .cl-arcs .sp, #tuto-tarjeta .cl-arcs .dt").length}));a.arcos=x.arcos;a.piezas=Math.max(a.piezas,x.piezas);if(a.piezas>0)break;await page.waitForTimeout(250);}
- ok(a.arcos&&a.piezas>0,"tras un aviso de claudIA las chispas de la guía siguen vivas ("+a.piezas+" activas)");
+ ok(a.arcos&&a.piezas>0,"tras un aviso de CLAUDIA las chispas de la guía siguen vivas ("+a.piezas+" activas)");
  await page.click("#tuto-saltar");await page.waitForTimeout(200);
  ok(await page.evaluate(()=>!document.querySelector("#tuto-tarjeta .cl-arcs")),"al cerrar, las chispas se apagan");
  ok(r.errs.length===0,"sin errores de JavaScript "+r.errs.slice(0,2));await r.ctx.close();}
@@ -153,7 +153,7 @@ const PREP_JUEGO=()=>{setMode("play");matchStarted=true;matchPaused=false;render
 {const r=await abrir({width:1280,height:800});const page=r.page;await page.evaluate(()=>{setMode("play");retoActive={variant:"clasico",level:10,color:"w",ended:false};});
  await page.evaluate(()=>window.tutorialStart("batalla"));await page.waitForTimeout(500);
  const e=await estado(page);const toast=await page.evaluate(()=>document.querySelector(".global-toast")&&document.querySelector(".global-toast").textContent);
- ok(!e.abierta&&/no admite pausas/.test(toast||""),"en un reto o duelo no se abre y claudIA lo explica → "+(toast||"").slice(0,50));await r.ctx.close();}
+ ok(!e.abierta&&/no admite pausas/.test(toast||""),"en un reto o duelo no se abre y CLAUDIA lo explica → "+(toast||"").slice(0,50));await r.ctx.close();}
 
 // 10) aviso suave la primera vez que se empieza una batalla
 {const ctx=await b.newContext({viewport:{width:1280,height:800}});
@@ -164,7 +164,7 @@ const PREP_JUEGO=()=>{setMode("play");matchStarted=true;matchPaused=false;render
  await page.waitForTimeout(500);
  await page.evaluate(()=>{document.getElementById("match-start").click();matchStarted=true;matchPaused=false;render();});await page.waitForTimeout(3600);
  const t1=await page.evaluate(()=>[...document.querySelectorAll(".global-toast")].map(e=>e.textContent).join("|"));
- ok(/cómo se libra una batalla/.test(t1),"la primera batalla trae el ofrecimiento de claudIA → "+t1.slice(0,60));
+ ok(/cómo se libra una batalla/.test(t1),"la primera batalla trae el ofrecimiento de CLAUDIA → "+t1.slice(0,60));
  ok(await page.evaluate(()=>!!localStorage.getItem("tablero-encantado.tutorial-batalla-aviso.v1")&&!localStorage.getItem("tablero-encantado.tutorial-batalla.v1")),"se ofrece una sola vez y no marca la guía como vista");
  await ctx.close();}
 

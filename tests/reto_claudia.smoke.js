@@ -1,4 +1,4 @@
-// Prueba de humo: el reto de claudIA (2.144) en Dark, Shatranj y Maharajá (con blancas y con negras), en un navegador real con el motor real.
+// Prueba de humo: el reto de CLAUDIA (2.144) en Dark, Shatranj y Maharajá (con blancas y con negras), en un navegador real con el motor real.
 // La cuenta y la membresía del Clan se simulan (se intercepta la consulta a club_members); el sorteo de modalidad y color se fuerza.
 // Uso: node tests/reto_claudia.smoke.js   (necesita playwright-core y un Chromium; busca /opt/node-tools)
 const http = require("http"), fs = require("fs"), path = require("path");
@@ -21,8 +21,8 @@ const CASOS = [
   { variante: "shatranj", color: "b", nivel: 15 },
   { variante: "crazyhouse", color: "w", nivel: 10 },   // 2.339: Asara, nivel Amateur sin medir
   { variante: "crazyhouse", color: "b", nivel: 10 },
-  { variante: "maharaja", color: "w", nivel: 10 },   // el humano es el Maharajá: claudIA juega los Cipayas en Miles (2.253)
-  { variante: "maharaja", color: "b", nivel: 15 },   // el humano lleva los Cipayas: claudIA (Maharajá) en Praeceptor (2.253)
+  { variante: "maharaja", color: "w", nivel: 10 },   // el humano es el Maharajá: CLAUDIA juega los Cipayas en Miles (2.253)
+  { variante: "maharaja", color: "b", nivel: 15 },   // el humano lleva los Cipayas: CLAUDIA (Maharajá) en Praeceptor (2.253)
 ];
 (async () => {
   await new Promise(r => srv.listen(0, r));
@@ -50,19 +50,19 @@ const CASOS = [
     try { await page.waitForFunction(() => retoActive && matchStarted, null, { timeout: 15000 }); } catch (e) { arranco = false; }
     const r = await page.evaluate(() => retoActive ? { v: retoActive.variant, color: retoActive.color, nivel: retoActive.level, machineLevel, vs: vsMachine, hum: machineHumanColor } : null);
     ok(arranco && r && r.v === c.variante && r.color === c.color, nombre + ": el reto arrancó con la modalidad y el color sorteados");
-    ok(r && r.nivel === c.nivel && r.machineLevel === c.nivel && r.vs && r.hum === c.color, nombre + ": claudIA al nivel " + c.nivel + " (reto " + (r && r.nivel) + ", motor " + (r && r.machineLevel) + ")");
-    if (c.color === "w") {   // el humano abre: se juega una jugada legal y se espera la respuesta de claudIA
+    ok(r && r.nivel === c.nivel && r.machineLevel === c.nivel && r.vs && r.hum === c.color, nombre + ": CLAUDIA al nivel " + c.nivel + " (reto " + (r && r.nivel) + ", motor " + (r && r.machineLevel) + ")");
+    if (c.color === "w") {   // el humano abre: se juega una jugada legal y se espera la respuesta de CLAUDIA
       await page.evaluate(() => { const lm = legalMoves(liveState()); commitMove(lm[Math.floor(lm.length / 2)]); });
     }
     const objetivo = c.color === "w" ? 2 : 1;
     let movio = true;
     try { await page.waitForFunction(n => game.sans.length >= n, objetivo, { timeout: 40000 }); } catch (e) { movio = false; }
     const est = await page.evaluate(() => ({ n: game.sans.length, san: game.sans[game.sans.length - 1], pensando: machineThinking }));
-    ok(movio, nombre + ": claudIA jugó " + (movio ? est.san : "— se quedó parada (pensando=" + est.pensando + ")"));
+    ok(movio, nombre + ": CLAUDIA jugó " + (movio ? est.san : "— se quedó parada (pensando=" + est.pensando + ")"));
     await page.close();
   }
 
-  // --- Victoria y derrota en el reto de Dark: se gana capturando el rey de claudIA, se pierde si captura el tuyo ---
+  // --- Victoria y derrota en el reto de Dark: se gana capturando el rey de CLAUDIA, se pierde si captura el tuyo ---
   for (const caso of [{ fen: "4k3/8/8/8/8/8/8/4R1K1 w - - 0 1 dark", jugada: "e1e8", espera: "won" }, { fen: "4k3/8/8/8/8/8/8/4r1K1 w - - 0 1 dark", jugada: "g1f1", espera: "lost" }]) {
     const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
     page.on("pageerror", e => errores.push(String(e)));
@@ -76,19 +76,19 @@ const CASOS = [
       const seq = [(6 + 0.5) / 8, 0.1], orig = Math.random; Math.random = () => seq.length ? seq.shift() : orig();
       retoStart();
       return new Promise(done => setTimeout(() => {
-        newGame(fen, { white: "Yo", black: "claudIA", result: "", resultNote: "" });
+        newGame(fen, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" });
         matchStarted = true; matchPaused = false; render();
         const mv = legalMoves(liveState()).find(m => uciOf(m) === jugada);
         commitMove(mv);
         const t0 = Date.now(), espera = () => { if(!retoActive || Date.now() - t0 > 25000) done({ activo: !!retoActive, reclamos: retoClaimsLoad().map(c => c.variant), sans: game.sans.slice(-2) }); else setTimeout(espera, 300); }; espera();
       }, 1500));
     }, caso);
-    if (caso.espera === "won") ok(!res.activo && res.reclamos.includes("dark"), "capturar el rey de claudIA en el reto de Dark es victoria (reclamo registrado: " + JSON.stringify(res.reclamos) + ")");
+    if (caso.espera === "won") ok(!res.activo && res.reclamos.includes("dark"), "capturar el rey de CLAUDIA en el reto de Dark es victoria (reclamo registrado: " + JSON.stringify(res.reclamos) + ")");
     else ok(!res.activo && res.reclamos.length === 0, "perder el rey en el reto de Dark es derrota (sin reclamo de victoria; jugadas " + JSON.stringify(res.sans) + ")");
     await page.close();
   }
 
-  // --- 2.145: frases de claudIA en el reto (cada campo tiene las suyas; contenida si eres el Maharajá) ---
+  // --- 2.145: frases de CLAUDIA en el reto (cada campo tiene las suyas; contenida si eres el Maharajá) ---
   {
     const page = await browser.newPage();
     await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
@@ -122,7 +122,7 @@ const CASOS = [
     await page.close();
   }
 
-  // --- 2.146: las frases de claudIA duran lo que tarda en leerse ---
+  // --- 2.146: las frases de CLAUDIA duran lo que tarda en leerse ---
   {
     const page = await browser.newPage();
     await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
@@ -137,11 +137,11 @@ const CASOS = [
     ok(d.larga >= 15000 && d.larga <= 30000, "la frase de apertura más larga dura " + (d.larga / 1000).toFixed(1) + " s (antes 9 s)");
     ok(d.corta === 5500, "una frase corta conserva su mínimo (" + d.corta + " ms)");
     ok(d.enorme === 30000, "hay un tope de 30 s");
-    ok(d.normal === 5000 && d.normalMs === 3000, "los avisos que no son de claudIA no cambian");
+    ok(d.normal === 5000 && d.normalMs === 3000, "los avisos que no son de CLAUDIA no cambian");
     await page.close();
   }
 
-  // --- 2.147: las frases de claudIA se quitan deslizándolas (a los lados o hacia arriba); un deslizamiento corto las deja en su sitio ---
+  // --- 2.147: las frases de CLAUDIA se quitan deslizándolas (a los lados o hacia arriba); un deslizamiento corto las deja en su sitio ---
   {
     const page = await browser.newPage({ viewport: { width: 420, height: 800 } });
     await page.route(/^(?!http:\/\/127\.0\.0\.1).*/, r => r.abort());
@@ -153,7 +153,7 @@ const CASOS = [
     const arrastra = async (dx, dy) => { const c = await caja(); await page.mouse.move(c.x, c.y); await page.mouse.down(); for (let i = 1; i <= 6; i++) await page.mouse.move(c.x + dx * i / 6, c.y + dy * i / 6); await page.mouse.up(); await page.waitForTimeout(500); return caja(); };
     const largo = "Para esta batalla, he elegido el campo de las sombras, donde nadie ve el tablero entero. Tienes la ventaja de las blancas.";
     await muestra(largo, { voice: true, ms: 9000 });
-    ok((await caja()).show, "el aviso de claudIA aparece");
+    ok((await caja()).show, "el aviso de CLAUDIA aparece");
     ok((await arrastra(30, 0)).show, "un deslizamiento corto (30 px) lo deja en su sitio");
     ok(!(await arrastra(150, 0)).show, "deslizar a la derecha lo quita");
     await muestra(largo, { voice: true, ms: 9000 });
@@ -164,7 +164,7 @@ const CASOS = [
     ok((await arrastra(0, 90)).show, "hacia abajo no se arrastra");
     await muestra("Aviso normal", {});
     const normal = await page.evaluate(() => getComputedStyle(document.getElementById("global-toast")).pointerEvents);
-    ok(normal === "none", "los avisos que no son de claudIA siguen dejando pasar los toques (" + normal + ")");
+    ok(normal === "none", "los avisos que no son de CLAUDIA siguen dejando pasar los toques (" + normal + ")");
     await muestra(largo, { voice: true, ms: 9000 });
     const inline = await page.evaluate(() => { showGlobalToast("Otro aviso", { voice: true, ms: 5500 }); const e = document.getElementById("global-toast"); return e.style.transform + "|" + e.style.opacity; });
     ok(inline === "|", "un aviso nuevo empieza limpio, sin restos del deslizamiento");

@@ -112,7 +112,7 @@ window.__estado = () => { const sq = i => document.querySelector('#kn-board .kn-
   ok(def.objEnCaballo && def.sinCaballo, "nivel 7: la pieza toma al caballo en su casilla");
 
 
-  // ----- mensajes de claudIA: cortos y sin retos
+  // ----- mensajes de CLAUDIA: cortos y sin retos
   const txt = await page.evaluate(() => { const src = [...document.scripts].filter(x => x.id !== "i18n-en-src").map(x => x.textContent).join("\n") + document.body.innerText;
     return { viejos: ["no te lo dije", "puedes bajar de ahí", "inténtalo sin", "Mira la ruta del relámpago y vuelve a intentarlo"].filter(s => src.includes(s)) }; });
   ok(!txt.viejos.length, "mensajes: ya no queda el tono desafiante (" + (txt.viejos.join(" | ") || "limpio") + ")");

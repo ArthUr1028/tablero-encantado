@@ -166,10 +166,10 @@ prueba("en una partida en vivo el punto de vista es tu color, vayas a la jugada 
   assert.deepStrictEqual(ctx.game.states.map(st => fogViewer(st, outcome(st))), ["w","w","w","w"]);
 });
 
-console.log("\nContra claudIA: la vista es siempre la tuya (2.140)");
+console.log("\nContra CLAUDIA: la vista es siempre la tuya (2.140)");
 
-prueba("contra claudIA con blancas: el punto de vista es «w» aunque le toque a ella (turno de las negras)", () => {
-  reset(); ctx.game = partida(INI, [["e2","e4"]]);   // le toca a las negras = a claudIA
+prueba("contra CLAUDIA con blancas: el punto de vista es «w» aunque le toque a ella (turno de las negras)", () => {
+  reset(); ctx.game = partida(INI, [["e2","e4"]]);   // le toca a las negras = a CLAUDIA
   ctx.vsMachine = true; ctx.machineHumanColor = "w";
   const st = ctx.game.states[1];
   assert.strictEqual(st.turn, "b");
@@ -177,7 +177,7 @@ prueba("contra claudIA con blancas: el punto de vista es «w» aunque le toque a
   assert.deepStrictEqual(ctx.game.states.map(x => fogViewer(x, outcome(x))), ["w","w"]);
 });
 
-prueba("contra claudIA con negras: el punto de vista es «b» en todas las posiciones", () => {
+prueba("contra CLAUDIA con negras: el punto de vista es «b» en todas las posiciones", () => {
   reset(); ctx.game = partida(INI, [["e2","e4"], ["e7","e5"], ["g1","f3"]]);
   ctx.vsMachine = true; ctx.machineHumanColor = "b";
   assert.deepStrictEqual(ctx.game.states.map(x => fogViewer(x, outcome(x))), ["b","b","b","b"]);
@@ -186,7 +186,7 @@ prueba("contra claudIA con negras: el punto de vista es «b» en todas las posic
   assert(!v.has(sq("f3")), "el caballo blanco en f3 sigue en sombra para las negras");
 });
 
-prueba("contra claudIA, al terminar la partida la niebla cae igual (rey capturado o resultado)", () => {
+prueba("contra CLAUDIA, al terminar la partida la niebla cae igual (rey capturado o resultado)", () => {
   reset(); ctx.game = partida("4k3/8/8/8/8/8/8/4RK2 w - - 0 1", [["e1","e8"]]);
   ctx.vsMachine = true; ctx.machineHumanColor = "w";
   for(const st of ctx.game.states) assert.strictEqual(fogViewer(st, outcome(st)), null);
@@ -195,12 +195,12 @@ prueba("contra claudIA, al terminar la partida la niebla cae igual (rey capturad
   assert.strictEqual(fogViewer(ctx.game.states[1], outcome(ctx.game.states[1])), null);
 });
 
-prueba("sin claudIA (Solitario entre dos) el punto de vista sigue siendo el del turno", () => {
+prueba("sin CLAUDIA (Solitario entre dos) el punto de vista sigue siendo el del turno", () => {
   reset(); ctx.game = partida(INI, [["e2","e4"]]);   // vsMachine = false
   assert.strictEqual(fogViewer(ctx.game.states[1], outcome(ctx.game.states[1])), "b");
 });
 
-console.log("\nclaudIA a ciegas: hipótesis (2.142)");
+console.log("\nCLAUDIA a ciegas: hipótesis (2.142)");
 
 // Historia a partir de jugadas UCI desde la posición inicial de Dark.
 const historia = (ucis) => {
@@ -212,7 +212,7 @@ const fensDe = (h) => h.map(e => toFEN(e.pos) + " w=" + e.w.toFixed(6)).sort();
 // partida al azar con un generador con semilla (reproducible)
 const azar = (semilla) => { let x = semilla; return () => (x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; };
 
-prueba("todas las hipótesis coinciden con lo que ve claudIA, jugada a jugada, en 12 partidas al azar (y nunca se quedan sin ninguna)", () => {
+prueba("todas las hipótesis coinciden con lo que ve CLAUDIA, jugada a jugada, en 12 partidas al azar (y nunca se quedan sin ninguna)", () => {
   ctx.dkbBuild.vacias = 0;
   let comprobadas = 0;
   for(let g = 0; g < 12; g++){
@@ -307,7 +307,7 @@ prueba("el PGN y el guardado de partidas llaman a darkLocked() (que nadie quite 
   assert(/askReplaceGame\(darkLocked\(\)\)/.test(todo), "aviso al reemplazar sin ofrecer guardar");
 });
 
-console.log("\nclaudIA prudente con su rey (2.143)");
+console.log("\nCLAUDIA prudente con su rey (2.143)");
 const H = (fen, w = 1) => ({ pos: parseFEN(fen + " dark"), w });
 const ELIGE = (fen, hyps, votes) => dkbChoose(votes, hyps, parseFEN(fen + " dark"));
 

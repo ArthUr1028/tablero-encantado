@@ -1,4 +1,4 @@
-// 2.343 · claudIA (motor de variantes) juega Asara con las reglas nuevas: partidas contra un humano que mueve al azar. Comprueba que TODAS sus jugadas son
+// 2.343 · CLAUDIA (motor de variantes) juega Asara con las reglas nuevas: partidas contra un humano que mueve al azar. Comprueba que TODAS sus jugadas son
 // legales para el Tablero, que nunca hay peones en la reserva, que no se pierde ni se crea ninguna pieza (tablero + reservas + cementerio = 32)
 // y que no hay errores de página. Uso: node tests/asara.claudia.smoke.js [partidas=3] [jugadas_de_la_maquina=14]
 const http = require("http"), fs = require("fs"), path = require("path");
@@ -24,7 +24,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     await page.evaluate(() => { for (const id of ["intro", "battle-intro"]) { const e = document.getElementById(id); if (e) e.remove(); }
       document.getElementById("mode-play").click(); switchVariant("crazyhouse");
       vsMachine = true; machineHumanColor = "w"; machineLevel = 10;
-      newGame(VARIANT_START.crazyhouse, { white: "Yo", black: "claudIA", result: "", resultNote: "" }); matchStarted = true; matchPaused = false; render(); });
+      newGame(VARIANT_START.crazyhouse, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" }); matchStarted = true; matchPaused = false; render(); });
     let mal = "";
     for (let i = 0; i < NM && !mal; i++) {
       // el humano (blancas) juega al azar, sesgado hacia capturas y caídas
@@ -34,7 +34,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       if (hum === "fin") break;
       const n0 = await page.evaluate(() => game.ucis.length);
       try { await page.waitForFunction(n => game.ucis.length > n || game.result || ["checkmate", "stalemate", "material"].includes(outcome(liveState())), n0, { timeout: 60000 }); }
-      catch (e) { mal = "claudIA no respondió tras " + n0 + " jugadas"; break; }
+      catch (e) { mal = "CLAUDIA no respondió tras " + n0 + " jugadas"; break; }
       totalMaq++;
       const inv = await page.evaluate(() => { const s = liveState(), z = s.board.zh; let n = 0; for (const row of s.board) for (const q of row) if (q) n++;
         for (const c of ["w", "b"]) { for (const t of ["p", "n", "b", "r", "q"]) n += z[c][t]; n += z.d[c].length; }
@@ -43,11 +43,11 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       if (inv.n !== 32 || inv.pr) mal = "invariante rota: " + JSON.stringify(inv);
       if (/@/.test(inv.last || "")) caidas++; muertos = Math.max(muertos, inv.dead);
     }
-    ok(!mal, "partida " + (g + 1) + ": " + (mal || "claudIA jugó con las reglas nuevas (jugadas de la máquina hasta ahora: " + totalMaq + ")"));
+    ok(!mal, "partida " + (g + 1) + ": " + (mal || "CLAUDIA jugó con las reglas nuevas (jugadas de la máquina hasta ahora: " + totalMaq + ")"));
     ok(errores.length === 0, "partida " + (g + 1) + ": sin errores de página" + (errores.length ? " " + errores.slice(0, 2).join("|") : ""));
     await ctx.close();
   }
-  console.log("  (" + totalMaq + " jugadas de claudIA, " + caidas + " caídas suyas, hasta " + muertos + " piezas en el cementerio)");
+  console.log("  (" + totalMaq + " jugadas de CLAUDIA, " + caidas + " caídas suyas, hasta " + muertos + " piezas en el cementerio)");
   await browser.close(); srv.close();
   console.log(fallos ? fallos + " fallos" : "Todo bien"); process.exit(fallos ? 1 : 0);
 })();

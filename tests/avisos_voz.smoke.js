@@ -1,4 +1,4 @@
-// Voz de los avisos (2.199): en cada modo, los avisos «grandes» y los funcionales deben salir con o sin la voz de claudIA, y el selector de Cuenta debe guardarse.
+// Voz de los avisos (2.199): en cada modo, los avisos «grandes» y los funcionales deben salir con o sin la voz de CLAUDIA, y el selector de Cuenta debe guardarse.
 const http = require("http"), fs = require("fs"), path = require("path");
 let chromium;
 try { ({ chromium } = require("playwright-core")); } catch (e) { ({ chromium } = require("/opt/node-tools/node_modules/playwright-core")); }
@@ -34,8 +34,8 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   });
   ok(r.selectorExiste && r.porDefecto === "grandes" && r.selValor === "grandes", "el selector existe y por defecto es «grandes momentos»");
   ok(r.guardado_grandes && r.guardado_todo && r.guardado_sobrio, "la elección se guarda");
-  ok(r.grande_grandes && !r.funcional_grandes && r.reto_grandes, "grandes momentos: lo grande habla claudIA, lo funcional es sobrio");
-  ok(r.grande_todo && r.funcional_todo && r.reto_todo, "todo: habla claudIA en todo");
+  ok(r.grande_grandes && !r.funcional_grandes && r.reto_grandes, "grandes momentos: lo grande habla CLAUDIA, lo funcional es sobrio");
+  ok(r.grande_todo && r.funcional_todo && r.reto_todo, "todo: habla CLAUDIA en todo");
   ok(!r.grande_sobrio && !r.funcional_sobrio && r.reto_sobrio, "sobrio: ninguno lleva su voz, pero sus frases del reto sí");
   ok(errores.length === 0, "sin errores de JavaScript en la página" + (errores.length ? ": " + errores[0] : ""));
   console.log(fallos ? fallos + " fallo(s)" : "Todo bien"); await browser.close(); srv.close(); process.exit(fallos ? 1 : 0);

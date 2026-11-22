@@ -1,4 +1,4 @@
-// 2.344 · Simulador de niveles de claudIA en ASARA (reglas nuevas de 2.342). Uso:
+// 2.344 · Simulador de niveles de CLAUDIA en ASARA (reglas nuevas de 2.342). Uso:
 //   node tests/asara_nivel.sim.js <nivelA> <nivelB|greedy> <partidas> [semilla] [tope_de_jugadas=160]
 // Usa las funciones REALES de index.html (vm: reglas de Asara) y el motor Fairy-Stockfish WASM real, con la misma configuración que el Tablero:
 // UCI_Variant crazyhouse, UCI_LimitStrength + UCI_Elo del nivel (FSF_ELO_FOR_LEVEL) y el movetime de machineMovetimeFor, enviando la FEN del Tablero

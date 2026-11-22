@@ -92,7 +92,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   await p.evaluate(() => {
     document.getElementById("mode-play").click(); switchVariant("dark");
     vsMachine = true; machineHumanColor = "w"; machineLevel = 1;
-    newGame(DARK_START, { white: "Yo", black: "claudIA", result: "", resultNote: "" });
+    newGame(DARK_START, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" });
     matchStarted = true; matchPaused = false; render(); maybeMachineMove();
   });
   await p.waitForTimeout(800);

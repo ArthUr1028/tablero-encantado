@@ -276,7 +276,7 @@ const PREPARAR = () => {
     ok(t10.guardado && t10.guardado.p_citas === false && t10.etiqueta === "Convocatorias", "La Armería: el interruptor «Convocatorias» llega a push_set_prefs como p_citas");
     ok(t10.intentos === 2, "si la base aún no tiene la función de 5 parámetros, reintenta con la de 4");
 
-    // ---------- 12. recordatorios en pantalla (voz de claudIA)
+    // ---------- 12. recordatorios en pantalla (voz de CLAUDIA)
     const t12 = await I(async () => {
       const f = window.__fila, nowIso = m => new Date(Date.now() + m * 60000).toISOString();
       window.__db.rows = [f("P1", { created_by: "ME", invited_id: "ANA", proposed_by: "ME", status: "pactada", starts_at: nowIso(8) }),

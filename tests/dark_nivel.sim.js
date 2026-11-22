@@ -1,5 +1,5 @@
-// Simulador de partidas de claudIA en Dark Chess (mide la fuerza por nivel). Uso:
-//   node tests/dark_nivel.sim.js <nivel claudIA: 0|5|10|15> <rival: greedy|0|5|10|15> <partidas> [semilla] [color de claudIA: w|b|alt]
+// Simulador de partidas de CLAUDIA en Dark Chess (mide la fuerza por nivel). Uso:
+//   node tests/dark_nivel.sim.js <nivel CLAUDIA: 0|5|10|15> <rival: greedy|0|5|10|15> <partidas> [semilla] [color de CLAUDIA: w|b|alt]
 // Usa las funciones REALES de index.html (vm) y el motor Fairy-Stockfish WASM real, con la misma configuración que el Tablero.
 // El rival "greedy" es un jugador de a pie: ve solo lo que ve una persona, captura el rey si lo ve, prefiere capturas, no deja su rey a tiro de lo que ve.
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -81,7 +81,7 @@ function greedyMove(pos){
   return best[0] || legal[0];
 }
 
-// claudIA (lógica real: hipótesis -> motor -> votación), con el mismo flujo que dkbStart
+// CLAUDIA (lógica real: hipótesis -> motor -> votación), con el mismo flujo que dkbStart
 async function claudiaMove(pos, states, ucis, me, level, memo, tuning){
   const cfg = Object.assign({}, A.dkbCfg(level));
   const main = tuning && tuning.main;
@@ -147,7 +147,7 @@ let memo2 = {};
     memo2 = {};
     const c = col === "w" || col === "b" ? col : (g % 2 ? "b" : "w");
     const r = await playGame(+lv, foe, c, g); r.col = c; res.push(r);
-    process.stderr.write(`  [${g + 1}/${n}] claudIA(${c}) ${r.winner === c ? "GANA" : r.winner === "-" ? "tablas" : "pierde"} ${r.end} en ${r.plies} plies; rey regalado ${r.gifts} (a la vista ${r.giftsVisible})\n`);
+    process.stderr.write(`  [${g + 1}/${n}] CLAUDIA(${c}) ${r.winner === c ? "GANA" : r.winner === "-" ? "tablas" : "pierde"} ${r.end} en ${r.plies} plies; rey regalado ${r.gifts} (a la vista ${r.giftsVisible})\n`);
   }
   const w = res.filter(r => r.winner === r.col).length, d = res.filter(r => r.winner === "-").length, l = res.length - w - d;
   const gifts = res.reduce((t, r) => t + r.gifts, 0), gv = res.reduce((t, r) => t + r.giftsVisible, 0), pl = res.reduce((t, r) => t + r.plies, 0);

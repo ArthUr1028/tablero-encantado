@@ -30,10 +30,10 @@ const s1=await page.evaluate(()=>({act:!!retoActive,duelo:retoActive&&retoActive
 ok(s1.act&&s1.duelo&&s1.lvl===0,"el duelo arranca con nivel 0: "+JSON.stringify([s1.act,s1.duelo,s1.lvl]));
 ok(s1.undo,"Deshacer está bloqueado");ok(s1.box,"el bloque de duelo se oculta durante el duelo");ok(s1.ab,"aparece Abandonar");ok(s1.varLocked,"las modalidades están bloqueadas");
 console.log("   Oraculum deshabilitado:",s1.oracle,"| nota:",s1.note);
-// jugar una jugada y ver que claudIA responde
+// jugar una jugada y ver que CLAUDIA responde
 await page.evaluate(()=>{const lm=legalMoves(liveState());commitMove(lm[0])});
 let resp=true;try{await page.waitForFunction(()=>game.sans.length>=2,null,{timeout:30000})}catch(e){resp=false}
-ok(resp,"claudIA responde dentro del duelo");
+ok(resp,"CLAUDIA responde dentro del duelo");
 // 3) abandonar => derrota y baja el Elo
 await page.evaluate(()=>retoAbandon());await page.waitForTimeout(500);
 const s2=await page.evaluate(()=>({act:retoActive,elo:eloLoad(),res:game.result,note:game.resultNote,box:document.getElementById("duelo-box").hidden,txt:document.getElementById("duelo-elo").textContent.slice(0,160),undo:document.getElementById("btn-undo").disabled}));

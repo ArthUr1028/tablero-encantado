@@ -1,4 +1,4 @@
-// 2.309 · La Senda del Caballero de principio a fin: los 4 niveles en orden con la regla real (sin atajos), la transición con niebla y claudIA, el fallo y el inglés.
+// 2.309 · La Senda del Caballero de principio a fin: los 4 niveles en orden con la regla real (sin atajos), la transición con niebla y CLAUDIA, el fallo y el inglés.
 // Uso: node tests/senda_completa.smoke.js   (necesita playwright-core y un Chromium; busca /opt/node-tools)
 const http = require("http"), fs = require("fs"), path = require("path");
 let chromium;
@@ -27,10 +27,10 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const nueva = async () => { await page.waitForFunction(() => { const s = window.__knInfo().s; return !s.fin && s.path.length === 1 && !s.espera; }, null, { timeout: 25000 }); };
 
   // ----- vuelta completa en tiempo real: la primera subida de nivel con su niebla
-  // ----- la introducción de claudIA: ojos tras el texto, sus líneas, y un toque la salta
+  // ----- la introducción de CLAUDIA: ojos tras el texto, sus líneas, y un toque la salta
   await page.waitForSelector(".kn-mist .oj", { timeout: 8000 }); await page.waitForTimeout(800);
   const intro = await page.evaluate(() => ({ tt: document.querySelector(".kn-mist .tt").textContent, ln: document.querySelector(".kn-mist .ln").textContent, ojos: !!document.querySelector(".kn-mist .oj img"), esp: window.__knInfo().s.espera }));
-  ok(/La Senda del Caballero/i.test(intro.tt) && /sendero que no figura/.test(intro.ln) && intro.ojos && intro.esp, "introducción: título, primera línea de claudIA, ojos detrás del texto y tablero en espera");
+  ok(/La Senda del Caballero/i.test(intro.tt) && /sendero que no figura/.test(intro.ln) && intro.ojos && intro.esp, "introducción: título, primera línea de CLAUDIA, ojos detrás del texto y tablero en espera");
   await page.waitForTimeout(6600);
   const ln2 = await page.evaluate(() => document.querySelector(".kn-mist .ln").textContent);
   ok(/Ruinas que callan/.test(ln2), "la segunda línea sustituye a la primera");
@@ -46,7 +46,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   await page.waitForSelector(".kn-mist", { timeout: 20000 }); await page.waitForTimeout(6500);
   const m = await page.evaluate(() => ({ tt: document.querySelector(".kn-mist .tt").textContent, vz: (document.querySelector(".kn-mist .vz") || {}).textContent || "", toast: (document.getElementById("global-toast") || {}).textContent || "", runas: document.querySelectorAll(".kn-mist .rn path").length }));
   ok(/Nivel 2/i.test(m.tt) && /Los Centinelas/.test(m.tt) && m.runas > 10, "la niebla anuncia «Nivel 2 · Los Centinelas» con su círculo de runas (" + m.tt + ")");
-  ok(/claudIA/.test(m.vz) && /centinelas callan/.test(m.vz) && /ayuda/.test(m.vz), "claudIA habla dentro del círculo: «" + m.vz.trim() + "»");
+  ok(/CLAUDIA/.test(m.vz) && /centinelas callan/.test(m.vz) && /ayuda/.test(m.vz), "CLAUDIA habla dentro del círculo: «" + m.vz.trim() + "»");
   ok(!/centinelas callan/.test(m.toast), "su voz no sale además como aviso aparte");
   const bloq = await page.evaluate(() => { const s = window.__knInfo().s; const j = [...document.querySelectorAll("#kn-board .kn-sq")].find(e => e.classList.contains("cur")); return { esp: s.espera, g: s.guardias.length, path: s.path.length }; });
   ok(bloq.esp && bloq.path === 1, "mientras dura la niebla no se puede jugar");
@@ -81,7 +81,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const msgBarra = await page.evaluate(() => document.getElementById("kn-msg").textContent);
   await page.waitForTimeout(100);
 
-  // ----- que capture el caballo: un corazón menos; con tres, se acaba el juego y claudIA habla
+  // ----- que capture el caballo: un corazón menos; con tres, se acaba el juego y CLAUDIA habla
   await page.evaluate(() => { window.__knNivel = 3; document.getElementById("kn-reset").click(); });
   const pisar = () => page.evaluate(() => { const s = window.__knInfo().s, K = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]], x = s.a % 8, y = (s.a / 8) | 0;
     for (const [dx, dy] of K) { const p = x + dx, q = y + dy, i = q * 8 + p; if (p >= 0 && p < 8 && q >= 0 && q < 8 && !s.roca[i] && i !== s.b && !s.guardias.some(g => g.i === i)) { s.atkO = new Uint8Array(64); s.atkO[i] = 1; document.querySelector('#kn-board .kn-sq[data-i="' + i + '"]').click(); return true; } } return false; });   // la presa pasa a defender esa casilla
@@ -93,7 +93,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   ok(go.fin && go.go && /Fin del juego/.test(go.msg) && /Nueva travesía/.test(go.msg), "sin corazones se acaba el juego y no hay otra travesía sola (" + go.msg.slice(0, 80) + ")");
   await page.waitForTimeout(3600);
   const voz = await page.evaluate(() => ({ toast: (document.getElementById("global-toast") || {}).textContent || "", sigue: window.__knInfo().s.gameOver === true }));
-  ok(/La presa armada perdona poco/.test(voz.toast) && voz.sigue, "claudIA cierra el juego con su voz: «" + voz.toast.trim() + "»");
+  ok(/La presa armada perdona poco/.test(voz.toast) && voz.sigue, "CLAUDIA cierra el juego con su voz: «" + voz.toast.trim() + "»");
   await page.evaluate(() => { window.__knNivel = 0; document.getElementById("kn-reset").click(); });
   c = await cor(); s = await S(); ok(c.v === 3 && c.b === 0 && s.nivel === 1 && !s.fin, "«Nueva travesía» empieza de cero: tres corazones, barra vacía y nivel 1");
   await page.evaluate(() => { document.getElementById("kn-back").click(); document.querySelector('.kn-card[data-reto="guarini"]').click(); });
@@ -103,7 +103,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
   const en = await page.evaluate(() => { setLang("en"); const L = ["El Sendero", "Los Centinelas", "La Presa Armada", "El Último Umbral", "Nivel 2. Los centinelas callan hasta que pisas su terreno. +1 ayuda.", "Nivel 3. También ella defiende. Rodéala, no la apresures. +1 ayuda.",
     "Nivel 4. Aquí se decide. Piensa antes de saltar. +1 ayuda.", "Pisaste terreno vigilado. Piensa qué casillas callaban y regresa.", "Los centinelas no perdonan un paso en falso. El camino correcto lo descubres tú.", "El sendero cobra su precio. Búscale otro rumbo: yo no lo revelo.", "Busca tú el camino: yo no lo revelo.", "Pierdes un corazón.", "Te quedan 2 corazones.", "La barra se llena un cuarto.", "¡Barra completa! Recuperas un corazón.", "Fin del juego.", "Demasiados saltos: llegaste en 9 saltos y el mínimo era 5.", "Llegaste al nivel 3 con 640 puntos.", "La presa armada perdona poco. Estuviste cerca. Inténtalo de nuevo.", "Llegaste al último umbral. Pocos lo logran; menos lo cruzan. Vuelve cuando estés listo.", "Se podía en 5 saltos. Estudia la ruta: ahí está la lección.", "Nivel 2. Cruza las ruinas. Cada salto cuenta. +1 ayuda."];
     return L.filter(x => !/[a-z]/.test(window.tx(x).replace(/\b(Level|The|Path|Sentinels|Armed|Prey|Last|Threshold)\b/g, "")) ? false : window.tx(x) === x || /[áéíóúñ¿¡]/.test(window.tx(x))).map(x => x + " → " + window.tx(x)); });
-  ok(!en.length, "todas las frases de claudIA y los nombres de nivel están en inglés" + (en.length ? ": " + en.join(" | ") : ""));
+  ok(!en.length, "todas las frases de CLAUDIA y los nombres de nivel están en inglés" + (en.length ? ": " + en.join(" | ") : ""));
   ok(!errores.length, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   await browser.close(); srv.close();
   console.log(fallos ? "\n" + fallos + " fallo(s)" : "\nTodo bien"); process.exit(fallos ? 1 : 0);

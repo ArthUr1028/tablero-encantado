@@ -1,4 +1,4 @@
-// Orientación del tablero (2.212): al ABRIR una partida tuya (en línea, en vivo o asíncrona, o contra claudIA con «Iniciar») queda con tu lado abajo
+// Orientación del tablero (2.212): al ABRIR una partida tuya (en línea, en vivo o asíncrona, o contra CLAUDIA con «Iniciar») queda con tu lado abajo
 // y el del rival arriba (con negras, girado); «Girar» lo cambia cuando quieras. En Solitario no se toca. Supabase simulado.
 const http = require("http"), fs = require("fs"), path = require("path");
 let chromium;
@@ -58,7 +58,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
         out.girar.conTecla = flipped; out.girar.antesF = antesF; out.girar.ov = { hof: document.getElementById("hof-ov").hidden, cd: document.getElementById("cd-ov").hidden, mus: document.getElementById("mus-ov").classList.contains("show"), shat: shatOv.classList.contains("show") };
         try{ exitLiveGame({}); }catch(e){}
       }
-      // ---- local: contra claudIA y Solitario
+      // ---- local: contra CLAUDIA y Solitario
       maybeMachineMove = () => {};                      // sin motor: solo importa la orientación
       currentMode = "play";
       const iniciar = async () => { updateMatchControlsUI(); document.getElementById("match-start").click(); await esperar(200); };
@@ -71,8 +71,8 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     const malos = r.enLinea.filter(x => x.error || !x.vivo || x.flipped !== (x.miColor === "b") || x.filas !== (x.miColor === "b" ? "1" : "8"));
     ok(r.enLinea.length === 24 && malos.length === 0, "en línea: 6 variantes × (en vivo/asíncrona) × (blancas/negras): mi lado siempre abajo (con negras, girado; filas «1» arriba)" + (malos.length ? " → " + JSON.stringify(malos.slice(0, 3)) : ""));
     ok(r.girar.alAbrir === false && r.girar.tras === true && r.girar.filas === "1" && r.girar.conTecla === false, "«Girar» y la tecla F siguen funcionando después de abrir la partida (" + JSON.stringify(r.girar) + ")");
-    ok(r.local.negras === true && r.local.guardado === true, "contra claudIA con negras, «Iniciar» orienta con mis negras abajo (y lo guarda)");
-    ok(r.local.blancas === false, "contra claudIA con blancas, «Iniciar» orienta con mis blancas abajo");
+    ok(r.local.negras === true && r.local.guardado === true, "contra CLAUDIA con negras, «Iniciar» orienta con mis negras abajo (y lo guarda)");
+    ok(r.local.blancas === false, "contra CLAUDIA con blancas, «Iniciar» orienta con mis blancas abajo");
     ok(r.local.solitarioGirado === true && r.local.solitarioNormal === false, "en Solitario (llevo los dos bandos) la orientación no se toca");
     await page.close();
   }
