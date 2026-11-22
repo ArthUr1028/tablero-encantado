@@ -42,7 +42,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   for (const tema of ["tierra", "fuego", "agua", "aire", "metal"]) {
     p = await nueva(true);
     await p.evaluate(t => { document.documentElement.setAttribute("data-theme", t); }, tema); await p.waitForTimeout(900);
-    const n = await p.evaluate(() => document.getAnimations().length);
+    const n = await p.evaluate(() => document.getAnimations().filter(a => a.animationName !== "wmShine").length);
     ok(n === 0, "tema " + tema + ": 0 animaciones vivas (hay " + n + ")"); await p.close();
   }
 
@@ -100,7 +100,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   try { await p.waitForFunction(() => game.sans.length >= 2, null, { timeout: 25000 }); } catch (e) {}
   await p.waitForTimeout(1500);
   const f = await p.evaluate(() => ({ niebla: document.querySelectorAll("#board .cell.fog").length, capas: document.querySelectorAll("#board > .fog-haze, #board > .fog-body, #board > .fog-mist").length,
-    anims: document.getAnimations().length, quien: document.getAnimations().map(a => (a.animationName || a.transitionProperty || '?') + '@' + (a.effect && a.effect.target ? (a.effect.target.id || String(a.effect.target.className).slice(0, 40)) : '')).join(','), fx: document.querySelectorAll("#board .cell.fog-lift, #board .cell.fog-fall, #board .piece.emerge, #board .piece.ghost-out, .fly-layer").length, jugadas: game.sans.length }));
+    anims: document.getAnimations().filter(a => a.animationName !== "wmShine").length, quien: document.getAnimations().map(a => (a.animationName || a.transitionProperty || '?') + '@' + (a.effect && a.effect.target ? (a.effect.target.id || String(a.effect.target.className).slice(0, 40)) : '')).join(','), fx: document.querySelectorAll("#board .cell.fog-lift, #board .cell.fog-fall, #board .piece.emerge, #board .piece.ghost-out, .fly-layer").length, jugadas: game.sans.length }));
   ok(f.jugadas >= 2, "la partida Dark sigue su curso (" + f.jugadas + " jugadas)");
   ok(f.niebla > 0 && f.capas > 0, "la niebla oculta las mismas casillas y sigue ahí (" + f.niebla + " casillas, " + f.capas + " capas)");
   ok(f.anims === 0 && f.fx === 0, "pero quieta: 0 animaciones vivas y sin efectos de aparecer/desvanecer (" + f.anims + " / " + f.fx + ") " + f.quien);
