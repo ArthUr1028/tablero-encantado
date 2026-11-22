@@ -78,6 +78,10 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   ok(m.musica === false, "al encender el modo ligero la música se apaga");
   const s = await p.evaluate(() => { const cs = getComputedStyle(document.documentElement); const cell = document.querySelector("#board .cell.lgt"); return { claro: cs.getPropertyValue("--sq-light").trim(), oscuro: cs.getPropertyValue("--sq-dark").trim(), bg: cell ? getComputedStyle(cell).backgroundImage : "?" }; });
   ok(s.claro === "#d4d4d4" && s.oscuro === "#6b6b6b" && s.bg === "none", "tablero de dos grises planos");
+  const q = await p.evaluate(() => { window.__noBattleIntro = false; battleIntro({}); const intro = !!document.getElementById("battle-intro");
+    const b = document.getElementById("lite-toggle"); return { intro, fondo: getComputedStyle(b).backgroundColor, reto: (document.getElementById("cl-vid") || {}).paused !== false }; });
+  ok(!q.intro, "la intro de batalla (humo y frase) se omite");
+  ok(q.fondo === "rgb(236, 236, 236)", "el botón activado lleva relleno claro (" + q.fondo + ")");
   await p.close();
 
   console.log("Dark Chess: niebla estática");
