@@ -76,12 +76,15 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   p = await nueva(false);
   const m = await p.evaluate(() => { SFX.setMusicOn(true); document.getElementById("lite-toggle").click(); return { musica: SFX.musicOn() }; });
   ok(m.musica === false, "al encender el modo ligero la música se apaga");
+  const h = await p.evaluate(() => { let n = 0; navigator.vibrate = () => { n++; return true; }; try{ HAP.buzz("capture"); }catch(e){} const lite = n; document.getElementById("lite-toggle").click(); return { lite }; });
+  ok(h.lite === 0, "sin vibración en modo ligero");
+  await p.evaluate(() => document.getElementById("lite-toggle").click());
   const s = await p.evaluate(() => { const cs = getComputedStyle(document.documentElement); const cell = document.querySelector("#board .cell.lgt"); return { claro: cs.getPropertyValue("--sq-light").trim(), oscuro: cs.getPropertyValue("--sq-dark").trim(), bg: cell ? getComputedStyle(cell).backgroundImage : "?" }; });
-  ok(s.claro === "#d4d4d4" && s.oscuro === "#6b6b6b" && s.bg === "none", "tablero de dos grises planos");
+  ok(s.claro === "#fbfbfb" && s.oscuro === "#a9a9a9" && s.bg === "none", "tablero de dos grises planos (estilo tinta electrónica)");
   const q = await p.evaluate(() => { window.__noBattleIntro = false; battleIntro({}); const intro = !!document.getElementById("battle-intro");
     const b = document.getElementById("lite-toggle"); return { intro, fondo: getComputedStyle(b).backgroundColor, reto: (document.getElementById("cl-vid") || {}).paused !== false }; });
   ok(!q.intro, "la intro de batalla (humo y frase) se omite");
-  ok(q.fondo === "rgb(236, 236, 236)", "el botón activado lleva relleno claro (" + q.fondo + ")");
+  ok(q.fondo === "rgb(17, 17, 17)", "el botón activado lleva relleno negro (" + q.fondo + ")");
   await p.close();
 
   console.log("Dark Chess: niebla estática");
