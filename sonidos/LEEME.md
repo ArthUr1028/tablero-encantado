@@ -45,3 +45,7 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 - `cautivos/cadena.mp3` (3,4 s, mono, 64 kbps): el segundo arrastre de cadenas de «The sound of chains on the legs of a prisoner (shackles)» (mp3 que aportó Arthur, 14-nov-2026), de 5,55 s a 8,9 s del original, con entrada de 30 ms, salida de 350 ms y nivelado a −18 LUFS.
 - `cautivos/cadena-paso.mp3` (2,6 s, mono, 64 kbps): el PRIMER arrastre del mismo audio, de 0,12 s a 2,7 s del original, mismo nivelado. Es el de los movimientos de las piezas esclavas (clave `cadena-paso`).
 - `cadena.mp3` suena entero junto al trueno cuando se inserta una pieza capturada (Crazyhouse); `cadena-paso` suena en un tramo de ≈1,2 s que se apaga solo en cada movimiento de una pieza esclava. Una cadena nueva corta la anterior. Claves `cadena` y `cadena-paso` en `SFX_AUDIO` (`python3 tools/build-sfx.py`).
+
+## Explosión de Atomic (2.370)
+- `atomic/explosion.mp3` (3,4 s, 128 kbps, ≈ −17,4 LUFS, pico −2,6 dBFS): recorte de «Big Bang» (7,45 s) que aportó Arthur (22-nov-2026; origen y licencia no indicados). La explosión arranca en el segundo 0 de la pista y cae hasta −45 dB hacia el 3,0; se conservó del 0 al 3,4, con entrada de 4 ms, salida de 1,3 s (desde el 2,1), +6 dB y limitador a −3 dBFS. Sin la imagen incrustada ni los metadatos.
+- Suena en TODA captura de Atomic, a la vez que el golpe de la captura (también en modo ligero si se conserva el sonido de los efectos). Sin la muestra, el estruendo sintetizado `boomSfx`. Se incrusta con `python3 tools/build-sfx.py` (clave `explosion`).

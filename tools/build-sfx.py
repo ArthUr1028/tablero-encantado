@@ -26,6 +26,8 @@ ruta = os.path.join(RAIZ, "sonidos", "cautivos", "cadena.mp3")   # 2.322: arrast
 if os.path.exists(ruta): d["cadena"] = b64(ruta)
 ruta = os.path.join(RAIZ, "sonidos", "cautivos", "cadena-paso.mp3")   # 2.325: el primer arrastre, para los movimientos de las piezas esclavas
 if os.path.exists(ruta): d["cadena-paso"] = b64(ruta)
+ruta = os.path.join(RAIZ, "sonidos", "atomic", "explosion.mp3")   # 2.370: explosión de Atomic (3,4 s), recorte de «Big Bang» que aportó Arthur
+if os.path.exists(ruta): d["explosion"] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))
 d["cap"] = d["cap"][:ORIGINALES] + [b64(os.path.join(RAIZ, "sonidos", "capturas", f)) for f in nuevas]
 nuevo = "window.SFX_AUDIO=" + json.dumps(d, separators=(",", ":")) + resto
