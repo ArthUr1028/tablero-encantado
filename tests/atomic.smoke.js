@@ -63,6 +63,20 @@ async function abrir(browser, reducir) {
     ok(errores.length === 0, "sin errores de página" + (errores.length ? " " + errores.join("|") : ""));
     await page.context().close();
   }
+  // ojo táctico de CLAUDIA (2.373): con un nivel alto vuela al rey rival cuando puede; y nunca elige una captura tras la que el rival pueda volar a su rey
+  { const { page, errores } = await abrir(browser, false);
+    const r = await page.evaluate(() => {
+      const pos = parseFEN("4k3/3p4/8/8/8/8/8/3QK3 w - - 0 1 atomic"), legal = legalMoves(pos), quieto = legal.find(m => !m.capture);
+      const t = atomicTactic(pos, 25, quieto, legal);
+      const pos2 = parseFEN("3qk3/8/8/8/8/8/3Pp3/3QK3 w - - 0 1 atomic"), l2 = legalMoves(pos2);   // Dxd8?? no: la dama blanca no puede; solo se comprueba que no devuelva una captura suicida
+      const ts = []; for(let i = 0; i < 20; i++){ const x = atomicTactic(pos2, 25, l2.find(m => !m.capture), l2); if(x) ts.push(x); }
+      return { rey: !!t && atomicGain(pos, t) >= 1000, p0: atomicTacticP(0).join(), p5: atomicTacticP(5).join(), p20: atomicTacticP(20).join(), suicidas: ts.filter(x => atomicNet(pos2, x) <= -1000).length };
+    });
+    ok(r.rey, "nivel 25: con una explosión que vuela al rey rival, la juega");
+    ok(r.suicidas === 0, "nunca elige una captura tras la que el rival pueda volar a su rey");
+    ok(r.p0 === "0.3,0.1" && r.p20 === "1,1", "la agresividad crece con el nivel (" + r.p0 + " → " + r.p5 + " → " + r.p20 + ")");
+    ok(errores.length === 0, "sin errores de página");
+    await page.context().close(); }
   // CLAUDIA responde
   { const { page, errores } = await abrir(browser, false);
     await page.evaluate(() => { document.getElementById("mode-play").click(); switchVariant("atomic"); vsMachine = true; machineHumanColor = "b"; machineLevel = 10;
