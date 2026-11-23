@@ -7155,6 +7155,7 @@ function promoTypes(cols){ return cols >= 10 ? ["q","r","b","n","a","c"] : ["q",
 // espíritu que el resto del motor: "nada queda fijo, todo se deriva del
 // tablero real".
 function variantOf(board){
+  if(board.atom) return "atomic";   // 2.367: Atomic (las capturas explotan)
   if(board.dark) return "dark";   // 2.103: Dark Chess (niebla de guerra): mismas piezas que el clásico, otra regla
   if(board.seir) return "seirawan";   // V257
   if(board.zh) return "crazyhouse";   // 2.319
@@ -7224,6 +7225,7 @@ function parseFEN(fen){
   });
   while(board.length < 8) board.push(Array(cols).fill(""));
   if(seirPk === null && gflags === "dark") board.dark = true;   // 2.103: «… 0 1 dark»
+  if(seirPk === null && gflags === "atomic") board.atom = true;   // 2.367: «… 0 1 atomic»
   if(zhHand !== null){   // 2.319
     const zh = zhEmpty();
     for(const ch of zhHand){ const col = ch === ch.toUpperCase() ? "w" : "b"; zh[col][ch.toLowerCase()]++; }
@@ -7287,11 +7289,12 @@ function toFEN(s){
     for(const col of ["w", "b"]) for(const t of ["q","r","b","n","p"]) h += (col === "w" ? t.toUpperCase() : t).repeat(s.board.zh[col][t]);
     boardStr += "[" + h + "]";
   }
-  return `${boardStr} ${s.turn} ${cast} ${s.ep ? sqName(s.ep) : "-"} ${s.half} ${s.full}` + (s.board.dark ? " dark" : "") + (s.board.zh ? " zh" : "");
+  return `${boardStr} ${s.turn} ${cast} ${s.ep ? sqName(s.ep) : "-"} ${s.half} ${s.full}` + (s.board.dark ? " dark" : "") + (s.board.atom ? " atomic" : "") + (s.board.zh ? " zh" : "");
 }
 const cloneBoard = b => {
   const n = b.map(r=>r.slice());
   if(b.dark) n.dark = true;   // 2.103
+  if(b.atom) n.atom = true;   // 2.367
   if(b.seir) n.seir = { w: { ...b.seir.w }, b: { ...b.seir.b } };   // V257
   if(b.zh) n.zh = { w: { ...b.zh.w }, b: { ...b.zh.b }, pm: { ...b.zh.pm }, sl: { ...(b.zh.sl || {}) }, d: { w: (b.zh.d ? b.zh.d.w : []).slice(), b: (b.zh.d ? b.zh.d.b : []).slice() } };   // 2.319
   return n;
@@ -7359,6 +7362,10 @@ function kingPos(b, color){
 function inCheck(s, color){
   if(s.board.dark) return false;   // 2.103: en Dark Chess no hay jaque; se pierde al perder el rey
   const k = kingPos(s.board, color);
+  if(k && s.board.atom){   // 2.367: en Atomic, con los reyes pegados nadie puede capturar al rey (explotaría el suyo)
+    const ko = kingPos(s.board, color === "w" ? "b" : "w");
+    if(ko && Math.abs(k[0] - ko[0]) <= 1 && Math.abs(k[1] - ko[1]) <= 1) return false;
+  }
   return k ? attacked(s.board, k[0], k[1], color === "w" ? "b" : "w") : false;
 }
 
@@ -7513,6 +7520,14 @@ function applyMove(s, mv){
   };
   clearRook(fr,fc); clearRook(tr,tc);
 
+  if(b.atom && mv.capture){   // 2.367 · Atomic: la pieza que captura y todas las que no son peón en las 8 casillas vecinas desaparecen (la capturada ya no está)
+    b[tr][tc] = "";
+    for(let dr = -1; dr <= 1; dr++) for(let dc = -1; dc <= 1; dc++){
+      const rr = tr + dr, cc = tc + dc;
+      if((dr || dc) && inB(rr, cc, cols) && b[rr][cc] && b[rr][cc][1] !== "p"){ clearRook(rr, cc); b[rr][cc] = ""; }
+    }
+  }
+
   if(b.seir){   // V257 · Seirawan: casillas aún colocables, captura de piezas sin mover y colocación de la reserva
     const mine = b.seir[me], theirs = b.seir[me === "w" ? "b" : "w"];
     const backMe = me === "w" ? 7 : 0, backOpp = me === "w" ? 0 : 7;
@@ -7567,6 +7582,14 @@ function legalMoves(s){
           if(s.darkLit && !s.darkLit.has(mv.to[0] + "," + mv.to[1])) continue;
           out.push(mv); continue;
         }
+        if(s.board.atom){   // 2.367 · Atomic: el rey no captura; no vale explotar al propio rey; explotar al rey rival gana aunque el propio esté en jaque; con los reyes pegados no hay jaque
+          if(p[1] === "k" && mv.capture) continue;
+          const n = applyMove(s, mv), k = kingPos(n.board, s.turn);
+          if(!k) continue;
+          const opp = s.turn === "w" ? "b" : "w", ko = kingPos(n.board, opp);
+          if(!ko || (Math.abs(k[0] - ko[0]) <= 1 && Math.abs(k[1] - ko[1]) <= 1) || !attacked(n.board, k[0], k[1], opp)) out.push(mv);
+          continue;
+        }
         const n = applyMove(s, mv);
         const k = kingPos(n.board, s.turn);
         if(k && !attacked(n.board, k[0], k[1], s.turn === "w" ? "b" : "w")) out.push(mv);
@@ -7595,6 +7618,7 @@ function insufficient(b){
     for(const col of ["w", "b"]){ const h = b.zh[col]; if(h.p || h.r || h.q) return false; minors += h.b + h.n; }
     return minors <= 1;
   }
+  if(b.atom){ for(const row of b) for(const p of row) if(p && p[1] !== "k") return false; return true; }   // 2.367 · Atomic: los reyes no capturan; solo con reyes desnudos es tablas (con cualquier otra pieza una explosión aún puede decidir)
   if(isShat(b)){ const m = shatMaterial(b); return m.w === 0 && m.b === 0; }   // V233: shatranj, solo shah contra shah
   const ps = [];
   for(const row of b) for(const p of row) if(p) ps.push(p);
@@ -7667,6 +7691,10 @@ function outcome(s, prev){
     if(!kingPos(s.board, s.turn === "w" ? "b" : "w")) return "nokings";
     if(!legalMoves(s).length) return "stalemate";
     return s.half >= 100 ? "draw50" : "normal";
+  }
+  if(s.board.atom){   // 2.367 · Atomic: pierde quien se queda sin rey (explotó); se codifica como «checkmate»: pierde quien tiene el turno
+    if(!kingPos(s.board, s.turn)) return "checkmate";
+    if(!kingPos(s.board, s.turn === "w" ? "b" : "w")) return "nokings";
   }
   if(!kingPos(s.board,"w") || !kingPos(s.board,"b")) return "nokings";
   const shat = isShat(s.board);
