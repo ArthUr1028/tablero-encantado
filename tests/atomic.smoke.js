@@ -47,6 +47,22 @@ async function abrir(browser, reducir) {
     ok(res.fin === "checkmate" || res.fin === "nokings", "Dxd7 explota al rey negro y termina la partida (" + JSON.stringify(res) + ")");
     ok(errores.length === 0, "sin errores de página");
     await page.context().close(); }
+  // animación (2.368): normal = explosión + migajas de las vecinas; modo ligero = sin animación y con marca fija
+  for (const lite of [false, true]) {
+    const { page, errores } = await abrir(browser, false);
+    if (lite) await page.evaluate(() => { if (!LITE.isOn()) LITE.toggle(); });
+    await page.evaluate(() => { document.getElementById("mode-play").click(); switchVariant("atomic"); });
+    const FEN = "rnbqkbnr/pppppppp/8/8/3n4/2B1P3/PPPP1PPP/RN1QKBNR w KQkq - 0 1 atomic";
+    await page.evaluate(F => { newGame(F, { white: "Yo", black: "Rival", result: "", resultNote: "" }); vsMachine = false; matchStarted = true; matchPaused = false; render(); }, FEN);
+    await page.evaluate(() => { const m = legalMoves(liveState()).find(x => x.capture && x.from[0] === 5 && x.from[1] === 4 && x.to[0] === 4 && x.to[1] === 3); commitMove(m); });
+    await page.waitForTimeout(250);
+    if (process.env.SHOT && !lite) await page.screenshot({ path: process.env.SHOT });
+    const st = await page.evaluate(() => ({ blast: document.querySelectorAll(".gatefx.blast").length, crumbs: document.querySelectorAll("#crumble-layer .crumb").length, marcas: document.querySelectorAll("#board .cell.atom-boom").length }));
+    if (!lite) ok(st.blast === 1 && st.crumbs >= 2, "explosión animada: 1 bola de fuego y migajas de las piezas caídas (" + JSON.stringify(st) + ")");
+    else ok(st.blast === 0 && st.marcas === 2, "modo ligero: sin animación y 2 casillas marcadas (centro y alfil caído) (" + JSON.stringify(st) + ")");
+    ok(errores.length === 0, "sin errores de página" + (errores.length ? " " + errores.join("|") : ""));
+    await page.context().close();
+  }
   // CLAUDIA responde
   { const { page, errores } = await abrir(browser, false);
     await page.evaluate(() => { document.getElementById("mode-play").click(); switchVariant("atomic"); vsMachine = true; machineHumanColor = "b"; machineLevel = 10;
