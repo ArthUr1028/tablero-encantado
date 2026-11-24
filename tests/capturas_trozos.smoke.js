@@ -88,7 +88,7 @@ const media = (a) => a.reduce((s, x) => s + x, 0) / a.length;
     ok(errores.length === 0, "Atomic: sin errores de página");
     await page.context().close(); }
 
-  // 5) Dark (contra claudIA tú ves siempre desde tu color): si el origen del que captura está a la vista, trozos dirigidos; si está en la niebla, NO (la dirección delataría de dónde vino)
+  // 5) Dark (contra claudIA tú ves siempre desde tu color): trozos dirigidos con origen visible o en la niebla (la dirección es una pista indirecta de dónde vino el golpe)
   const darkVsMaquina = (page, fen, from, to, pausar) => page.evaluate(async ([fen, from, to, pausar]) => {
     document.getElementById("mode-play").click(); switchVariant("dark");
     newGame(fen, { white: "Yo", black: "Rival", result: "", resultNote: "" }); vsMachine = true; machineHumanColor = "w"; matchStarted = true; matchPaused = !!pausar; flipped = false; render();
@@ -106,14 +106,14 @@ const media = (a) => a.reduce((s, x) => s + x, 0) / a.length;
   { const { page, errores } = await abrir(browser, false);
     // negras: la torre de h5 (en la niebla para mí) captura mi peón de h2, casilla que sí veo por mi rey de g1
     const r = await darkVsMaquina(page, "4k3/8/8/7r/8/8/7P/6K1 b - - 0 1 dark", [3, 7], [6, 7], true);
-    ok(!r.sinJugada && r.capas.length >= 1 && r.capas.every(c => !/\bshot\b/.test(c)), "Dark: origen del rival en la niebla → sin dirección (cae como antes) " + JSON.stringify(r));
+    ok(!r.sinJugada && r.capas.length >= 1 && r.capas.every(c => /\bshot\b/.test(c)), "Dark: origen del rival en la niebla → trozos dirigidos (pista de dónde vino) " + JSON.stringify(r));
     ok(errores.length === 0, "Dark (captura del rival): sin errores de página" + (errores.length ? " " + errores.join("|") : ""));
     await page.context().close(); }
 
   { const { page, errores } = await abrir(browser, false);
     // negras: la torre de h5 captura mi peón de h2 y NINGUNA pieza mía ve h2 (rey en e1): mi pieza capturada debe romperse igual, sin dirección
     const r = await darkVsMaquina(page, "4k3/8/8/7r/8/8/7P/4K3 b - - 0 1 dark", [3, 7], [6, 7], true);
-    ok(!r.sinJugada && r.capas.length === 1 && !/\bshot\b/.test(r.capas[0]), "Dark: mi pieza capturada en una casilla que no veo también se rompe (sin dirección) " + JSON.stringify(r));
+    ok(!r.sinJugada && r.capas.length === 1 && /\bshot\b/.test(r.capas[0]), "Dark: mi pieza capturada en una casilla que no veo se rompe con trozos dirigidos " + JSON.stringify(r));
     await page.context().close(); }
 
   // 6) «reducir movimiento»: no se dibuja nada
