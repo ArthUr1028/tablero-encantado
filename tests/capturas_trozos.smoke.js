@@ -110,6 +110,12 @@ const media = (a) => a.reduce((s, x) => s + x, 0) / a.length;
     ok(errores.length === 0, "Dark (captura del rival): sin errores de página" + (errores.length ? " " + errores.join("|") : ""));
     await page.context().close(); }
 
+  { const { page, errores } = await abrir(browser, false);
+    // negras: la torre de h5 captura mi peón de h2 y NINGUNA pieza mía ve h2 (rey en e1): mi pieza capturada debe romperse igual, sin dirección
+    const r = await darkVsMaquina(page, "4k3/8/8/7r/8/8/7P/4K3 b - - 0 1 dark", [3, 7], [6, 7], true);
+    ok(!r.sinJugada && r.capas.length === 1 && !/\bshot\b/.test(r.capas[0]), "Dark: mi pieza capturada en una casilla que no veo también se rompe (sin dirección) " + JSON.stringify(r));
+    await page.context().close(); }
+
   // 6) «reducir movimiento»: no se dibuja nada
   { const { page, errores } = await abrir(browser, true);
     const r = await capturar(page, { fen: "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", from: [4, 4], to: [3, 3] });
