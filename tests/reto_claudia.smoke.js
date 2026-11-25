@@ -14,13 +14,15 @@ const srv = http.createServer((req, res) => {
 let fallos = 0;
 const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c) fallos++; };
 
-const KEYS = ["clasico", "capablanca", "maharaja", "amazonas", "seirawan", "shatranj", "dark", "crazyhouse"];
+const KEYS = ["clasico", "capablanca", "maharaja", "amazonas", "seirawan", "shatranj", "dark", "crazyhouse", "atomic"];   // mismo orden que RETO_TABLE
 const CASOS = [
   { variante: "dark", color: "b", nivel: 15 },
   { variante: "dark", color: "w", nivel: 15 },
   { variante: "shatranj", color: "b", nivel: 15 },
   { variante: "crazyhouse", color: "w", nivel: 10 },   // 2.339: Asara, nivel Amateur sin medir
   { variante: "crazyhouse", color: "b", nivel: 10 },
+  { variante: "atomic", color: "w", nivel: 15 },   // 2.388: Atomic en el Reto
+  { variante: "atomic", color: "b", nivel: 15 },
   { variante: "maharaja", color: "w", nivel: 10 },   // el humano es el Maharajá: CLAUDIA juega los Cipayas en Miles (2.253)
   { variante: "maharaja", color: "b", nivel: 15 },   // el humano lleva los Cipayas: CLAUDIA (Maharajá) en Praeceptor (2.253)
 ];
@@ -39,13 +41,13 @@ const CASOS = [
     await page.goto(url, { waitUntil: "load" });
     await page.waitForTimeout(1200);
     const nombre = c.variante + " con " + (c.color === "w" ? "blancas" : "negras");
-    await page.evaluate(({ idx, color }) => {
+    await page.evaluate(({ idx, color, n }) => {
       accountProfile = { id: "u1", username: "prueba" }; clubIsMember = true;
-      const seq = [(idx + 0.5) / 8, color === "w" ? 0.1 : 0.9], orig = Math.random;
+      const seq = [(idx + 0.5) / n, color === "w" ? 0.1 : 0.9], orig = Math.random;
       Math.random = () => seq.length ? seq.shift() : orig();
       window.confirm = () => true;
       retoStart();
-    }, { idx: KEYS.indexOf(c.variante), color: c.color });
+    }, { idx: KEYS.indexOf(c.variante), color: c.color, n: KEYS.length });
     let arranco = true;
     try { await page.waitForFunction(() => retoActive && matchStarted, null, { timeout: 15000 }); } catch (e) { arranco = false; }
     const r = await page.evaluate(() => retoActive ? { v: retoActive.variant, color: retoActive.color, nivel: retoActive.level, machineLevel, vs: vsMachine, hum: machineHumanColor } : null);
@@ -71,9 +73,9 @@ const CASOS = [
     await page.addInitScript(() => { window.__noBattleIntro = true; });
     await page.goto(url, { waitUntil: "load" });
     await page.waitForTimeout(1200);
-    const res = await page.evaluate(({ fen, jugada }) => {
+    const res = await page.evaluate(({ fen, jugada, n }) => {
       accountProfile = { id: "u1", username: "prueba" }; clubIsMember = true; window.confirm = () => true;
-      const seq = [(6 + 0.5) / 8, 0.1], orig = Math.random; Math.random = () => seq.length ? seq.shift() : orig();
+      const seq = [(6 + 0.5) / n, 0.1], orig = Math.random; Math.random = () => seq.length ? seq.shift() : orig();
       retoStart();
       return new Promise(done => setTimeout(() => {
         newGame(fen, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" });
@@ -82,7 +84,7 @@ const CASOS = [
         commitMove(mv);
         const t0 = Date.now(), espera = () => { if(!retoActive || Date.now() - t0 > 25000) done({ activo: !!retoActive, reclamos: retoClaimsLoad().map(c => c.variant), sans: game.sans.slice(-2) }); else setTimeout(espera, 300); }; espera();
       }, 1500));
-    }, caso);
+    }, { ...caso, n: KEYS.length });
     if (caso.espera === "won") ok(!res.activo && res.reclamos.includes("dark"), "capturar el rey de CLAUDIA en el reto de Dark es victoria (reclamo registrado: " + JSON.stringify(res.reclamos) + ")");
     else ok(!res.activo && res.reclamos.length === 0, "perder el rey en el reto de Dark es derrota (sin reclamo de victoria; jugadas " + JSON.stringify(res.sans) + ")");
     await page.close();
