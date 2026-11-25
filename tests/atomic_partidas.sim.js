@@ -67,7 +67,7 @@ const mat = (s, c) => { const V = { p: 1, n: 3, b: 3, r: 5, q: 9 }; let m = 0; f
     }
     if(!res){ const df = mat(s, "w") - mat(s, "b"); res = df >= 3 ? "w" : df <= -3 ? "b" : "d"; }
     const aWon = res === (aWhite ? "w" : "b"); if(res === "d") d++; else if(aWon) w++; else l++;
-    console.log("  partida " + (g + 1) + ": " + (res === "d" ? "tablas" : aWon ? "gana el nivel " + lvA : "gana el nivel " + lvB) + " en " + ply + " jugadas");
+    console.log("  partida " + (g + 1) + ": " + (res === "d" ? "tablas" : aWon ? "gana el nivel " + lvA : "gana el nivel " + lvB) + " en " + ply + " jugadas · ganan " + (res === "w" ? "blancas" : res === "b" ? "negras" : "ninguno"));
   }
   console.log("nivel " + lvA + " contra nivel " + lvB + ": +" + w + " =" + d + " -" + l);
   process.exit(0);
