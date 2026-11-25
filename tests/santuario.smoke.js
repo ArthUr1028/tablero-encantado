@@ -40,7 +40,7 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     }
     return res;
   });
-  ok(r.masters === 143, "el Santuario tiene 143 fichas (" + r.masters + ")");
+  ok(r.masters === 144, "el Santuario tiene 144 fichas (" + r.masters + ")");
   ok(!r.malas.length, "todas las partidas se reproducen completas con el motor del Tablero" + (r.malas.length ? ": " + r.malas.slice(0, 5).join(", ") : ""));
   ok(!r.dup.length, "ningún id de partida repetido" + (r.dup.length ? ": " + r.dup.join(",") : ""));
   ok(!r.faltan.length, "todas las fichas y partidas tienen sus campos" + (r.faltan.length ? ": " + r.faltan.slice(0, 5).join(",") : ""));
@@ -179,6 +179,21 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
       if (ix(b) !== ix(a) + 1) falta.push("orden " + b);
     return falta;
   });
+  const sinAtomic = await page.evaluate(() => {
+    const falta = [], t = s => window.tx(s) !== s;
+    const ids = HOF.masters.map(m => m.id), m = HOF.masters.find(x => x.id === "atomic");
+    if (!m) return ["no existe"];
+    if (ids.indexOf("atomic") !== ids.indexOf("crazyhouse") + 1) falta.push("orden: debe ir justo después de crazyhouse");
+    if (m.era !== "fria" || !m.tema || m.games.length) falta.push("era/tema/partidas");
+    for (const c of ["name", "years", "title"]) if (!t(m[c])) falta.push(c + " sin inglés");
+    if (m.secciones.length < 8) falta.push("secciones " + m.secciones.length);
+    for (const s of m.secciones) {
+      if (!["documentado", "tradicion", "leyenda", "debate"].includes(s.nivel)) falta.push("nivel " + s.t);
+      if (!t(s.t) || !t(s.txt)) falta.push("sin inglés: " + s.t);
+    }
+    return falta;
+  });
+  ok(!sinAtomic.length, "el capítulo de Atomic chess está completo, bien ubicado y traducido" + (sinAtomic.length ? ": " + sinAtomic.join(", ") : ""));
   ok(!sinC2.length, "las ocho fichas del Grupo C-2 están completas, ordenadas y traducidas" + (sinC2.length ? ": " + sinC2.slice(0, 6).join(", ") : ""));
   const sinC1 = await page.evaluate(() => {
     const falta = [], t = s => window.tx(s) !== s;
