@@ -187,6 +187,9 @@ const ok = (c, msg) => { console.log((c ? "  ok   " : "  FALLA ") + msg); if (!c
     if (m.era !== "fria" || !m.tema || m.games.length) falta.push("era/tema/partidas");
     for (const c of ["name", "years", "title"]) if (!t(m[c])) falta.push(c + " sin inglés");
     if (m.secciones.length < 8) falta.push("secciones " + m.secciones.length);
+    if (!m.ilus || !/^data:image\/webp;base64,/.test(HOF_LOCAL_IMG.atomic || "")) falta.push("ilustración");
+    if (!HOF_FIG_CAP.atomic || !t(HOF_FIG_CAP.atomic)) falta.push("pie de foto sin inglés");
+    if (!HOF_LOCAL_CRED.atomic || !t(HOF_LOCAL_CRED.atomic)) falta.push("crédito de la ilustración sin inglés");
     for (const s of m.secciones) {
       if (!["documentado", "tradicion", "leyenda", "debate"].includes(s.nivel)) falta.push("nivel " + s.t);
       if (!t(s.t) || !t(s.txt)) falta.push("sin inglés: " + s.t);
