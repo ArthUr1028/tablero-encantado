@@ -50,6 +50,26 @@ async function abrir(browser, reducir) {
     ok(!r.err && r.cerrado, caso.nombre + " cierra el reto (" + JSON.stringify(r) + ")");
     ok(errores.length === 0, "sin errores de página");
     await page.context().close(); }
+  // 2.389 · la partida del Reto: 1.Cf3 Cc6?? 2.Cg5 (mate en 3 para las blancas, confirmado con el motor a fuerza completa). claudIA, con la verificación, no debe caer.
+  { const { page, errores } = await abrir(browser, false);
+    const r = await page.evaluate(async () => {
+      document.getElementById("mode-play").click(); switchVariant("atomic");
+      newGame(ATOMIC_START, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" }); vsMachine = false; matchStarted = true; matchPaused = false; render();
+      const mv0 = legalMoves(liveState()).find(x => uciOf(x, false) === "g1f3"); commitMove(mv0);
+      const fen = toFEN(liveState()), out = { fen, juega: [], ms: [] };
+      for(let i = 0; i < 6; i++){
+        newGame(fen, { white: "Yo", black: "CLAUDIA", result: "", resultNote: "" }); vsMachine = true; machineHumanColor = "w"; machineLevel = 15; matchStarted = true; matchPaused = false; render();
+        const t1 = Date.now(); maybeMachineMove();
+        while((!game.ucis || game.ucis.length < 1) && Date.now() - t1 < 45000) await new Promise(r => setTimeout(r, 150));
+        out.juega.push((game.ucis || [])[0] || null); out.ms.push(Date.now() - t1); vsMachine = false;
+      }
+      return out;
+    });
+    console.log("       jugadas de claudIA (negras, nivel 15) tras 1.Cf3: " + r.juega.join(" ") + "  (ms: " + r.ms.join(", ") + ")");
+    ok(r.juega.every(u => !!u), "claudIA siempre juega (no se queda parada con la verificación)");
+    ok(!r.juega.includes("b8c6"), "claudIA no cae en 1...Cc6?? (mate en 3)");
+    ok(errores.length === 0, "sin errores de página" + (errores.length ? " " + errores.join("|") : ""));
+    await page.context().close(); }
   await browser.close(); srv.close();
   console.log(fallos ? "\nHay " + fallos + " fallos" : "\nTodo en orden"); process.exit(fallos ? 1 : 0);
 })();
