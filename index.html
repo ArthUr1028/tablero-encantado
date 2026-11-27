@@ -1490,33 +1490,20 @@
   @keyframes amenazaEmerge{ from{ opacity:0; } 40%{ opacity:.45; } to{ opacity:1; } }
   @media (prefers-reduced-motion:reduce){ .cell.tgt.occ::before{ animation:none; } }
   /* ================= 2.397 · Escena del jaque mate ================= */
-  #mate-fx{ position:fixed; inset:0; z-index:990; overflow:hidden; cursor:pointer; touch-action:none; --mx:50vw; --my:40vh; --mc:44px; --mh:40vh; --ty:65vh; transition:opacity .5s ease; }
+  #mate-fx{ position:fixed; inset:0; z-index:990; overflow:hidden; cursor:pointer; touch-action:none; --ty:65vh; transition:opacity .7s ease; }
   #mate-fx.fin{ opacity:0; pointer-events:none; }
   #mate-fx > *{ position:absolute; pointer-events:none; }
-  .mfx-dark{ inset:0; background:radial-gradient(circle at var(--mx) var(--my), transparent 0, transparent calc(var(--mc) * .85), rgba(4,3,8,.46) calc(var(--mc) * 1.9), rgba(3,2,6,.62) calc(var(--mc) * 5), rgba(3,2,6,.86) calc(var(--mc) * 11)); opacity:0; animation:mfxIn 1s ease forwards; }
-  .mfx-beam{ top:0; left:calc(var(--mx) - var(--mc) * 1.5); width:calc(var(--mc) * 3); height:var(--mh); transform-origin:50% 0; clip-path:polygon(41% 0, 59% 0, 88% 100%, 12% 100%);
-    background:linear-gradient(180deg, rgba(255,244,214,.05), rgba(255,232,176,.22) 60%, rgba(255,226,160,.42)); mix-blend-mode:screen; filter:blur(3px); opacity:0; animation:mfxBeam .55s cubic-bezier(.2,.8,.3,1) var(--imp) forwards; }
-  .mfx-ring{ left:calc(var(--mx) - var(--mc) / 2); top:calc(var(--my) - var(--mc) / 2); width:var(--mc); height:var(--mc); border-radius:50%; border:2px solid rgba(255,214,140,.95); box-shadow:0 0 18px rgba(255,170,80,.9), inset 0 0 12px rgba(255,170,80,.7); opacity:0; animation:mfxRing 1.1s ease-out var(--imp) forwards; }
-  .mfx-flash{ inset:0; background:radial-gradient(circle at var(--mx) var(--my), rgba(255,240,205,.75), rgba(255,200,120,.18) 30%, transparent 62%); opacity:0; animation:mfxFlash .7s ease-out var(--imp) forwards; }
-  .mfx-bar{ left:0; right:0; height:6vh; background:#020104; }
-  .mfx-bar.arriba{ top:0; transform:translateY(-100%); animation:mfxBar .7s ease forwards; }
-  .mfx-bar.abajo{ bottom:0; transform:translateY(100%); animation:mfxBar .7s ease forwards; }
-  .mfx-title{ left:0; right:0; top:var(--ty); transform:translateY(-50%); text-align:center; padding:12px 8px 14px; opacity:0; background:linear-gradient(90deg, transparent, rgba(6,4,10,.88) 18%, rgba(6,4,10,.88) 82%, transparent); animation:mfxTitle .8s cubic-bezier(.2,.75,.25,1) calc(var(--imp) + .5s) forwards; }
+  .mfx-dark{ inset:0; background:rgba(3,2,6,.72); opacity:0; animation:mfxIn 2.8s ease-in-out .35s forwards; }
+  .mfx-title{ left:0; right:0; top:var(--ty); transform:translateY(-50%); text-align:center; padding:12px 8px 14px; opacity:0; background:linear-gradient(90deg, transparent, rgba(6,4,10,.88) 18%, rgba(6,4,10,.88) 82%, transparent); animation:mfxTitle 1.8s ease-out 1.9s forwards; }
   .mfx-title::before, .mfx-title::after{ content:""; position:absolute; left:12%; right:12%; height:1px; background:linear-gradient(90deg, transparent, rgba(236,190,112,.9), transparent); }
   .mfx-title::before{ top:0; } .mfx-title::after{ bottom:0; }
   .mfx-title strong{ display:block; font-family:"Cinzel",serif; font-weight:700; font-size:clamp(2rem, 10.5vw, 4.2rem); line-height:1.1; letter-spacing:.09em; text-transform:uppercase; color:#f6dfae;
     background:linear-gradient(180deg, #fff6dc 10%, #e9bd72 55%, #a8682f 95%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 3px 2px rgba(0,0,0,.9)) drop-shadow(0 0 16px rgba(224,140,60,.55)); }
   .mfx-title em{ display:block; margin-top:2px; font-size:1.05rem; letter-spacing:.08em; color:#e7dccb; }
-  .mfx-skip{ left:0; right:0; bottom:1.4vh; text-align:center; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(231,220,203,.65); opacity:0; animation:mfxIn .6s ease 1.6s forwards; }
+  .mfx-skip{ left:50%; translate:-50% 0; width:max-content; padding:6px 14px; border-radius:99px; background:rgba(4,3,8,.92); bottom:2.4vh; text-align:center; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(231,220,203,.65); opacity:0; animation:mfxIn .8s ease 3.4s forwards; }
   @keyframes mfxIn{ to{ opacity:1; } }
-  @keyframes mfxBeam{ from{ opacity:0; transform:scaleY(0); } to{ opacity:1; transform:scaleY(1); } }
-  @keyframes mfxRing{ 0%{ opacity:0; transform:scale(2.6); } 30%{ opacity:1; transform:scale(1); } 100%{ opacity:.75; transform:scale(1.04); } }
-  @keyframes mfxFlash{ 0%{ opacity:0; } 14%{ opacity:1; } 100%{ opacity:0; } }
-  @keyframes mfxBar{ to{ transform:translateY(0); } }
-  @keyframes mfxTitle{ from{ opacity:0; transform:translateY(-50%) scale(1.35); } to{ opacity:1; transform:translateY(-50%) scale(1); } }
+  @keyframes mfxTitle{ from{ opacity:0; transform:translateY(calc(-50% + 22px)) scale(.94); } to{ opacity:1; transform:translateY(-50%) scale(1); } }
   #mate-fx.quieto .mfx-dark, #mate-fx.quieto .mfx-title, #mate-fx.quieto .mfx-skip{ animation:mfxIn .01s linear forwards; }
-  #mate-fx.quieto .mfx-flash, #mate-fx.quieto .mfx-beam, #mate-fx.quieto .mfx-bar{ display:none; }
-  #mate-fx.quieto .mfx-ring{ animation:none; opacity:.8; }
   #mate-fx.quieto{ transition:none; }
   .cell.check::after{
     content:""; position:absolute; inset:0; z-index:3;
@@ -6973,50 +6960,33 @@ try{
    Un solo interruptor que consultan todos los efectos. Con el modo ligero: sin animaciones de fondo, sin vuelo de piezas, sin coronación/invocación/
    captura/aparición animadas (la jugada cambia al instante, sin perder información), niebla de Dark Chess estática, música apagada y diseño «sobrio»
    (monocromo y plano: clase html.lite). `sfx` = conservar el sonido de esos efectos aunque no se animen. Se recuerda en este dispositivo. */
-/* 2.397 · La escena del jaque mate: el vuelo final va más lento, todo se oscurece, un haz de luz señala al rey vencido, retumba un golpe
-   grave, el rey se inclina y aparece el letrero. Dura unos segundos y se salta con un toque o con cualquier tecla. Con «reducir movimiento»
-   o en modo ligero queda la versión quieta (penumbra y letrero). Solo corre cuando la jugada que da el mate se está animando (al jugarla,
-   al recibirla o al repetirla); cargar una partida no la dispara. Dark Chess y las explosiones de Atomic (no queda rey) no la usan. */
+/* 2.397 · La escena del jaque mate: la pantalla se oscurece despacio y emerge la leyenda. Dura unos segundos y se salta con un toque
+   o con cualquier tecla. Con «reducir movimiento» o en modo ligero queda la versión quieta. Solo corre cuando la jugada que da el mate
+   se está animando (al jugarla, al recibirla o al repetirla); cargar una partida no la dispara. Dark Chess y las explosiones de Atomic
+   (no queda rey) no la usan. */
 var MATE = (function(){
-  const LENTO = 1.8, IMPACTO = 900, TOTAL = 4800, TOTAL_QUIETO = 2800;
-  let sc = null, slowOn = false, pend = null;
+  const TOTAL = 6200, TOTAL_QUIETO = 2800;
+  let sc = null, pend = null;
   const quieto = () => LITE.isOn() || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const tx = t => { try{ return darkTx(t); }catch(e){ return t; } };
   function end(inmediato){
     const c = sc; if(!c) return;
-    sc = null; slowOn = false;
+    sc = null;
     c.timers.forEach(clearTimeout); cancelAnimationFrame(c.raf);
     document.removeEventListener("keydown", c.key, true);
-    if(c.tilt){ try{ c.tilt.cancel(); }catch(e){} }
     const el = c.el;
-    if(inmediato) el.remove(); else { el.classList.add("fin"); setTimeout(() => el.remove(), 520); }
+    if(inmediato) el.remove(); else { el.classList.add("fin"); setTimeout(() => el.remove(), 720); }
     const q = pend; pend = null;
     if(q) setTimeout(() => showGlobalToast(q[0], q[1]), 250);
-  }
-  function inclina(){   // el rey vencido se inclina (propiedad «rotate»: no pisa el transform de la pieza). Se rehace si el tablero se redibuja.
-    const c = sc; if(!c || c.quieto) return;
-    const pz = boardEl.querySelector(".cell.mate-king > .piece");
-    if(!pz || pz === c.pz || typeof pz.animate !== "function") return;
-    c.pz = pz; pz.style.transformOrigin = "50% 86%";
-    c.tilt = pz.animate([{ rotate:"0deg" }, { rotate:"9deg", offset:.2 }, { rotate:"-78deg", offset:.82 }, { rotate:"-70deg", offset:.9 }, { rotate:"-76deg" }],
-      { duration:1100, delay:IMPACTO + 450 - (performance.now() - c.t0), easing:"cubic-bezier(.5,0,.75,.4)", fill:"forwards" });
   }
   function coloca(){
     const c = sc; if(!c) return;
     const cell = boardEl.querySelector(".cell.mate-king");
     if(!cell || L() !== c.line || L().cursor !== c.cursor){ end(true); return; }   // se cambió de partida o de jugada
-    const r = cell.getBoundingClientRect(), W = c.el.clientWidth, H = c.el.clientHeight;
-    const x = r.left + r.width / 2, y = r.top + r.height / 2;
-    const k = x + "," + y + "," + r.width + "," + W + "," + H;
-    if(k !== c.k){
-      c.k = k;
-      const st = c.el.style;
-      st.setProperty("--mx", x + "px"); st.setProperty("--my", y + "px"); st.setProperty("--mc", r.width + "px");
-      st.setProperty("--mh", Math.max(0, y + r.height * .45) + "px");
-      const br = boardEl.getBoundingClientRect(), bajoRey = y < br.top + br.height / 2;   // el letrero va en la mitad del tablero que no ocupa el rey
-      st.setProperty("--ty", Math.min(H - 80, Math.max(80, br.top + br.height * (bajoRey ? .72 : .28))) + "px");
-    }
-    inclina();
+    const r = cell.getBoundingClientRect(), br = boardEl.getBoundingClientRect(), H = c.el.clientHeight;
+    const bajoRey = r.top + r.height / 2 < br.top + br.height / 2;   // el letrero va en la mitad del tablero que no ocupa el rey
+    const ty = Math.min(H - 80, Math.max(80, br.top + br.height * (bajoRey ? .72 : .28))) + "px";
+    if(ty !== c.ty){ c.ty = ty; c.el.style.setProperty("--ty", ty); }
     c.raf = requestAnimationFrame(coloca);
   }
   function titulo(pos){
@@ -7034,31 +7004,23 @@ var MATE = (function(){
     }
     const q = quieto();
     const el = document.createElement("div"); el.id = "mate-fx"; el.className = q ? "quieto" : "";
-    el.style.setProperty("--imp", (q ? 0 : IMPACTO) + "ms");
     const sub = persp ? (pos.turn === persp ? "La partida está perdida" : "La victoria es tuya") : (pos.turn === "w" ? "Ganan las negras" : "Ganan las blancas");
-    el.innerHTML = '<div class="mfx-dark"></div><div class="mfx-beam"></div><div class="mfx-ring"></div><div class="mfx-flash"></div><i class="mfx-bar arriba"></i><i class="mfx-bar abajo"></i>' +
-      '<div class="mfx-title" role="status"><strong></strong><em></em></div><span class="mfx-skip"></span>';
+    el.innerHTML = '<div class="mfx-dark"></div><div class="mfx-title" role="status"><strong></strong><em></em></div><span class="mfx-skip"></span>';
     el.querySelector("strong").textContent = tx(titulo(pos));
     el.querySelector("em").textContent = tx(sub);
     el.querySelector(".mfx-skip").textContent = tx("Toca para continuar");
     document.body.appendChild(el);
-    const c = sc = { el, quieto:q, t0:performance.now(), line:L(), cursor:L().cursor, timers:[], raf:0, k:"", pz:null, tilt:null };
-    slowOn = !q;
+    const c = sc = { el, line:L(), cursor:L().cursor, timers:[], raf:0, ty:"" };
     el.addEventListener("click", () => end(false));
     c.key = e => { if(e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return; e.preventDefault(); e.stopPropagation(); end(false); };
     document.addEventListener("keydown", c.key, true);
     c.raf = requestAnimationFrame(coloca);
-    if(!q) c.timers.push(setTimeout(() => { try{ boardEl.classList.remove("quake-heavy"); void boardEl.offsetWidth; boardEl.classList.add("quake-heavy"); setTimeout(() => boardEl.classList.remove("quake-heavy"), 850); }catch(e){} }, IMPACTO));
-    try{ SFX.golpe((q ? 0 : IMPACTO) / 1000); }catch(e){}
     c.timers.push(setTimeout(() => end(false), q ? TOTAL_QUIETO : TOTAL));
     return true;
   }
   return {
     start, end,
     active: () => !!sc,
-    slow: () => slowOn ? LENTO : 1,                    // factor del vuelo final
-    flown: () => { slowOn = false; },
-    wait: () => sc && !sc.quieto ? (IMPACTO - 300) / 1000 : 0,   // la campana espera al impacto
     defer: (msg, opt) => { pend = [msg, opt]; }          // los avisos flotantes esperan a que termine la escena
   };
 })();
@@ -7230,7 +7192,7 @@ function flyPieces(){
       const fdx = parseFloat(real.style.getPropertyValue("--fdx")) || 0, fdy = parseFloat(real.style.getPropertyValue("--fdy")) || 0;
       if(!sr.width || !(fdx || fdy)) return;
       const bw = cr.width, dx = fdx * bw, dy = fdy * cr.height, len = Math.hypot(fdx, fdy), inc = (dx === 0 ? 0 : (dx > 0 ? -1 : 1));
-      const dt = (kind === "leap" ? 480 : (parseFloat(real.style.getPropertyValue("--fdur")) || .3) * 1000) * MATE.slow();   // 2.397: la jugada del mate cae más lenta
+      const dt = kind === "leap" ? 480 : (parseFloat(real.style.getPropertyValue("--fdur")) || .3) * 1000;
       const fly = real.cloneNode(true);
       fly.className = real.className.replace(/\b(slide|mv-\w+)\b/g, "").replace(/\s+/g, " ").trim() + " fly"; fly.removeAttribute("style"); fly.removeAttribute("data-fly");
       const left = sr.left - br.left - boardEl.clientLeft, top = sr.top - br.top - boardEl.clientTop;
@@ -9013,19 +8975,12 @@ var SFX = (function(){
       if(!LITE.sonido()){}   // 2.354 · modo ligero sin «conservar el sonido de los efectos»: sin invocación, cadenas ni trueno (el paso, el golpe de captura, el jaque y el mate siguen sonando: son información de la partida)
       else if(mv.drop) chainSfx(t + 0.1, 0.8, false, true);   // 2.332: Crazyhouse, la pieza emerge de la niebla y arrastra sus cadenas, con el eco de la niebla de Dark Chess
       else if(mv.slave) chainSfx(t + 0.04, 0.3, true);   // 2.323: mover una esclava suena como siempre (el paso propio de la pieza) con las cadenas por debajo
-      if(oc === "checkmate"){ const w = MATE.wait(); if(!playTail("mate", t + 0.3 + w, 0.85)) requiem(t + 0.3 + w); }
+      if(oc === "checkmate"){ if(!playTail("mate", t + 0.3, 0.85)) requiem(t + 0.3); }
       else if(oc === "check"){ if(!playTail("jaque", t + 0.1, 0.85)) alarmDrums(t + 0.12); }
       else if(oc === "stalemate" || oc === "draw50" || oc === "draw3" || oc === "material"){ bell(t + 0.2, 196, 0.4, 2); }
       if(mv.promo && !mv.gate && LITE.sonido()) thunderSfx(t + 0.26);   // 2.262: la coronación suena a trueno en el impacto del rayo (t + .26 + .42); sin la muestra, vuelve la invocación de siempre (2.113)
     }),
     /* 2.117: jaque mate «a ciegas» (Dark en línea): el cliente no puede juzgar la posición, así que lo pide al saber que cayó el rey. */
-    /* 2.397 · el golpe grave de la escena del mate: un timbal muy profundo con un roce de aire. `delay` en segundos. */
-    golpe: safe(delay => { if(!ready()) return; const t = ctx.currentTime + 0.05 + (delay || 0);
-      [[74, 30, 0.95, 1.5], [111, 46, 0.45, 0.9]].forEach(([a, b, v, d]) => {
-        const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(a, t); o.frequency.exponentialRampToValueAtTime(b, t + d * .7);
-        const g = ctx.createGain(); env(g, t, 0.006, v, d); o.connect(g); out(g, 0.35); o.start(t); o.stop(t + d + 0.2); });
-      const n = noise(), lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(90, t + 0.8);
-      const g2 = ctx.createGain(); env(g2, t, 0.004, 0.55, 0.8); n.connect(lp); lp.connect(g2); out(g2, 0.4); n.start(t, Math.random() * 0.4); n.stop(t + 0.95); }),
     mate: safe(() => { if(!ready()) return; const t = ctx.currentTime + 0.05; if(!playTail("mate", t, 0.85)) requiem(t); }),
     /* 2.283: el trueno de la coronación, suelto (Los Caballos: Guarini resuelto). `delay` = segundos hasta el inicio del rayo; el golpe cae .42 s después. */
     trueno: safe(delay => { if(!ready()) return; thunderSfx(ctx.currentTime + 0.05 + (delay || 0)); }),
@@ -11878,7 +11833,6 @@ function render(){
   try{ hapEndWatch(); }catch(e){}   // 2.129   // 2.110: en Dark en línea la jugada oculta del rival también suena
   syncPieceSize();
   if(!vis) flyPieces();   // 2.294: el vuelo de La Senda en la partida (no en Dark Chess)
-  MATE.flown();
 
   renderNameplates();
   renderGraveyards();
