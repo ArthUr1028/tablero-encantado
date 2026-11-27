@@ -18053,7 +18053,7 @@ async function openFinishedGame(row){
     flipped = myColor === "b";
     game.cursor = Math.max(0, game.states.length - 2);   // un paso antes: la última jugada se ve suceder
     selected = null;
-    finView = { id: row.id, prevSlot, saved: false, head: finHeadline(row).text, opp };
+    finView = { id: row.id, prevSlot, saved: false, head: finHeadline(row).text, opp, color: myColor };
     finMark(row.id, 1);
     render(); finUpdateBanner();
     try{ renderClubFinished(); }catch(e){}
