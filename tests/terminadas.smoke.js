@@ -51,6 +51,8 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   r = await page.evaluate(() => ({ c: game.cursor, local: JSON.parse(localStorage.getItem(STORE)).ucis, t: document.getElementById("fin-note").textContent }));
   ok(r.c === 4, "la jugada del mate se reproduce sola");
   ok(r.local.length === 1, "el tablero local sigue guardado intacto");
+  const fx = await page.evaluate(() => { const e = document.querySelector("#mate-fx em"); return e && e.textContent; });
+  ok(fx === "La partida está perdida", "al abrirla se ve la escena del mate, desde tu lado: " + fx);
   await page.screenshot({ path: "/tmp/fin.png" });
   await page.click("#fin-save");
   await page.waitForTimeout(300);
