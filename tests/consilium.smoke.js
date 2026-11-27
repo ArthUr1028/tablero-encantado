@@ -26,10 +26,10 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     for (const v of ["capablanca", "maharaja", "amazonas", "seirawan", "crazyhouse", "atomic", "dark", "shatranj", "clasico"]) {
       await page.click("#var-pick");
       await page.click('#var-list .vpick-opt[data-v="' + v + '"]');
-      if (v === "shatranj") { await page.waitForTimeout(300); await page.click("#shat-ok"); }
+      if (v === "shatranj") ok(await page.evaluate(() => !document.getElementById("shat-ov")), "shatranj: se elige sin ventana de leyenda");
       await page.waitForTimeout(500);
       const r = await page.evaluate(() => ({ v: variantOf(liveState().board), h: document.getElementById("var-pick").dataset.v, list: document.getElementById("var-list").hidden, art: !!document.getElementById("var-art").firstElementChild, n: document.querySelectorAll("#var-rules-list li").length, link: !document.getElementById("var-hof").hidden }));
-      ok(r.v === v && r.h === v && r.list && r.art && r.n >= 3 && r.link, v + ": se elige, se recoge, con emblema o ilustración, reglas y enlace");
+      ok(r.v === v && r.h === v && r.list && r.art && (await page.evaluate(() => !!document.querySelector("#var-art img") && !!document.querySelector("#var-pick-th img"))) && r.n >= 3 && r.link, v + ": se elige, se recoge, con ilustración, reglas y enlace");
       ok(await page.evaluate(v => !document.getElementById("shat-info") && document.getElementById("var-legend").hidden === (v !== "shatranj"), v), v + ": sin botón de leyenda; la leyenda solo sale en Shatranj");
       if (v === "shatranj") { await page.evaluate(() => { document.querySelector(".vcard-rules").open = true; }); await page.locator("#panel-variant").screenshot({ path: "/tmp/cons-shat-" + vp.width + ".png" }); await page.evaluate(() => { document.querySelector(".vcard-rules").open = false; }); }
       {
