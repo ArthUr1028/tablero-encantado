@@ -87,6 +87,11 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   r = await page.evaluate(() => { const b = document.querySelector(".cell.mate-king").getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; });
   ok(r, "y el rey vencido queda a la vista");
   await page.screenshot({ path: "/tmp/mate-pc.png" });
+  const halos = [];
+  for (const tema of ["tierra", "fuego", "agua", "aire", "metal"]) {
+    halos.push(await page.evaluate(t => { document.documentElement.setAttribute("data-theme", t); const cs = getComputedStyle(document.getElementById("mate-fx")); return cs.getPropertyValue("--h1").trim() + "|" + cs.getPropertyValue("--h2").trim(); }, tema));
+  }
+  ok(new Set(halos).size === 5 && !!(await page.$("#mate-fx .mfx-halo")), "cada elemento tiene su propio halo: " + halos.join("  "));
   ok(errores.length === 0, "sin errores de JavaScript" + (errores.length ? ": " + errores[0] : ""));
   console.log(fallos ? fallos + " fallo(s)" : "Todo bien"); await browser.close(); srv.close(); process.exit(fallos ? 1 : 0);
 })();
