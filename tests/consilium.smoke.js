@@ -29,9 +29,10 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
       if (v === "shatranj") { await page.waitForTimeout(300); await page.click("#shat-ok"); }
       await page.waitForTimeout(500);
       const r = await page.evaluate(() => ({ v: variantOf(liveState().board), h: document.getElementById("var-pick").dataset.v, list: document.getElementById("var-list").hidden, art: !!document.getElementById("var-art").firstElementChild, n: document.querySelectorAll("#var-rules-list li").length, link: !document.getElementById("var-hof").hidden }));
-      const sinFicha = v === "maharaja" || v === "amazonas";
-      ok(r.v === v && r.h === v && r.list && r.art && r.n >= 3 && r.link === !sinFicha, v + ": se elige, se recoge, con emblema y reglas" + (sinFicha ? " (sin enlace)" : ""));
-      if (!sinFicha) {
+      ok(r.v === v && r.h === v && r.list && r.art && r.n >= 3 && r.link, v + ": se elige, se recoge, con emblema o ilustración, reglas y enlace");
+      ok(await page.evaluate(v => !document.getElementById("shat-info") && document.getElementById("var-legend").hidden === (v !== "shatranj"), v), v + ": sin botón de leyenda; la leyenda solo sale en Shatranj");
+      if (v === "shatranj") { await page.evaluate(() => { document.querySelector(".vcard-rules").open = true; }); await page.locator("#panel-variant").screenshot({ path: "/tmp/cons-shat-" + vp.width + ".png" }); await page.evaluate(() => { document.querySelector(".vcard-rules").open = false; }); }
+      {
         await page.click("#var-hof"); await page.waitForTimeout(900);
         const f = await page.evaluate(() => ({ id: hofView.id, open: !document.getElementById("hof-ov").hidden, det: document.querySelector("#hof-body details.hof-var")?.open }));
         const esperado = { clasico: "dama1475", capablanca: "capablanca", seirawan: "seirawan", dark: "darkchess" }[v] || v;
