@@ -97,6 +97,38 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
     ok(await p.evaluate(() => !!mk.pop), "la pulsación larga sigue abriendo las anotaciones");
     await p.context().close();
   }
+  // 2.400 · finales sin rey: explosión de Atomic y captura en Dark Chess (local y en línea)
+  {
+    const p = await abre({ hasTouch: true, isMobile: true });
+    const juega = (v, sans) => p.evaluate(([v, sans]) => {
+      MATE.end(true); switchVariant(v); matchStarted = true; matchPaused = false; vsMachine = false; currentMode = "play";
+      for (const san of sans) { const st = liveState(), L = legalMoves(st); const m = L.find(x => normSAN(toSAN(st, x, L)) === normSAN(san)); if (!m) throw new Error("jugada no legal " + san); commitMove(m); }
+      return { oc: outcome(liveState()), reyes: !!kingPos(liveState().board, liveState().turn) };
+    }, [v, sans]);
+    let f = await juega("atomic", ["Nf3", "f6", "Ne5", "a6", "Nxd7"]);
+    await p.waitForTimeout(500);
+    let r = await estado(p);
+    ok(f.oc === "checkmate" && !f.reyes && r && r.t === "El rey ha estallado" && r.cls === "estalla" && r.rey === 1, "Atomic en solitario: la explosión del rey abre la escena " + JSON.stringify(r));
+    f = await juega("dark", ["e4", "f6", "d4", "a6", "Qh5+", "a5", "Qxe8"]);
+    await p.waitForTimeout(500); r = await estado(p);
+    ok(f.oc === "checkmate" && !f.reyes && r && r.t === "Rey capturado" && r.rey === 1, "Dark Chess en solitario: capturar al rey abre la escena " + JSON.stringify(r));
+    // Dark en línea: el final llega con la revelación del servidor
+    for (const [edad, debe] of [[1000, true], [600000, false]]) {
+      const q = await p.evaluate(async edad => {
+        MATE.end(true); switchVariant("dark"); vsMachine = false;
+        let st = parseFEN(VARIANT_START.dark); const moves = [];
+        ["e4", "f6", "d4", "a6", "Qh5+", "a5", "Qxe8"].forEach((san, i) => { const L = legalMoves(st), m = L.find(x => normSAN(toSAN(st, x, L)) === normSAN(san)); moves.push({ ply: i + 1, uci: moveUci(m, st.board) }); st = moveWithSAN(st, m).n; });
+        sb.rpc = async () => ({ data: { moves }, error: null });
+        game.result = "1-0";
+        liveGame = { id: "D1", dark: true, myColor: "w", darkObs: [], darkMoveAt: Date.now() - edad };
+        await darkRevealGame({ id: "D1", status: "finalizada" });
+        const e = document.getElementById("mate-fx"); const out = e && { t: e.querySelector("strong").textContent, s: e.querySelector("em").textContent };
+        liveGame = null; return out;
+      }, edad);
+      ok(debe ? !!q && q.t === "Rey capturado" && q.s === "La victoria es tuya" : !q, debe ? "Dark en línea recién terminada: aparece desde tu lado " + JSON.stringify(q) : "Dark en línea al reabrir una vieja: no aparece");
+    }
+    await p.context().close();
+  }
   page = await abre({ reducedMotion: "reduce" });
   await page.evaluate(() => { __carga(__mate); }); await page.waitForTimeout(400);
   await page.evaluate(() => stepForward()); await page.waitForTimeout(300);
