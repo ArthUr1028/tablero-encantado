@@ -71,6 +71,32 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   await page.evaluate(() => stepForward()); await page.waitForTimeout(300);
   ok(!(await estado(page)), "un jaque simple no la dispara");
   await page.context().close();
+  // jugando de verdad (ratón y dedo): la escena se queda y la casilla no queda marcada como anotación
+  for (const caso of ["ratón (clic)", "ratón (arrastre)", "ratón (clic sostenido)", "dedo (dos toques)", "dedo (arrastre)"]) {
+    const dedo = caso.startsWith("dedo");
+    const p = await abre(dedo ? { hasTouch: true, isMobile: true } : {});
+    await p.evaluate(() => { applySanList(START, __mate.slice(0, 3), { white: "Yo", black: "Local", result: "", resultNote: "" }); game.cursor = 3; animFrom = null; persist(); render(); });
+    await p.waitForTimeout(500);
+    const xy = await p.evaluate(() => { const g = (f, r) => boardEl.querySelector('.cell[data-r="' + r + '"][data-c="' + f + '"]'); g(7, 4).scrollIntoView({ block: "center" }); const c = e => { const q = e.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; }; return { a: c(g(3, 0)), b: c(g(7, 4)) }; });
+    const paso = i => ({ x: xy.a.x + (xy.b.x - xy.a.x) * i / 8, y: xy.a.y + (xy.b.y - xy.a.y) * i / 8 });
+    if (caso === "ratón (arrastre)") { await p.mouse.move(xy.a.x, xy.a.y); await p.mouse.down(); await p.mouse.move(xy.b.x, xy.b.y, { steps: 8 }); await p.mouse.up(); }
+    else if (caso === "dedo (arrastre)") { const cdp = await p.context().newCDPSession(p); const t = (type, q) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: q ? [q] : [] }); await t("touchStart", xy.a); for (let i = 1; i <= 8; i++) await t("touchMove", paso(i)); await t("touchEnd"); }
+    else if (dedo) { await p.touchscreen.tap(xy.a.x, xy.a.y); await p.waitForTimeout(250); await p.touchscreen.tap(xy.b.x, xy.b.y); }
+    else { await p.mouse.click(xy.a.x, xy.a.y); await p.waitForTimeout(200); await p.mouse.move(xy.b.x, xy.b.y); await p.mouse.down(); await p.waitForTimeout(caso.includes("sostenido") ? 800 : 90); await p.mouse.up(); }
+    await p.waitForTimeout(1000);
+    const q = await p.evaluate(() => ({ jugada: game.cursor === 4, escena: !!document.getElementById("mate-fx"), marcando: !!mk.act, trazos: boardEl.querySelectorAll(":scope > .mk-svg > *").length }));
+    ok(q.jugada && q.escena && !q.marcando && !q.trazos, "mate con " + caso + ": escena visible y sin casilla marcada " + JSON.stringify(q));
+    if (dedo) { await p.touchscreen.tap(60, 120); await p.waitForTimeout(950); ok(!(await estado(p)), "mate con " + caso + ": un toque nuevo sí la salta"); }
+    await p.context().close();
+  }
+  // la pulsación larga de siempre sigue sirviendo para anotar
+  {
+    const p = await abre(); await p.evaluate(() => __carga(["e4", "e5", "Nf3"])); await p.waitForTimeout(500);
+    const xy = await p.evaluate(() => { const e = boardEl.querySelector('.cell[data-r="4"][data-c="3"]'); e.scrollIntoView({ block: "center" }); const q = e.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
+    await p.mouse.move(xy.x, xy.y); await p.mouse.down(); await p.waitForTimeout(700); await p.mouse.up(); await p.waitForTimeout(200);
+    ok(await p.evaluate(() => !!mk.pop), "la pulsación larga sigue abriendo las anotaciones");
+    await p.context().close();
+  }
   page = await abre({ reducedMotion: "reduce" });
   await page.evaluate(() => { __carga(__mate); }); await page.waitForTimeout(400);
   await page.evaluate(() => stepForward()); await page.waitForTimeout(300);
