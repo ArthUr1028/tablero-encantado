@@ -28,6 +28,8 @@ ruta = os.path.join(RAIZ, "sonidos", "cautivos", "cadena-paso.mp3")   # 2.325: e
 if os.path.exists(ruta): d["cadena-paso"] = b64(ruta)
 ruta = os.path.join(RAIZ, "sonidos", "atomic", "explosion.mp3")   # 2.370: explosión de Atomic (3,4 s), recorte de «Big Bang» que aportó Arthur
 if os.path.exists(ruta): d["explosion"] = b64(ruta)
+ruta = os.path.join(RAIZ, "sonidos", "atomic", "energia.mp3")   # 2.401: carga de la pieza tocada en Atomic (1,6 s), recorte del audio de electricidad que aportó Arthur
+if os.path.exists(ruta): d["energia"] = b64(ruta)
 nuevas = sorted(f for f in os.listdir(os.path.join(RAIZ, "sonidos", "capturas")) if f.endswith(".mp3"))
 d["cap"] = d["cap"][:ORIGINALES] + [b64(os.path.join(RAIZ, "sonidos", "capturas", f)) for f in nuevas]
 nuevo = "window.SFX_AUDIO=" + json.dumps(d, separators=(",", ":")) + resto

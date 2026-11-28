@@ -49,3 +49,7 @@ Para cambiar un sonido: reemplaza el mp3 y corre `python3 tools/build-sfx.py` (l
 ## Explosión de Atomic (2.370)
 - `atomic/explosion.mp3` (3,4 s, 128 kbps, ≈ −17,4 LUFS, pico −2,6 dBFS): recorte de «Big Bang» (7,45 s) que aportó Arthur (22-nov-2026; origen y licencia no indicados). La explosión arranca en el segundo 0 de la pista y cae hasta −45 dB hacia el 3,0; se conservó del 0 al 3,4, con entrada de 4 ms, salida de 1,3 s (desde el 2,1), +6 dB y limitador a −3 dBFS. Sin la imagen incrustada ni los metadatos.
 - Suena en TODA captura de Atomic, EN LUGAR del golpe de espada (2.372; también en modo ligero si se conserva el sonido de los efectos). Sin la muestra, el estruendo sintetizado `boomSfx`. Se incrusta con `python3 tools/build-sfx.py` (clave `explosion`).
+
+## Carga de la pieza tocada en Atomic (2.401)
+- `atomic/energia.mp3` (1,6 s, mono, 128 kbps): recorte (desde el segundo 1,08) del audio de electricidad quemada que aportó Arthur (27-nov-2026; origen y licencia no indicados), con entrada de 20 ms y salida de 250 ms.
+- Suena una vez al tocar una pieza en Atomic (nunca el rey), junto con las chispas; tono ±5 %, volumen 0,45 (la explosión va a 0,95). Al soltar, mover o cambiar de pieza se apaga en 0,1 s.
