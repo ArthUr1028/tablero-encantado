@@ -63,6 +63,8 @@ async function abrir(browser, reducir) {
   }
   const f = await page.evaluate(() => { const i = document.querySelector("#mate-fx cite .wm-ia"); return i ? [i.parentNode.textContent, getComputedStyle(i).animationName] : null; });
   ok(f && f[0] === "CLAUDIA" && f[1] === "wmShine", "la firma es CLAUDIA con «IA» animada " + f);
+  const hl = await page.evaluate(() => { MATE.end(true); boardEl.querySelectorAll(".cell")[4].classList.add("mate-king"); MATE.start(Object.assign({}, liveState(), { turn:"w" }), null); return [...[document.getElementById("mate-fx")], ...document.querySelectorAll("#mate-fx *")].every(e => getComputedStyle(e).webkitTapHighlightColor === "rgba(0, 0, 0, 0)"); });
+  ok(hl, "la escena no pinta destello de toque");
   ok(errores.length === 0, "sin errores de página " + errores.join("|"));
   await browser.close(); srv.close(); console.log(fallos ? "FALLOS: " + fallos : "TODO OK"); process.exit(fallos ? 1 : 0);
 })();
