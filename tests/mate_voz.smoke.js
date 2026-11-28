@@ -61,6 +61,8 @@ async function abrir(browser, reducir) {
     ok(caja[0] >= 0 && caja[1] <= caja[2], n + ": el letrero cabe " + caja.map(Math.round));
     await page.screenshot({ path: "/tmp/an/voz-" + n + ".png" });
   }
+  const f = await page.evaluate(() => { const i = document.querySelector("#mate-fx cite .wm-ia"); return i ? [i.parentNode.textContent, getComputedStyle(i).animationName] : null; });
+  ok(f && f[0] === "CLAUDIA" && f[1] === "wmShine", "la firma es CLAUDIA con «IA» animada " + f);
   ok(errores.length === 0, "sin errores de página " + errores.join("|"));
   await browser.close(); srv.close(); console.log(fallos ? "FALLOS: " + fallos : "TODO OK"); process.exit(fallos ? 1 : 0);
 })();
