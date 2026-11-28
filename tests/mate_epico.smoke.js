@@ -45,7 +45,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   await page.screenshot({ path: "/tmp/mate-0.png" });
   await page.waitForTimeout(950); await page.screenshot({ path: "/tmp/mate-1.png" });
   await page.waitForTimeout(1900); await page.screenshot({ path: "/tmp/mate-2.png" });
-  await page.waitForTimeout(4200);
+  await page.waitForTimeout(6600);
   ok(!(await estado(page)), "se retira sola");
   await page.evaluate(() => { stepBack(); }); await page.waitForTimeout(500);
   await page.evaluate(() => stepForward()); await page.waitForTimeout(400);
@@ -135,7 +135,7 @@ let fallos = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FALLA ") 
   r = await estado(page);
   ok(r && r.cls === "quieto", "con «reducir movimiento» usa la versión quieta");
   await page.screenshot({ path: "/tmp/mate-quieto.png" });
-  await page.waitForTimeout(3100);
+  await page.waitForTimeout(4900);
   ok(!(await estado(page)), "y también se retira");
   await page.context().close();
   page = await abre({ viewport: { width: 1366, height: 768 } });
